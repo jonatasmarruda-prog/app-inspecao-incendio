@@ -15,28 +15,28 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Integrar scripts e corrigir namespace
+      - name: Integrar scripts e corrigir conflitos
         shell: bash
         run: |
           python3 - <<'PY'
           from pathlib import Path
-          # Evita que a função save() do módulo SST sobrescreva a função save() do módulo de incêndio.
-          p=Path('sst-modulos.js')
-          s=p.read_text(encoding='utf-8')
-          original=s
+          # Namespace do módulo SST: não pode expor save() global.
+          p=Path('sst-modulos.js'); s=p.read_text(encoding='utf-8'); old=s
           s=s.replace('async function save(rec)', 'async function saveSST(rec)')
           s=s.replace('await save({', 'await saveSST({')
           s=s.replace('await save(rec)', 'await saveSST(rec)')
-          if s!=original: p.write_text(s,encoding='utf-8')
-          p=Path('index.html')
-          s=p.read_text(encoding='utf-8')
-          changed=False
+          if s!=old:p.write_text(s,encoding='utf-8')
+          # Namespace do módulo de incêndio: evita colisão com IDs/propriedades globais do navegador.
+          p=Path('index.html'); s=p.read_text(encoding='utf-8'); old=s
+          s=s.replace('async function save(makeReport)', 'async function saveInspection(makeReport)')
+          s=s.replace("$('pdf').onclick=()=>save(true)", "$('pdf').onclick=()=>saveInspection(true)")
+          s=s.replace("$('save').onclick=()=>save(false)", "$('save').onclick=()=>saveInspection(false)")
           for tag in ['<script src="sst-modulos.js"></script>','<script src="offline-boot.js"></script>']:
               if tag not in s:
                   marker='</body>'
                   if marker not in s: raise SystemExit('Não encontrei </body> no index.html')
-                  s=s.replace(marker,tag+marker,1); changed=True
-          if changed: p.write_text(s,encoding='utf-8')
+                  s=s.replace(marker,tag+marker,1)
+          if s!=old:p.write_text(s,encoding='utf-8')
           PY
       - name: Commit integração
         run: |
