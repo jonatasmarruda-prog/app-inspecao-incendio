@@ -1,5 +1,5 @@
-const CACHE='inspecao-incendio-v8';
-const ASSETS=['./','./index.html','./manifest.json','./service-worker.js','./assinatura.js','./empresa.js','./fixes.js'];
+const CACHE='inspecao-incendio-v9';
+const ASSETS=['./','./index.html','./manifest.json','./service-worker.js','./fixes.js'];
 self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS)).then(()=>self.skipWaiting())));
 self.addEventListener('activate',e=>e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));
 async function enhance(response){
@@ -7,11 +7,12 @@ async function enhance(response){
   const type=response.headers.get('content-type')||'';
   if(!type.includes('text/html'))return response;
   const text=await response.text();
-  let out=text;
-  if(!out.includes('assinatura.js'))out=out.replace('</body>','<script src="assinatura.js?v=8"></script></body>');
-  if(!out.includes('empresa.js'))out=out.replace('</body>','<script src="empresa.js?v=8"></script></body>');
-  if(!out.includes('fixes.js'))out=out.replace('</body>','<script src="fixes.js?v=8"></script></body>');
-  return new Response(out,{headers:{'Content-Type':'text/html; charset=UTF-8','Cache-Control':'no-cache'}});
+  const clean=text
+   .replace(/<script[^>]*src=["']assinatura\.js[^>]*><\/script>/gi,'')
+   .replace(/<script[^>]*src=["']empresa\.js[^>]*><\/script>/gi,'')
+   .replace(/<script[^>]*src=["']fixes\.js[^>]*><\/script>/gi,'');
+  const out=clean.replace('</body>','<script src="fixes.js?v=9"></script></body>');
+  return new Response(out,{headers:{'Content-Type':'text/html; charset=UTF-8','Cache-Control':'no-cache, no-store, must-revalidate'}});
  }catch(_){return response}
 }
 self.addEventListener('fetch',e=>{
