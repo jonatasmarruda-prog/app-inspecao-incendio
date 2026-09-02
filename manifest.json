@@ -3,11 +3,11 @@
   "short_name": "Inspeção",
   "description": "Inspeção de extintores e hidrantes com fotos, checklist, assinaturas e PDF.",
   "lang": "pt-BR",
-  "start_url": ".",
-  "scope": ".",
+  "start_url": "./",
+  "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#f5f6f8",
+  "background_color": "#f1f5f9",
   "theme_color": "#b91c1c",
   "icons": []
 }
