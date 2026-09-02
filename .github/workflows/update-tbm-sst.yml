@@ -50,3 +50,4 @@ function open(type){const o=shell(),b=$('#sstBody');o.style.display='block';if(t
           git add sst-modulos.js
           git diff --cached --quiet || git commit -m 'Atualiza CNPJ TBM e dados SST [auto-tbm]'
           git push
+# trigger de validação da atualização TBM
