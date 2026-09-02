@@ -15,11 +15,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Integrar scripts
+      - name: Integrar scripts e corrigir namespace
         shell: bash
         run: |
           python3 - <<'PY'
           from pathlib import Path
+          # Evita que a função save() do módulo SST sobrescreva a função save() do módulo de incêndio.
+          p=Path('sst-modulos.js')
+          s=p.read_text(encoding='utf-8')
+          original=s
+          s=s.replace('async function save(rec)', 'async function saveSST(rec)')
+          s=s.replace('await save({', 'await saveSST({')
+          s=s.replace('await save(rec)', 'await saveSST(rec)')
+          if s!=original: p.write_text(s,encoding='utf-8')
           p=Path('index.html')
           s=p.read_text(encoding='utf-8')
           changed=False
@@ -34,6 +42,6 @@ jobs:
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add index.html
+          git add index.html sst-modulos.js
           git diff --cached --quiet || git commit -m 'Integrate SST and offline PWA [auto-integracao]'
           git push
