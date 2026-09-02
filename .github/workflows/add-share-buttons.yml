@@ -1,0 +1,51 @@
+name: Adicionar salvar e compartilhar
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'sst-modulos.js'
+      - 'sw.js'
+      - '.github/workflows/add-share-buttons.yml'
+permissions:
+  contents: write
+jobs:
+  update:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Adicionar botão compartilhar ao módulo SST
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('sst-modulos.js')
+          s=p.read_text(encoding='utf-8')
+          old="function buttons(){return `<div class=\"card\"><div id=\"s-msg\" class=\"notice hidden\"></div><button id=\"s-save\" class=\"btn green full\" type=\"button\">💾 SALVAR</button><button id=\"s-pdf\" class=\"btn primary full\" type=\"button\">📄 SALVAR E GERAR RELATÓRIO</button></div>`}"
+          new="function buttons(){return `<div class=\"card\"><div id=\"s-msg\" class=\"notice hidden\"></div><button id=\"s-save\" class=\"btn green full\" type=\"button\">💾 SALVAR INSPEÇÃO</button><button id=\"s-share\" class=\"btn secondary full\" type=\"button\">📤 COMPARTILHAR INSPEÇÃO</button><button id=\"s-pdf\" class=\"btn primary full\" type=\"button\">📄 SALVAR E GERAR RELATÓRIO</button></div>`}"
+          if old not in s:
+              raise SystemExit('Trecho buttons() não encontrado')
+          s=s.replace(old,new,1)
+          old2="function nowBR(){return new Date().toLocaleString('pt-BR')}window.addEventListener('DOMContentLoaded',()=>{});"
+          new2="async function shareInspection(type){const m=$('#s-msg');try{const r=collect(type);if(type==='report'&&!r.irregularity.trim())throw Error('Informe a irregularidade antes de compartilhar.');if(type==='accident'&&!r.acc_desc.trim())throw Error('Informe a descrição do acidente.');await put(r);const labels={seg:'Inspeção de Segurança',machine:'Máquinas e Equipamentos',epi:'Inspeção de EPI',report:'Relatório de Inspeção',accident:'Investigação de Acidente'};const conform=r.checks?.length?r.checks.filter(x=>x.status==='BOM').length:0;const non=r.checks?.length?r.checks.filter(x=>x.status==='NÃO CONFORME').length:0;const text='📋 '+(labels[type]||'Inspeção SST')+'\\n\\n🏢 '+r.company+'\\n📍 '+(r.sector||r.place||'Não informado')+'\\n📅 '+new Date(r.created).toLocaleString('pt-BR')+'\\n👷 Inspetor: '+r.inspector+'\\n'+(r.checks?.length?'\\n✅ Conformes: '+conform+'\\n❌ Não conformes: '+non:'')+'\\n\\nRegistro nº '+r.id; if(navigator.share){await navigator.share({title:labels[type]||'Inspeção SST',text})}else{await navigator.clipboard?.writeText(text);m.className='notice success';m.textContent='📋 Inspeção salva. Resumo copiado para compartilhar.';m.classList.remove('hidden')}}catch(e){if(e.name==='AbortError')return;m.className='notice error';m.textContent='⚠️ '+e.message;m.classList.remove('hidden')}}
+function nowBR(){return new Date().toLocaleString('pt-BR')}window.addEventListener('DOMContentLoaded',()=>{});"
+          if old2 not in s:
+              raise SystemExit('Trecho final não encontrado')
+          s=s.replace(old2,new2,1)
+          old3="$('#s-save').onclick=()=>save(type,false);$('#s-pdf').onclick=()=>save(type,true)"
+          new3="$('#s-save').onclick=()=>save(type,false);$('#s-share').onclick=()=>shareInspection(type);$('#s-pdf').onclick=()=>save(type,true)"
+          if old3 not in s:
+              raise SystemExit('Eventos dos botões não encontrados')
+          s=s.replace(old3,new3,1)
+          p.write_text(s,encoding='utf-8')
+          sw=Path('sw.js')
+          if sw.exists():
+              x=sw.read_text(encoding='utf-8').replace("const CACHE='inspecao-sst-v1'","const CACHE='inspecao-sst-v2'")
+              sw.write_text(x,encoding='utf-8')
+          PY
+      - name: Publicar correção
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add sst-modulos.js sw.js
+          git diff --cached --quiet || git commit -m 'Adicionar salvar e compartilhar nas inspeções'
+          git push
