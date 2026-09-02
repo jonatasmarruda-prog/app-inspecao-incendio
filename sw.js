@@ -1,4 +1,4 @@
-const CACHE='inspecao-sst-v9';
+const CACHE='inspecao-sst-v10';
 const ASSETS=['./','./index.html','./sst-modulos.js','./compartilhar-relatorio.js','./editar-relatorio.js','./abnt-relatorio.js','./manifest.json','./sw.js','./offline-boot.js'];
 self.addEventListener('install',event=>{event.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS)).then(()=>self.skipWaiting()))});
 self.addEventListener('activate',event=>{event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('inspecao-sst-')&&k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim()))});
