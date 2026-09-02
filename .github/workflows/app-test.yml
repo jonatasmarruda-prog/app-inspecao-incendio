@@ -84,16 +84,19 @@ jobs:
             await page.locator('#sig1').scrollIntoViewIfNeeded();
             const sig=page.locator('#sig1');
             const box=await sig.boundingBox();
+            assert(box,'Campo de assinatura não encontrado');
             await page.mouse.move(box.x+20,box.y+40); await page.mouse.down(); await page.mouse.move(box.x+100,box.y+55,{steps:8}); await page.mouse.up();
+            await page.waitForTimeout(100);
             await page.locator('#save').click();
-            assert((await page.locator('#msg').innerText()).includes('salva com sucesso'),'Salvar inspeção de incêndio falhou');
+            const saveMsg=await page.locator('#msg').innerText();
+            assert(saveMsg.includes('salva com sucesso'),'Salvar inspeção de incêndio falhou. Mensagem: '+saveMsg);
             await page.locator('#pdf').click();
             await page.waitForSelector('#reportContent');
             assert((await page.locator('#reportContent').innerText()).includes('HIDRANTE #2'),'Relatório não reuniu os dois equipamentos');
             await page.locator('#reportBack').click();
             await page.locator('#back').click();
 
-            // Módulos SST: abertura, checklist, salvar e geração do relatório.
+            // Módulos SST: abertura, checklist, assinatura, salvar e geração do relatório.
             const modules=[['seg','Inspeção de Segurança'],['machine','Máquinas e Equipamentos'],['epi','Inspeção de EPI'],['accident','Investigação de Acidente'],['report','Relatório de Inspeção']];
             for(const [key,label] of modules){
               await page.locator(`[data-sst="${key}"]`).click();
@@ -110,22 +113,25 @@ jobs:
               if(key==='report')await page.locator('#s-irregularity').fill('Teste funcional');
               if(key==='accident')await page.locator('#s-acc-desc').fill('Teste funcional do fluxo de investigação.');
               const c=page.locator('#s-sign'); const cb=await c.boundingBox();
+              assert(cb,`Assinatura não encontrada: ${label}`);
               await page.mouse.move(cb.x+15,cb.y+35); await page.mouse.down(); await page.mouse.move(cb.x+90,cb.y+45,{steps:8}); await page.mouse.up();
               await page.locator('#s-save').click();
-              assert((await page.locator('#s-msg').innerText()).includes('salva com sucesso'),`Salvar falhou: ${label}`);
+              const m=await page.locator('#s-msg').innerText();
+              assert(m.includes('salva com sucesso'),`Salvar falhou: ${label}. Mensagem: ${m}`);
               await page.locator('#s-savepdf').click();
               await page.waitForSelector('#sstPrint',{timeout:5000});
               assert(await page.locator('#sst-print').count()===1,`Relatório não gerou: ${label}`);
               await page.locator('#sstReportBack').click(); await page.locator('#sstClose').click();
             }
 
-            // PWA/offline: registra o service worker e reabre sem rede.
-            await page.waitForFunction(()=>navigator.serviceWorker&&navigator.serviceWorker.controller,{timeout:15000});
+            // PWA/offline: precisa conseguir recarregar sem rede após o primeiro carregamento.
+            await page.waitForFunction(()=>navigator.serviceWorker&&navigator.serviceWorker.ready,{timeout:15000});
+            await page.waitForFunction(()=>!!navigator.serviceWorker.controller,{timeout:15000});
             await context.setOffline(true);
             await page.reload({waitUntil:'domcontentloaded',timeout:30000});
             assert(await page.locator('#start').count()===1,'Aplicativo não abriu offline');
             await context.setOffline(false);
-            if(errors.length)throw new Error('Erros JavaScript: '+errors.join(' | '));
+            assert(errors.length===0,'Erros JavaScript: '+errors.join(' | '));
             console.log('AUDITORIA E2E COMPLETA: OK');
             await browser.close();
           })().catch(e=>{console.error(e);process.exit(1)});
