@@ -1,4 +1,4 @@
-const CACHE='inspecao-incendio-v6';
+const CACHE='inspecao-incendio-v7';
 const ASSETS=['./','./index.html','./manifest.json','./service-worker.js','./assinatura.js','./empresa.js'];
 self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS)).then(()=>self.skipWaiting())));
 self.addEventListener('activate',e=>e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));
@@ -8,8 +8,8 @@ async function enhance(response){
   if(!type.includes('text/html'))return response;
   const text=await response.text();
   let out=text;
-  if(!out.includes('assinatura.js'))out=out.replace('</body>','<script src="assinatura.js?v=6"></script></body>');
-  if(!out.includes('empresa.js'))out=out.replace('</body>','<script src="empresa.js?v=6"></script></body>');
+  if(!out.includes('assinatura.js'))out=out.replace('</body>','<script src="assinatura.js?v=7"></script></body>');
+  if(!out.includes('empresa.js'))out=out.replace('</body>','<script src="empresa.js?v=7"></script></body>');
   return new Response(out,{headers:{'Content-Type':'text/html; charset=UTF-8','Cache-Control':'no-cache'}});
  }catch(_){return response}
 }
