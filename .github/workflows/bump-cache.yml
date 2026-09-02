@@ -1,0 +1,21 @@
+name: Atualizar cache do aplicativo
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  bump:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Atualizar versão do cache
+        run: |
+          sed -i "s/inspecao-sst-v1/inspecao-sst-v2/" sw.js
+          rm -f .github/workflows/bump-cache.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add sw.js .github/workflows/bump-cache.yml
+          git commit -m 'Atualiza cache do aplicativo'
+          git push
