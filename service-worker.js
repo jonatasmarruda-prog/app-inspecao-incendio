@@ -1,5 +1,5 @@
-const CACHE='inspecao-incendio-v13';
-const ASSETS=['./','./index.html','./manifest.json','./service-worker.js','./validade.js'];
+const CACHE='inspecao-incendio-v14';
+const ASSETS=['./','./index.html','./manifest.json'];
 self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS)).then(()=>self.skipWaiting())));
 self.addEventListener('activate',e=>e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));
-self.addEventListener('fetch',e=>{if(e.request.method!=='GET')return;e.respondWith((async()=>{try{let r=await fetch(e.request,{cache:'no-store'});if(e.request.mode==='navigate'||e.request.url.endsWith('/index.html')){let html=await r.text();if(!html.includes('validade.js'))html=html.replace('</body>','<script src="validade.js"></script></body>');r=new Response(html,{status:200,headers:{'Content-Type':'text/html;charset=UTF-8','Cache-Control':'no-store'}})}const c=await caches.open(CACHE);await c.put(e.request,r.clone());return r}catch(_){return (await caches.match(e.request))||(await caches.match('./index.html'))||new Response('Offline',{status:503})}})())});
+self.addEventListener('fetch',e=>{if(e.request.method!=='GET')return;e.respondWith(fetch(e.request).then(r=>{const c=r.clone();caches.open(CACHE).then(x=>x.put(e.request,c)).catch(()=>{});return r}).catch(()=>caches.match(e.request).then(r=>r||caches.match('./index.html'))))});
