@@ -1,20 +1,52 @@
 (()=>{
-  function shareReport(){
-    const report=document.getElementById('reportContent');
-    if(!report){alert('Relatório não disponível para compartilhar.');return;}
-    const text=(report.innerText||report.textContent||'').replace(/\n{3,}/g,'\n\n').trim();
+  'use strict';
+  const BTN_ID='shareReport';
+  function getReport(){
+    return document.getElementById('reportContent') || document.querySelector('#report .report') || document.querySelector('.report');
+  }
+  function getReportText(){
+    const report=getReport();
+    return (report ? (report.innerText||report.textContent||'') : document.body.innerText||'')
+      .replace(/\n{3,}/g,'\n\n').trim();
+  }
+  async function shareReport(){
+    const text=getReportText();
+    if(!text){ alert('Relatório não disponível para compartilhar.'); return; }
     const title='Relatório de Inspeção SST';
-    if(navigator.share){ navigator.share({title,text}).catch(()=>{}); }
-    else if(navigator.clipboard){ navigator.clipboard.writeText(text).then(()=>alert('Relatório copiado. Agora você pode colar no WhatsApp ou e-mail.')).catch(()=>alert('Seu navegador não oferece compartilhamento direto.')); }
-    else alert('Seu navegador não oferece compartilhamento direto.');
+    try{
+      if(navigator.share){
+        await navigator.share({title,text});
+        return;
+      }
+      if(navigator.clipboard){
+        await navigator.clipboard.writeText(text);
+        alert('Relatório copiado. Agora você pode colar no WhatsApp ou e-mail.');
+        return;
+      }
+      window.open('https://wa.me/?text='+encodeURIComponent(text),'_blank');
+    }catch(e){
+      if(e && e.name==='AbortError') return;
+      try{ window.open('https://wa.me/?text='+encodeURIComponent(text),'_blank'); }catch(_){ alert('Não foi possível abrir o compartilhamento.'); }
+    }
   }
   function addButton(){
-    const box=document.querySelector('#report .card.no-print');
-    if(!box || document.getElementById('shareReport')) return;
-    const b=document.createElement('button'); b.id='shareReport'; b.className='btn green full'; b.type='button'; b.textContent='📤 Compartilhar relatório'; b.onclick=shareReport;
-    const print=document.getElementById('print');
-    if(print) print.insertAdjacentElement('afterend',b); else box.prepend(b);
+    if(document.getElementById(BTN_ID)) return;
+    const report=getReport();
+    if(!report) return;
+    const scope=report.closest('#report') || report.parentElement || document.body;
+    const buttons=[...scope.querySelectorAll('button')];
+    const print=buttons.find(b=>/imprimir|salvar.*pdf|gerar.*relat/i.test((b.textContent||'').trim())) || document.getElementById('print') || document.getElementById('pdf');
+    const box=(print && print.parentElement) || scope.querySelector('.card.no-print') || scope;
+    const b=document.createElement('button');
+    b.id=BTN_ID;
+    b.type='button';
+    b.className='btn green full no-print';
+    b.textContent='📤 Compartilhar relatório';
+    b.setAttribute('aria-label','Compartilhar relatório');
+    b.addEventListener('click',shareReport);
+    if(print && print.parentElement===box) print.insertAdjacentElement('beforebegin',b); else box.insertBefore(b,box.firstChild);
   }
-  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',addButton); else addButton();
-  new MutationObserver(addButton).observe(document.body,{childList:true,subtree:true});
+  const start=()=>{ addButton(); setTimeout(addButton,200); setTimeout(addButton,800); };
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',start); else start();
+  new MutationObserver(addButton).observe(document.documentElement,{childList:true,subtree:true});
 })();
