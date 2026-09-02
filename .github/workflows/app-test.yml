@@ -15,6 +15,8 @@ jobs:
       - name: Validar JavaScript
         run: |
           node --check sst-modulos.js
+          node --check sw.js
+          node --check offline-boot.js
           python3 - <<'PY'
           import re
           from pathlib import Path
@@ -23,6 +25,8 @@ jobs:
           if not scripts: raise SystemExit('Nenhum script inline encontrado no index.html')
           for i,s in enumerate(scripts): Path(f'/tmp/index-{i}.js').write_text(s,encoding='utf-8')
           print(f'{len(scripts)} script(s) inline extraído(s)')
+          if 'sst-modulos.js' not in html: raise SystemExit('sst-modulos.js não está integrado')
+          if 'offline-boot.js' not in html: raise SystemExit('offline-boot.js não está integrado')
           PY
           for f in /tmp/index-*.js; do node --check "$f"; done
 
@@ -36,7 +40,7 @@ jobs:
         run: |
           for i in {1..36}; do
             code=$(curl -L -s -o /tmp/site.html -w '%{http_code}' "https://jonatasmarruda-prog.github.io/app-inspecao-incendio/?e2e=${GITHUB_SHA}" || true)
-            if [ "$code" = "200" ] && grep -q 'Inspeção de Incêndio' /tmp/site.html && grep -q 'sst-modulos.js' /tmp/site.html; then echo 'Pages disponível com o módulo SST'; break; fi
+            if [ "$code" = "200" ] && grep -q 'Inspeção de Incêndio' /tmp/site.html && grep -q 'sst-modulos.js' /tmp/site.html && grep -q 'offline-boot.js' /tmp/site.html; then echo 'Pages disponível com SST e PWA'; break; fi
             echo "Aguardando Pages ($i/36)..."; sleep 10
           done
           test -s /tmp/site.html
@@ -45,39 +49,84 @@ jobs:
         run: |
           cat > /tmp/e2e.cjs <<'EOF'
           const { chromium } = require('playwright');
+          const assert=(ok,msg)=>{if(!ok)throw new Error(msg)};
           (async()=>{
             const browser=await chromium.launch({headless:true});
-            const page=await browser.newPage({viewport:{width:390,height:844},serviceWorkers:'allow'});
+            const context=await browser.newContext({viewport:{width:390,height:844}});
+            const page=await context.newPage();
             const errors=[];
             page.on('pageerror',e=>errors.push(e.message));
             await page.goto('https://jonatasmarruda-prog.github.io/app-inspecao-incendio/?e2e='+Date.now(),{waitUntil:'networkidle',timeout:60000});
+            await page.waitForSelector('#start',{timeout:30000});
             await page.waitForSelector('#sst-menu',{timeout:30000});
+            assert(await page.locator('#sst-menu').count()===1,'Menu SST não apareceu');
+
+            // Fluxo original: extintor + hidrante + checklist + foto + assinatura + salvar + relatório.
+            await page.locator('#start').click();
+            await page.locator('#addExt').click();
+            await page.locator('#addHid').click();
+            const equips=page.locator('#equipmentList .equip');
+            assert(await equips.count()===2,'Não foi possível adicionar dois equipamentos');
+            const ext=equips.nth(0), hid=equips.nth(1);
+            await ext.locator('[data-f="sector"]').fill('Produção');
+            await ext.locator('[data-f="place"]').fill('Extintor teste');
+            await ext.locator('[data-f="etype"]').selectOption({label:'CO₂'});
+            await ext.locator('[data-f="capacity"]').selectOption({label:'6 kg'});
+            await ext.locator('[data-f="lastInspection"]').fill(new Date().toISOString().slice(0,10));
+            await hid.locator('[data-f="sector"]').fill('Produção');
+            await hid.locator('[data-f="place"]').fill('Hidrante teste');
+            await hid.locator('[data-f="lastHoseTest"]').fill(new Date().toISOString().slice(0,10));
+            await ext.locator('[data-checks] button[data-v="ok"]').all().then(btns=>Promise.all(btns.map(b=>b.click())));
+            await hid.locator('[data-checks] button[data-v="ok"]').all().then(btns=>Promise.all(btns.map(b=>b.click())));
+            const tinyJpeg=Buffer.from('/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////2wBDAf//////////////////////////////////////////////////////////////////////////////////////wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAX/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIQAxAAAAF//8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABBQJ//8QAFBEBAAAAAAAAAAAAAAAAAAAAAP/aAAgBAwEBPwF//8QAFBEBAAAAAAAAAAAAAAAAAAAAAP/aAAgBAgEBPwF//8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQAGPwJ//8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPyF//9k=','base64');
+            await ext.locator('[data-gallery]').setInputFiles({name:'teste.jpg',mimeType:'image/jpeg',buffer:tinyJpeg});
+            await page.waitForSelector('[data-photos] img');
+            await page.locator('#sig1').scrollIntoViewIfNeeded();
+            const sig=page.locator('#sig1');
+            const box=await sig.boundingBox();
+            await page.mouse.move(box.x+20,box.y+40); await page.mouse.down(); await page.mouse.move(box.x+100,box.y+55,{steps:8}); await page.mouse.up();
+            await page.locator('#save').click();
+            assert((await page.locator('#msg').innerText()).includes('salva com sucesso'),'Salvar inspeção de incêndio falhou');
+            await page.locator('#pdf').click();
+            await page.waitForSelector('#reportContent');
+            assert((await page.locator('#reportContent').innerText()).includes('HIDRANTE #2'),'Relatório não reuniu os dois equipamentos');
+            await page.locator('#reportBack').click();
+            await page.locator('#back').click();
+
+            // Módulos SST: abertura, checklist, salvar e geração do relatório.
             const modules=[['seg','Inspeção de Segurança'],['machine','Máquinas e Equipamentos'],['epi','Inspeção de EPI'],['accident','Investigação de Acidente'],['report','Relatório de Inspeção']];
             for(const [key,label] of modules){
               await page.locator(`[data-sst="${key}"]`).click();
-              if(!(await page.locator('#sstBody').innerText()).includes(label))throw new Error(`Módulo não abriu: ${label}`);
+              assert((await page.locator('#sstBody').innerText()).includes(label),`Módulo não abriu: ${label}`);
               if(key!=='accident'){
                 const choice=page.locator('#s-checks .choices').first();
                 if(await choice.count()){
                   await choice.locator('button[data-v="BOM"]').click();
-                  if(!(await choice.getAttribute('class')).includes('ok'))throw new Error(`Checklist BOM falhou: ${label}`);
+                  assert((await choice.locator('button[data-v="BOM"]').getAttribute('class')).includes('ok'),`Checklist BOM falhou: ${label}`);
                   await choice.locator('button[data-v="NÃO CONFORME"]').click();
-                  if(!(await choice.getAttribute('class')).includes('no'))throw new Error(`Checklist NÃO CONFORME falhou: ${label}`);
+                  assert((await choice.locator('button[data-v="NÃO CONFORME"]').getAttribute('class')).includes('no'),`Checklist NÃO CONFORME falhou: ${label}`);
                 }
               }
               if(key==='report')await page.locator('#s-irregularity').fill('Teste funcional');
               if(key==='accident')await page.locator('#s-acc-desc').fill('Teste funcional do fluxo de investigação.');
+              const c=page.locator('#s-sign'); const cb=await c.boundingBox();
+              await page.mouse.move(cb.x+15,cb.y+35); await page.mouse.down(); await page.mouse.move(cb.x+90,cb.y+45,{steps:8}); await page.mouse.up();
               await page.locator('#s-save').click();
-              await page.waitForTimeout(500);
-              if(!(await page.locator('#s-msg').innerText()).includes('salva com sucesso'))throw new Error(`Salvar falhou: ${label}`);
+              assert((await page.locator('#s-msg').innerText()).includes('salva com sucesso'),`Salvar falhou: ${label}`);
               await page.locator('#s-savepdf').click();
               await page.waitForSelector('#sstPrint',{timeout:5000});
-              if(!(await page.locator('#sst-print').count()))throw new Error(`Relatório não gerou: ${label}`);
-              await page.locator('#sstReportBack').click();
-              await page.locator('#sstClose').click();
+              assert(await page.locator('#sst-print').count()===1,`Relatório não gerou: ${label}`);
+              await page.locator('#sstReportBack').click(); await page.locator('#sstClose').click();
             }
+
+            // PWA/offline: registra o service worker e reabre sem rede.
+            await page.waitForFunction(()=>navigator.serviceWorker&&navigator.serviceWorker.controller,{timeout:15000});
+            await context.setOffline(true);
+            await page.reload({waitUntil:'domcontentloaded',timeout:30000});
+            assert(await page.locator('#start').count()===1,'Aplicativo não abriu offline');
+            await context.setOffline(false);
             if(errors.length)throw new Error('Erros JavaScript: '+errors.join(' | '));
-            console.log('TESTE FUNCIONAL E2E: OK');
+            console.log('AUDITORIA E2E COMPLETA: OK');
             await browser.close();
           })().catch(e=>{console.error(e);process.exit(1)});
           EOF
