@@ -1,100 +1,129 @@
-/* Correções de estabilidade e usabilidade — V8 */
+/* Correções de estabilidade e usabilidade — V9 */
 (()=>{
-  'use strict';
-  const CHECKS={Extintor:window.EXT,Hidrante:window.HID};
-  const get=id=>document.getElementById(id);
+'use strict';
+const ENDERECO='Rodovia BR-163, KM 109, S/N - Zona Rural, Rondonópolis - MT';
+const get=id=>document.getElementById(id);
 
-  // Melhora a leitura e o toque dos controles no celular.
-  const style=document.createElement('style');
-  style.textContent=`
-    #checks .choices{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
-    #checks .choices button{min-height:48px;padding:9px 5px;line-height:1.15;white-space:normal;word-break:normal;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
-    #checks .choices button:active{transform:scale(.98)}
-    #checks .choices button.selok,#checks .choices button.selno,#checks .choices button.selna{font-weight:900}
-    @media(max-width:420px){#checks .choices{grid-template-columns:1fr 1fr 1fr}#checks .choices button{font-size:11px}}
-    .sig canvas{touch-action:none!important;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
-    button{touch-action:manipulation}
-  `;
-  document.head.appendChild(style);
+const style=document.createElement('style');
+style.textContent=`
+  .sig{max-width:650px;margin-left:0}
+  .sig canvas{width:100%!important;max-width:650px;height:140px!important;touch-action:none!important;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+  #checks .choices{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+  #checks .choices button{min-height:48px;padding:9px 5px;line-height:1.15;white-space:normal;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+  #checks .choices button.selok{background:#15803d!important;color:#fff!important}
+  #checks .choices button.selno{background:#dc2626!important;color:#fff!important}
+  #checks .choices button.selna{background:#64748b!important;color:#fff!important}
+  .v9-validation{display:none;background:#fee2e2;color:#991b1b;padding:12px 14px;border-radius:11px;margin:10px 0;font-size:14px}
+  .v9-validation.show{display:block}.v9-validation ul{margin:7px 0 0;padding-left:20px}
+  button{touch-action:manipulation}
+  @media(max-width:700px){.sig{max-width:100%}.sig canvas{height:135px!important}}
+`;
+document.head.appendChild(style);
 
-  // Todos os botões do aplicativo são controles, não submits.
-  function normalizeButtons(){
-    document.querySelectorAll('button').forEach(b=>{if(!b.hasAttribute('type'))b.type='button'});
-  }
+function normalizeButtons(){document.querySelectorAll('button').forEach(b=>b.type='button');}
+window.bindAuto=window.bindAutosave||function(){document.querySelectorAll('#form input,#form select,#form textarea').forEach(el=>{el.oninput=()=>{try{autoSave()}catch(_){}};el.onchange=()=>{try{autoSave()}catch(_){}};});};
 
-  // Checklist robusto: eventos são ligados diretamente e também por delegação.
-  function renderChecklist(k){
-    const box=get('checks');
-    if(!box)return;
-    const arr=k==='Extintor'?['Equipamento identificado e acessível','Sinalização visível e adequada','Suporte/fixação em boas condições','Pino e lacre íntegros','Mangueira/descarga em boas condições','Manômetro/indicador adequado','Sem corrosão, vazamento ou dano','Carga/pressão aparentemente adequada']:['Abrigo em boas condições','Acesso livre e desobstruído','Sinalização adequada','Mangueira em boas condições','Mangueira corretamente acondicionada','Bico/esguicho presente e adequado','Chave de mangueira presente','Registro/válvula em boas condições','Lacre quando aplicável','Sem vazamentos ou danos aparentes'];
-    box.innerHTML=arr.map((text,i)=>`<div class="check" data-check-index="${i}"><b>${i+1}. ${text}</b><div class="choices"><button type="button" data-value="Conforme" aria-label="Item ${i+1}: Bom">✅ Bom</button><button type="button" data-value="Não conforme" aria-label="Item ${i+1}: Não conforme">❌ Não conforme</button><button type="button" data-value="N/A" aria-label="Item ${i+1}: Não se aplica">⚪ N/A</button></div></div>`).join('');
-    if(get('checkCount'))get('checkCount').textContent='0/'+arr.length;
-    normalizeButtons();
-  }
+function fixCompany(){
+  const s=get('company'),other=get('companyOther'); if(!s)return;
+  const currentValue=s.value;
+  s.innerHTML='<option>TBM Têxtil</option><option>TBM Log</option><option>Outro</option>';
+  s.value=['TBM Têxtil','TBM Log','Outro'].includes(currentValue)?currentValue:'TBM Têxtil';
+  const hint=s.parentElement?.querySelector('.hint'); if(hint)hint.textContent='Selecione TBM Têxtil, TBM Log ou Outro.';
+  const toggle=()=>{if(other){other.style.display=s.value==='Outro'?'block':'none';if(s.value!=='Outro')other.value='';}};
+  s.onchange=()=>{toggle();try{autoSave()}catch(_){}}; toggle();
+}
 
-  function setAnswer(i,v){
-    if(!window.__inspectionAnswersReady){
-      // A variável lexical "answers" pertence ao script principal e fica disponível aqui.
-      window.__inspectionAnswersReady=true;
-    }
-    try{
-      answers[i]=v;
-      const card=document.querySelector(`#checks .check[data-check-index="${i}"]`);
-      if(!card)return;
-      card.querySelectorAll('button').forEach(b=>b.classList.remove('selok','selno','selna'));
-      const selected=card.querySelector(`button[data-value="${CSS.escape(v)}"]`);
-      if(selected)selected.classList.add(v==='Conforme'?'selok':v==='Não conforme'?'selno':'selna');
-      const total=current?.kind==='Extintor'?8:10;
-      if(get('checkCount'))get('checkCount').textContent=Object.keys(answers).length+'/'+total;
-      if(typeof autoSave==='function')autoSave();
-    }catch(err){console.error('Checklist:',err)}
-  }
+function ensureValidation(){
+  let box=get('v9Validation'); if(box)return box;
+  const saveCard=[...document.querySelectorAll('#form .card')].find(c=>c.textContent.includes('SALVAR INSPEÇÃO'));
+  if(!saveCard)return null;
+  box=document.createElement('div');box.id='v9Validation';box.className='v9-validation';
+  saveCard.parentNode.insertBefore(box,saveCard); return box;
+}
+function showProblems(items){const b=ensureValidation();if(!b){alert('Falta preencher:\n- '+items.join('\n- '));return;}b.innerHTML='<b>⚠️ Antes de salvar, corrija:</b><ul>'+items.map(x=>'<li>'+x+'</li>').join('')+'</ul>';b.classList.add('show');b.scrollIntoView({behavior:'smooth',block:'center'});}
+function hideProblems(){const b=get('v9Validation');if(b){b.classList.remove('show');b.innerHTML='';}}
 
-  // Substitui as funções antigas pelas versões estáveis.
-  window.renderChecks=renderChecklist;
-  window.answer=setAnswer;
+window.answer=function(i,v){
+  try{
+    answers[i]=v;
+    ['o','n','a'].forEach(k=>{const b=get('c'+i+k);if(b)b.classList.remove('selok','selno','selna');});
+    const suffix=v==='Conforme'?'o':v==='Não conforme'?'n':'a';
+    const selected=get('c'+i+suffix); if(selected)selected.classList.add(v==='Conforme'?'selok':v==='Não conforme'?'selno':'selna');
+    const total=current?.kind==='Extintor'?EXT.length:HID.length;
+    if(get('checkCount'))get('checkCount').textContent=Object.keys(answers).length+'/'+total;
+    try{autoSave()}catch(_){ }
+  }catch(e){console.error('Checklist',e);alert('Não foi possível marcar este item. Atualize a página e tente novamente.');}
+};
 
-  document.addEventListener('click',e=>{
-    const btn=e.target.closest('#checks .choices button');
-    if(!btn)return;
-    const card=btn.closest('.check');
-    const i=Number(card?.dataset.checkIndex);
-    const v=btn.dataset.value;
-    if(Number.isInteger(i)&&v)setAnswer(i,v);
-  },true);
+document.addEventListener('click',e=>{
+  const btn=e.target.closest('#checks .choices button'); if(!btn)return;
+  const m=btn.id.match(/^c(\d+)(o|n|a)$/); if(!m)return;
+  const value=m[2]==='o'?'Conforme':m[2]==='n'?'Não conforme':'N/A';
+  e.preventDefault(); window.answer(Number(m[1]),value);
+},true);
 
-  // Assinatura refeita usando coordenadas do CSS -> pixels reais do canvas.
-  window.signature=function(id){
-    const c=get(id); if(!c)return null;
-    const ctx=c.getContext('2d');
-    let drawing=false,last=null;
-    function resize(){
-      const r=c.getBoundingClientRect();
-      const d=Math.max(1,Math.min(3,window.devicePixelRatio||1));
-      const old=c.width>0&&c.height>0?c.toDataURL('image/png'):'';
-      c.width=Math.max(320,Math.round(r.width*d));
-      c.height=Math.round(180*d);
-      c.style.height='180px';
-      ctx.setTransform(1,0,0,1,0,0);
-      ctx.clearRect(0,0,c.width,c.height);
-      ctx.lineWidth=2.4*d;ctx.lineCap='round';ctx.lineJoin='round';ctx.strokeStyle='#111827';
-      if(old){const im=new Image();im.onload=()=>ctx.drawImage(im,0,0,c.width,c.height);im.src=old;}
-    }
-    resize();
-    const point=e=>{const r=c.getBoundingClientRect();const d=Math.max(1,Math.min(3,window.devicePixelRatio||1));return{x:(e.clientX-r.left)*d,y:(e.clientY-r.top)*d};};
-    const down=e=>{if(e.pointerType==='mouse'&&e.button!==0)return;e.preventDefault();drawing=true;last=point(e);try{c.setPointerCapture(e.pointerId)}catch(_){} };
-    const move=e=>{if(!drawing)return;e.preventDefault();const p=point(e);if(last){ctx.beginPath();ctx.moveTo(last.x,last.y);ctx.lineTo(p.x,p.y);ctx.stroke();}last=p;};
-    const up=e=>{if(!drawing)return;drawing=false;last=null;try{if(e.pointerId!=null)c.releasePointerCapture(e.pointerId)}catch(_){}if(typeof autoSave==='function')autoSave();};
-    c.onpointerdown=down;c.onpointermove=move;c.onpointerup=up;c.onpointercancel=up;c.oncontextmenu=e=>e.preventDefault();
-    if(window.ResizeObserver){new ResizeObserver(()=>{if(!drawing)resize()}).observe(c);}
-    return c;
-  };
+window.signature=function(id){
+  const c=get(id); if(!c)return null;
+  const rect=c.getBoundingClientRect();
+  const cssW=Math.max(280,Math.min(rect.width||600,650));
+  const d=Math.max(1,Math.min(2,window.devicePixelRatio||1));
+  c.style.width='100%';c.style.maxWidth='650px';c.style.height='140px';
+  c.width=Math.round(cssW*d);c.height=Math.round(140*d);
+  const ctx=c.getContext('2d');ctx.setTransform(d,0,0,d,0,0);ctx.lineWidth=2.2;ctx.lineCap='round';ctx.lineJoin='round';ctx.strokeStyle='#111827';
+  let drawing=false,last=null,dirty=false;
+  const point=e=>{const r=c.getBoundingClientRect();const scaleX=(c.width/d)/r.width,scaleY=(c.height/d)/r.height;return{x:(e.clientX-r.left)*scaleX,y:(e.clientY-r.top)*scaleY};};
+  const down=e=>{if(e.pointerType==='mouse'&&e.button!==0)return;drawing=true;dirty=true;last=point(e);try{c.setPointerCapture(e.pointerId)}catch(_){}e.preventDefault();};
+  const move=e=>{if(!drawing)return;const p=point(e);ctx.beginPath();ctx.moveTo(last.x,last.y);ctx.lineTo(p.x,p.y);ctx.stroke();last=p;e.preventDefault();};
+  const up=e=>{if(!drawing)return;drawing=false;last=null;try{c.releasePointerCapture(e.pointerId)}catch(_){}try{autoSave()}catch(_){}};
+  c.onpointerdown=down;c.onpointermove=move;c.onpointerup=up;c.onpointercancel=up;c.oncontextmenu=e=>e.preventDefault();
+  c._sig={clear:()=>{ctx.save();ctx.setTransform(1,0,0,1,0,0);ctx.clearRect(0,0,c.width,c.height);ctx.restore();dirty=false;},data:()=>dirty?c.toDataURL('image/png'):''};
+  return c;
+};
+window.clearSig=function(n){const c=n===1?s1:s2;if(!c)return;if(c._sig)c._sig.clear();else c.getContext('2d').clearRect(0,0,c.width,c.height);try{autoSave()}catch(_){}};
 
-  // Garante que botões de limpar assinatura sempre encontrem o canvas correto.
-  window.clearSig=function(n){const c=n===1?window.s1:window.s2;if(!c)return;const ctx=c.getContext('2d');ctx.setTransform(1,0,0,1,0,0);ctx.clearRect(0,0,c.width,c.height);if(typeof autoSave==='function')autoSave();};
+const oldNovo=window.novo;
+window.novo=function(k){
+  try{oldNovo(k);}catch(e){console.warn('novo antigo',e);}
+  fixCompany();
+  if(get('address'))get('address').value=ENDERECO;
+  hideProblems(); normalizeButtons();
+  requestAnimationFrame(()=>{try{s1=window.signature('sig1');s2=window.signature('sig2');}catch(e){console.error('assinatura',e);}});
+};
 
-  // Reaplica correções depois que o formulário é aberto e o checklist é renderizado.
-  const observer=new MutationObserver(()=>normalizeButtons());
-  observer.observe(document.body,{childList:true,subtree:true});
-  normalizeButtons();
+const oldCollect=window.collect;
+window.collect=function(){
+  const x=oldCollect(); if(!x)return x;
+  if(s1?._sig)x.sig1=s1._sig.data();
+  if(s2?._sig)x.sig2=s2._sig.data();
+  if(get('address')&&!x.address)x.address=get('address').value.trim();
+  return x;
+};
+
+function validate(x){
+  const p=[];
+  if(!x.company)p.push('Empresa / unidade');
+  if(x.company==='Outro'&&!String(x.companyOther||'').trim())p.push('Nome da outra empresa');
+  if(!x.sector)p.push('Setor');
+  if(!x.address)p.push('Endereço / local da inspeção');
+  if(!x.inspector)p.push('Responsável pela inspeção');
+  const total=x.kind==='Extintor'?EXT.length:HID.length;
+  const count=Object.keys(x.answers||{}).length;
+  if(count<total)p.push(`Checklist incompleto (${count}/${total})`);
+  if(!x.sig1)p.push('Assinatura do inspetor');
+  return p;
+}
+
+window.salvar=async function(report){
+  try{
+    const x=window.collect();
+    const problems=validate(x);
+    if(problems.length){showProblems(problems);return;}
+    hideProblems();
+    await put(x); await stats();
+    if(report)showReport(x); else alert('✅ Inspeção salva com sucesso no aparelho.');
+  }catch(e){console.error('Salvar',e);showProblems(['Ocorreu um erro ao salvar. Atualize a página e tente novamente.']);}
+};
+
+function init(){normalizeButtons();fixCompany();ensureValidation();if(get('address')&&!get('address').value)get('address').value=ENDERECO;}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
 })();
