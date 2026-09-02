@@ -36,14 +36,19 @@ jobs:
           if old in s:
               s=s.replace(old,new,1)
           else:
-              # fallback: remove any previous handler and insert the robust one once
               s=re.sub(r"document\.addEventListener\('click',e=>\{const id=e\.target\.closest\('button'\)\?\.id;.*?\}\);",new,s,count=1)
+          m=Path('sst-modulos.js')
+          if m.exists():
+              ms=m.read_text(encoding='utf-8')
+              if 'window.openSSTModule' not in ms:
+                  ms=ms.replace("(()=>{'use strict';", "(()=>{'use strict';window.openSSTModule=(type)=>open(type);", 1)
+                  m.write_text(ms,encoding='utf-8')
           p.write_text(s,encoding='utf-8')
           PY
       - name: Commitar alterações
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add index.html
+          git add index.html sst-modulos.js
           git diff --cached --quiet || git commit -m "Corrigir abertura dos módulos SST"
           git push
