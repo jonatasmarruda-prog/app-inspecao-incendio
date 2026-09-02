@@ -1,0 +1,90 @@
+name: Teste funcional do aplicativo
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Baixar repositório
+        uses: actions/checkout@v4
+
+      - name: Validar JavaScript
+        run: |
+          node --check sst-modulos.js
+          node - <<'NODE'
+          const fs = require('fs');
+          const html = fs.readFileSync('index.html','utf8');
+          const scripts = [...html.matchAll(/<script(?:\\s[^>]*)?>([\\s\\S]*?)<\\/script>/gi)].map(m=>m[1]).filter(Boolean);
+          if (!scripts.length) throw new Error('Nenhum script inline encontrado no index.html');
+          for (let i=0;i<scripts.length;i++) {
+            fs.writeFileSync(`/tmp/index-${i}.js`, scripts[i]);
+          }
+          console.log(`Scripts inline validados para sintaxe: ${scripts.length}`);
+          NODE
+          for f in /tmp/index-*.js; do node --check "$f"; done
+
+      - name: Instalar Playwright
+        run: npx --yes playwright@1.55.0 install --with-deps chromium
+
+      - name: Aguardar GitHub Pages
+        run: |
+          for i in {1..30}; do
+            code=$(curl -L -s -o /tmp/site.html -w '%{http_code}' 'https://jonatasmarruda-prog.github.io/app-inspecao-incendio/?e2e='${GITHUB_SHA}) || true
+            if [ "$code" = "200" ] && grep -q 'Inspeção de Incêndio' /tmp/site.html; then echo 'Pages disponível'; break; fi
+            echo "Aguardando Pages ($i/30)..."; sleep 10
+          done
+          test -s /tmp/site.html
+
+      - name: Testes E2E no aplicativo publicado
+        run: |
+          cat > /tmp/e2e.mjs <<'EOF'
+          import { chromium } from 'playwright';
+          const browser = await chromium.launch({headless:true});
+          const page = await browser.newPage({viewport:{width:390,height:844}, serviceWorkers:'allow'});
+          const errors=[];
+          page.on('pageerror', e => errors.push(e.message));
+          await page.goto('https://jonatasmarruda-prog.github.io/app-inspecao-incendio/?e2e=' + Date.now(), {waitUntil:'networkidle', timeout:60000});
+          await page.waitForSelector('#sst-menu', {timeout:20000});
+          const modules = [
+            ['seg','Inspeção de Segurança'],
+            ['machine','Máquinas e Equipamentos'],
+            ['epi','Inspeção de EPI'],
+            ['accident','Investigação de Acidente'],
+            ['report','Relatório de Inspeção']
+          ];
+          for (const [key,label] of modules) {
+            await page.locator(`[data-sst="${key}"]`).click();
+            await page.waitForSelector('#sstBody', {state:'visible'});
+            if (!(await page.locator('#sstBody').innerText()).includes(label)) throw new Error(`Módulo não abriu: ${label}`);
+            if (key !== 'accident') {
+              const choice = page.locator('#s-checks .choices').first();
+              if (await choice.count()) {
+                await choice.locator('button[data-v="BOM"]').click();
+                if (!(await choice.getAttribute('class')).includes('ok')) throw new Error(`Checklist não respondeu em ${label}`);
+                await choice.locator('button[data-v="NÃO CONFORME"]').click();
+                if (!(await choice.getAttribute('class')).includes('no')) throw new Error(`Checklist NÃO CONFORME não respondeu em ${label}`);
+              }
+            }
+            if (key === 'report') {
+              await page.locator('#s-irregularity').fill('Teste funcional');
+              await page.locator('#s-improvement').fill('Teste de melhoria');
+            }
+            if (key === 'accident') await page.locator('#s-acc-desc').fill('Teste funcional do fluxo de investigação.');
+            await page.locator('#s-save').click();
+            await page.waitForTimeout(500);
+            if (!(await page.locator('#s-msg').innerText()).includes('salva com sucesso')) throw new Error(`Salvar falhou em ${label}`);
+            await page.locator('#s-savepdf').click();
+            await page.waitForSelector('#sstPrint', {timeout:5000});
+            if (!(await page.locator('#sst-print').count())) throw new Error(`Relatório não foi gerado em ${label}`);
+            await page.locator('#sstReportBack').click();
+            await page.locator('#sstClose').click();
+          }
+          if (errors.length) throw new Error('Erros JavaScript: ' + errors.join(' | '));
+          console.log('TESTE FUNCIONAL E2E: OK');
+          await browser.close();
+          EOF
+          npx --yes -p playwright@1.55.0 node /tmp/e2e.mjs
