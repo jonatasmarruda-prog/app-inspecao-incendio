@@ -1,53 +1,10 @@
 name: Patch inspector selector
 
 on:
-  push:
-    branches: [main]
-
-permissions:
-  contents: write
+  workflow_dispatch:
 
 jobs:
-  patch:
-    if: "!contains(github.event.head_commit.message, '[auto-inspector]')"
+  disabled:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - name: Patch inspector field
-        shell: python
-        run: |
-          from pathlib import Path
-          p = Path('index.html')
-          s = p.read_text(encoding='utf-8')
-
-          old = '<div class="field"><label>Responsável pela inspeção *</label><input id="inspector"></div>'
-          new = '<div class="field"><label>Responsável pela inspeção *</label><select id="inspector"><option value="Jonatas Marques de Arruda">Jonatas Marques de Arruda</option><option value="Outro">Outro</option></select><input id="inspectorOther" class="hidden" placeholder="Digite o nome do inspetor" style="margin-top:6px"></div>'
-          if old not in s:
-              raise SystemExit('Campo inspector não encontrado; patch já aplicado ou HTML diferente.')
-          s = s.replace(old, new, 1)
-
-          old = "inspector:'',role:'Técnico de Segurança do Trabalho'"
-          new = "inspector:'Jonatas Marques de Arruda',role:'Técnico de Segurança do Trabalho'"
-          if old not in s:
-              raise SystemExit('Default inspector não encontrado.')
-          s = s.replace(old, new, 1)
-
-          old = "$('inspector').value=current.inspector;$('role').value=current.role;"
-          new = "$('inspector').value=(current.inspector==='Jonatas Marques de Arruda'||!current.inspector)?'Jonatas Marques de Arruda':'Outro';$('inspectorOther').value=current.inspector&&current.inspector!=='Jonatas Marques de Arruda'?current.inspector:'';$('inspectorOther').classList.toggle('hidden',$('inspector').value!=='Outro');$('role').value=current.role;"
-          if old not in s:
-              raise SystemExit('Trecho renderForm não encontrado.')
-          s = s.replace(old, new, 1)
-
-          marker = "</script>"
-          patch = "document.addEventListener('change',function(ev){if(ev.target&&ev.target.id==='inspector'){if(ev.target.value==='Outro'){$('inspectorOther').classList.remove('hidden');$('inspectorOther').focus();current.inspector=$('inspectorOther').value||''}else{$('inspectorOther').classList.add('hidden');current.inspector='Jonatas Marques de Arruda'}autosave()}});document.addEventListener('input',function(ev){if(ev.target&&ev.target.id==='inspectorOther'){current.inspector=ev.target.value;autosave()}});"
-          if patch not in s:
-              s = s.replace(marker, patch + marker, 1)
-
-          p.write_text(s, encoding='utf-8')
-      - name: Commit patched index
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add index.html
-          git diff --cached --quiet || git commit -m "Fix default inspector selector [auto-inspector]"
-          git push
+      - run: echo "Patch automático antigo desativado; o seletor de inspetor já faz parte do index.html."
