@@ -2,8 +2,6 @@ name: Adicionar CNPJ aos relatórios
 on:
   push:
     branches: [main]
-    paths-ignore:
-      - '.github/workflows/add-cnpj-reports.yml'
 permissions:
   contents: write
 jobs:
