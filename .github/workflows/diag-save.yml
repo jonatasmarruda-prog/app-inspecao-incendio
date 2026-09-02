@@ -1,18 +1,8 @@
 name: Diagnóstico do botão salvar
 on:
   workflow_dispatch:
-  push:
-    paths: ['.github/workflows/diag-save.yml']
 jobs:
-  diag:
+  disabled:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - run: npm init -y >/dev/null 2>&1 && npm install --no-audit --no-fund playwright@1.55.0 && npx playwright install --with-deps chromium
-      - run: |
-          python3 -m http.server 4173 --directory . >/tmp/server.log 2>&1 & sleep 2
-          cat >/tmp/diag.cjs <<'EOF'
-          const {chromium}=require('playwright');
-          (async()=>{const b=await chromium.launch();const p=await b.newPage({viewport:{width:390,height:844}});p.on('pageerror',e=>console.log('PAGEERROR:',e.message));await p.goto('http://127.0.0.1:4173/');await p.locator('#start').click();console.log('HANDLER:',await p.locator('#save').evaluate(e=>String(e.onclick)));console.log('TYPE:',await p.locator('#save').getAttribute('type'));console.log('SAVE_FN:',await p.evaluate(()=>typeof saveInspection));await p.locator('#save').click();await p.waitForTimeout(1000);console.log('MSG:',await p.locator('#msg').textContent());console.log('MSG_CLASS:',await p.locator('#msg').getAttribute('class'));await b.close()})().catch(e=>{console.error(e);process.exit(1)});
-          EOF
-          NODE_PATH="$PWD/node_modules" node /tmp/diag.cjs
+      - run: echo "Diagnóstico temporário concluído; manter apenas execução manual."
