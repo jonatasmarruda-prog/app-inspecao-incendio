@@ -1,13 +1,16 @@
 {
-  "name": "Inspeção de Incêndio",
-  "short_name": "Inspeção",
-  "description": "Inspeção de extintores e hidrantes com fotos, checklist, assinaturas e PDF.",
+  "name": "SST Inspeções",
+  "short_name": "SST Inspeções",
+  "description": "Sistema profissional de inspeções de SST, incêndio, máquinas, EPI e acidentes.",
   "lang": "pt-BR",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
+  "display_override": ["standalone", "fullscreen"],
   "orientation": "portrait",
-  "background_color": "#f1f5f9",
-  "theme_color": "#b91c1c",
-  "icons": []
+  "background_color": "#f8fafc",
+  "theme_color": "#991b1b",
+  "icons": [
+    {"src":"icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}
+  ]
 }
