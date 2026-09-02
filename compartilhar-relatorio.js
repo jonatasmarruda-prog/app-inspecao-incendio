@@ -1,52 +1,12 @@
-(()=>{
-  'use strict';
-  const BTN_ID='shareReport';
-  function getReport(){
-    return document.getElementById('reportContent') || document.querySelector('#report .report') || document.querySelector('.report');
-  }
-  function getReportText(){
-    const report=getReport();
-    return (report ? (report.innerText||report.textContent||'') : document.body.innerText||'')
-      .replace(/\n{3,}/g,'\n\n').trim();
-  }
-  async function shareReport(){
-    const text=getReportText();
-    if(!text){ alert('Relatório não disponível para compartilhar.'); return; }
-    const title='Relatório de Inspeção SST';
-    try{
-      if(navigator.share){
-        await navigator.share({title,text});
-        return;
-      }
-      if(navigator.clipboard){
-        await navigator.clipboard.writeText(text);
-        alert('Relatório copiado. Agora você pode colar no WhatsApp ou e-mail.');
-        return;
-      }
-      window.open('https://wa.me/?text='+encodeURIComponent(text),'_blank');
-    }catch(e){
-      if(e && e.name==='AbortError') return;
-      try{ window.open('https://wa.me/?text='+encodeURIComponent(text),'_blank'); }catch(_){ alert('Não foi possível abrir o compartilhamento.'); }
-    }
-  }
-  function addButton(){
-    if(document.getElementById(BTN_ID)) return;
-    const report=getReport();
-    if(!report) return;
-    const scope=report.closest('#report') || report.parentElement || document.body;
-    const buttons=[...scope.querySelectorAll('button')];
-    const print=buttons.find(b=>/imprimir|salvar.*pdf|gerar.*relat/i.test((b.textContent||'').trim())) || document.getElementById('print') || document.getElementById('pdf');
-    const box=(print && print.parentElement) || scope.querySelector('.card.no-print') || scope;
-    const b=document.createElement('button');
-    b.id=BTN_ID;
-    b.type='button';
-    b.className='btn green full no-print';
-    b.textContent='📤 Compartilhar relatório';
-    b.setAttribute('aria-label','Compartilhar relatório');
-    b.addEventListener('click',shareReport);
-    if(print && print.parentElement===box) print.insertAdjacentElement('beforebegin',b); else box.insertBefore(b,box.firstChild);
-  }
-  const start=()=>{ addButton(); setTimeout(addButton,200); setTimeout(addButton,800); };
-  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',start); else start();
-  new MutationObserver(addButton).observe(document.documentElement,{childList:true,subtree:true});
+(()=>{'use strict';
+const BTN_ID='shareReport',PDF_NAME='relatorio-inspecao-sst.pdf';
+const $=s=>document.querySelector(s);
+function getReport(){return document.querySelector('.abnt-report')||document.querySelector('.report')||document.querySelector('#reportContent')||document.querySelector('#report .report');}
+function loadScript(src,id){return new Promise((resolve,reject)=>{if(window[id])return resolve();const old=document.getElementById(id);if(old){old.addEventListener('load',resolve,{once:true});old.addEventListener('error',reject,{once:true});return}const s=document.createElement('script');s.id=id;s.src=src;s.onload=resolve;s.onerror=()=>reject(new Error('Não foi possível carregar o gerador de PDF.'));document.head.appendChild(s)})}
+async function ensurePdf(){await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/4.2.1/jspdf.umd.min.js','jspdf-lib');if(!window.html2canvas)await loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js','html2canvas-lib');if(!window.jspdf?.jsPDF)throw new Error('Gerador PDF indisponível.');}
+function waitImages(root){const imgs=[...root.querySelectorAll('img')];return Promise.all(imgs.map(img=>img.complete?Promise.resolve():new Promise(r=>{img.onload=img.onerror=r})))}
+async function makePdf(){const report=getReport();if(!report)throw new Error('Relatório não disponível.');await ensurePdf();await waitImages(report);const clone=report.cloneNode(true);clone.querySelectorAll('.no-print,button').forEach(x=>x.remove());clone.style.cssText+=';position:fixed;left:-100000px;top:0;width:794px;max-width:794px;background:#fff!important;color:#111!important;display:block!important;';document.body.appendChild(clone);try{const {jsPDF}=window.jspdf;const doc=new jsPDF({orientation:'portrait',unit:'pt',format:'a4',compress:true});await new Promise((resolve,reject)=>{doc.html(clone,{x:0,y:0,width:595.28,windowWidth:794,autoPaging:'text',margin:[42.5,42.5,42.5,42.5],html2canvas:{scale:2,useCORS:true,allowTaint:false,backgroundColor:'#fff',scrollX:0,scrollY:0,imageTimeout:20000},callback:()=>resolve(),error:reject})});return doc.output('blob')}finally{clone.remove()}}
+async function shareReport(){const b=document.getElementById(BTN_ID);if(b)b.disabled=true;try{const blob=await makePdf();const file=new File([blob],PDF_NAME,{type:'application/pdf'});if(navigator.canShare&&navigator.canShare({files:[file]})&&navigator.share){await navigator.share({title:'Relatório de Inspeção SST',text:'Relatório de inspeção SST em PDF.',files:[file]});return}const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=PDF_NAME;a.click();setTimeout(()=>URL.revokeObjectURL(url),30000);alert('O PDF foi gerado e salvo. Seu navegador não permite compartilhar arquivos diretamente; abra o PDF salvo e use Compartilhar para enviar pelo WhatsApp ou e-mail.')}catch(e){if(e?.name==='AbortError')return;console.error(e);alert('Não foi possível gerar/compartilhar o PDF. Verifique a conexão e tente novamente.')}finally{if(b)b.disabled=false}}
+function addButton(){if(document.getElementById(BTN_ID))return;const report=getReport();if(!report)return;const scope=report.closest('#report')||report.parentElement||document.body;const buttons=[...scope.querySelectorAll('button')];const print=buttons.find(b=>/imprimir|salvar.*pdf|gerar.*relat/i.test((b.textContent||'').trim()))||document.getElementById('print')||document.getElementById('pdf');const box=(print&&print.parentElement)||scope.querySelector('.card.no-print')||scope;const b=document.createElement('button');b.id=BTN_ID;b.type='button';b.className='btn green full no-print';b.textContent='📤 COMPARTILHAR RELATÓRIO PDF';b.setAttribute('aria-label','Compartilhar relatório PDF');b.addEventListener('click',shareReport);if(print&&print.parentElement===box)print.insertAdjacentElement('beforebegin',b);else box.insertBefore(b,box.firstChild)}
+const start=()=>{addButton();setTimeout(addButton,300);setTimeout(addButton,1000)};if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start);else start();new MutationObserver(addButton).observe(document.documentElement,{childList:true,subtree:true});
 })();
