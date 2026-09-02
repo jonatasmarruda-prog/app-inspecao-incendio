@@ -1,0 +1,52 @@
+name: Atualizar dados SST TBM
+on:
+  push:
+    paths:
+      - '.github/workflows/update-tbm-sst.yml'
+      - 'sst-modulos.js'
+permissions:
+  contents: write
+jobs:
+  patch:
+    if: "!contains(github.event.head_commit.message, '[auto-tbm]')"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Ajustar CNPJ e dados da investigação
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('sst-modulos.js')
+          s=p.read_text(encoding='utf-8')
+          s=s.replace("const DB='SSTInspecoes',STORE='registros',NAME='Jonatas Marques de Arruda',ADDR='Rodovia BR-163, KM 109, S/N - Zona Rural, Rondonópolis - MT';","const DB='SSTInspecoes',STORE='registros',NAME='Jonatas Marques de Arruda',ADDR='Rodovia BR-163, KM 109, S/N - Zona Rural, Rondonópolis - MT',CNPJ='07.603.376/0003-00';")
+          s=s.replace('<div class="field"><label>Endereço</label><input id="s-address" value="${ADDR}"></div></div>`','<div class="field"><label>Endereço</label><input id="s-address" value="${ADDR}"></div><div id="s-cnpj-line" class="small"><b>CNPJ:</b> ${CNPJ}</div></div>`')
+          old="function open(type){const o=shell(),b=$('#sstBody');o.style.display='block';if(type==='history')return history();"
+          new="""function syncCompany(){
+ const c=$('#s-company'),a=$('#s-address'),line=$('#s-cnpj-line');
+ if(!c)return;
+ const set=()=>{
+   if(c.value==='TBM Têxtil'){a.value=ADDR;if(line)line.innerHTML='<b>CNPJ:</b> '+CNPJ}
+   else if(c.value==='TBM Log'){a.value=ADDR;if(line)line.innerHTML='<b>CNPJ:</b> —'}
+   else {a.value='';if(line)line.innerHTML='<b>CNPJ:</b> —'}
+ };
+ c.onchange=set;set();
+ const ins=$('#s-inspector');if(ins)ins.onchange=()=>$('#s-other').classList.toggle('hidden',ins.value!=='Outro');
+}
+function open(type){const o=shell(),b=$('#sstBody');o.style.display='block';if(type==='history')return history();"""
+          if old in s and "function syncCompany()" not in s:
+              s=s.replace(old,new,1)
+          s=s.replace("b.innerHTML='<button id=\"sstBack\" class=\"btn secondary full\" type=\"button\">← Voltar ao menu SST</button>'+html;$('#sstBack').onclick=()=>o.style.display='none';setup(type)}","b.innerHTML='<button id=\"sstBack\" class=\"btn secondary full\" type=\"button\">← Voltar ao menu SST</button>'+html;$('#sstBack').onclick=()=>o.style.display='none';syncCompany();setup(type)}")
+          s=s.replace("const r={id:Date.now(),created:new Date().toISOString(),kind:type,company:val('s-company'),sector:val('s-sector')","const r={id:Date.now(),created:new Date().toISOString(),kind:type,company:val('s-company'),cnpj:val('s-company')==='TBM Têxtil'?CNPJ:'',sector:val('s-sector')")
+          s=s.replace("<b>Empresa:</b> ${esc(r.company)}<br><b>Endereço:</b>","<b>Empresa:</b> ${esc(r.company)}<br><b>CNPJ:</b> ${esc(r.cnpj||'—')}<br><b>Endereço:</b>")
+          p.write_text(s,encoding='utf-8')
+          PY
+      - name: Validar JavaScript
+        run: node --check sst-modulos.js
+      - name: Commit
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add sst-modulos.js
+          git diff --cached --quiet || git commit -m 'Atualiza CNPJ TBM e dados SST [auto-tbm]'
+          git push
