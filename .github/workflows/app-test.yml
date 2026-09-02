@@ -43,40 +43,42 @@ jobs:
 
       - name: Testes E2E no aplicativo publicado
         run: |
-          cat > /tmp/e2e.mjs <<'EOF'
-          import { chromium } from 'playwright';
-          const browser = await chromium.launch({headless:true});
-          const page = await browser.newPage({viewport:{width:390,height:844}, serviceWorkers:'allow'});
-          const errors=[];
-          page.on('pageerror', e => errors.push(e.message));
-          await page.goto('https://jonatasmarruda-prog.github.io/app-inspecao-incendio/?e2e=' + Date.now(), {waitUntil:'networkidle', timeout:60000});
-          await page.waitForSelector('#sst-menu', {timeout:30000});
-          const modules=[['seg','Inspeção de Segurança'],['machine','Máquinas e Equipamentos'],['epi','Inspeção de EPI'],['accident','Investigação de Acidente'],['report','Relatório de Inspeção']];
-          for(const [key,label] of modules){
-            await page.locator(`[data-sst="${key}"]`).click();
-            if(!(await page.locator('#sstBody').innerText()).includes(label)) throw new Error(`Módulo não abriu: ${label}`);
-            if(key!=='accident'){
-              const choice=page.locator('#s-checks .choices').first();
-              if(await choice.count()){
-                await choice.locator('button[data-v="BOM"]').click();
-                if(!(await choice.getAttribute('class')).includes('ok')) throw new Error(`Checklist BOM falhou: ${label}`);
-                await choice.locator('button[data-v="NÃO CONFORME"]').click();
-                if(!(await choice.getAttribute('class')).includes('no')) throw new Error(`Checklist NÃO CONFORME falhou: ${label}`);
+          cat > /tmp/e2e.cjs <<'EOF'
+          const { chromium } = require('playwright');
+          (async()=>{
+            const browser=await chromium.launch({headless:true});
+            const page=await browser.newPage({viewport:{width:390,height:844},serviceWorkers:'allow'});
+            const errors=[];
+            page.on('pageerror',e=>errors.push(e.message));
+            await page.goto('https://jonatasmarruda-prog.github.io/app-inspecao-incendio/?e2e='+Date.now(),{waitUntil:'networkidle',timeout:60000});
+            await page.waitForSelector('#sst-menu',{timeout:30000});
+            const modules=[['seg','Inspeção de Segurança'],['machine','Máquinas e Equipamentos'],['epi','Inspeção de EPI'],['accident','Investigação de Acidente'],['report','Relatório de Inspeção']];
+            for(const [key,label] of modules){
+              await page.locator(`[data-sst="${key}"]`).click();
+              if(!(await page.locator('#sstBody').innerText()).includes(label))throw new Error(`Módulo não abriu: ${label}`);
+              if(key!=='accident'){
+                const choice=page.locator('#s-checks .choices').first();
+                if(await choice.count()){
+                  await choice.locator('button[data-v="BOM"]').click();
+                  if(!(await choice.getAttribute('class')).includes('ok'))throw new Error(`Checklist BOM falhou: ${label}`);
+                  await choice.locator('button[data-v="NÃO CONFORME"]').click();
+                  if(!(await choice.getAttribute('class')).includes('no'))throw new Error(`Checklist NÃO CONFORME falhou: ${label}`);
+                }
               }
+              if(key==='report')await page.locator('#s-irregularity').fill('Teste funcional');
+              if(key==='accident')await page.locator('#s-acc-desc').fill('Teste funcional do fluxo de investigação.');
+              await page.locator('#s-save').click();
+              await page.waitForTimeout(500);
+              if(!(await page.locator('#s-msg').innerText()).includes('salva com sucesso'))throw new Error(`Salvar falhou: ${label}`);
+              await page.locator('#s-savepdf').click();
+              await page.waitForSelector('#sstPrint',{timeout:5000});
+              if(!(await page.locator('#sst-print').count()))throw new Error(`Relatório não gerou: ${label}`);
+              await page.locator('#sstReportBack').click();
+              await page.locator('#sstClose').click();
             }
-            if(key==='report') await page.locator('#s-irregularity').fill('Teste funcional');
-            if(key==='accident') await page.locator('#s-acc-desc').fill('Teste funcional do fluxo de investigação.');
-            await page.locator('#s-save').click();
-            await page.waitForTimeout(500);
-            if(!(await page.locator('#s-msg').innerText()).includes('salva com sucesso')) throw new Error(`Salvar falhou: ${label}`);
-            await page.locator('#s-savepdf').click();
-            await page.waitForSelector('#sstPrint',{timeout:5000});
-            if(!(await page.locator('#sst-print').count())) throw new Error(`Relatório não gerou: ${label}`);
-            await page.locator('#sstReportBack').click();
-            await page.locator('#sstClose').click();
-          }
-          if(errors.length) throw new Error('Erros JavaScript: '+errors.join(' | '));
-          console.log('TESTE FUNCIONAL E2E: OK');
-          await browser.close();
+            if(errors.length)throw new Error('Erros JavaScript: '+errors.join(' | '));
+            console.log('TESTE FUNCIONAL E2E: OK');
+            await browser.close();
+          })().catch(e=>{console.error(e);process.exit(1)});
           EOF
-          node /tmp/e2e.mjs
+          NODE_PATH="$PWD/node_modules" node /tmp/e2e.cjs
