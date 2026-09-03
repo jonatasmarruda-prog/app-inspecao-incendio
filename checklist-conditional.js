@@ -9,31 +9,32 @@
   */
   function updateGeneralChecklistVisibility(){
     const checklist=document.getElementById('checklist');
-    if(!checklist)return;
+    const equipmentCard=document.getElementById('equipmentCard');
+    const list=document.getElementById('equipmentList');
+    if(!checklist || !equipmentCard || !list)return;
 
     const card=checklist.closest('.card');
     if(!card)return;
 
-    const equipment=Array.isArray(window.state?.equipment)
-      ? window.state.equipment
-      : [];
+    const fireForm=!equipmentCard.classList.contains('hidden');
 
-    const hasExtOrHyd=equipment.some(e=>e && (e.kind==='ext' || e.kind==='hid'));
-    const fireForm=document.getElementById('equipmentCard') &&
-      !document.getElementById('equipmentCard').classList.contains('hidden');
+    // premium-extra = Iluminação/Sirene. Os demais cards são Extintor/Hidrante.
+    const hasExtOrHyd=[...list.children].some(el=>!el.classList.contains('premium-extra'));
 
-    card.classList.toggle('hidden', !(fireForm && hasExtOrHyd));
+    card.classList.toggle('hidden',!(fireForm && hasExtOrHyd));
   }
 
   function install(){
     updateGeneralChecklistVisibility();
 
-    // Observa alterações no DOM para acompanhar adição/exclusão de equipamentos.
     if(window.__tbmChecklistObserver)return;
-    window.__tbmChecklistObserver=new MutationObserver(()=>updateGeneralChecklistVisibility());
-    window.__tbmChecklistObserver.observe(document.getElementById('equipmentList') || document.body,{childList:true,subtree:true});
+    const list=document.getElementById('equipmentList');
+    if(!list)return;
 
-    // Reavalia mudanças de tipo/estado e abertura de formulários.
+    window.__tbmChecklistObserver=new MutationObserver(()=>updateGeneralChecklistVisibility());
+    window.__tbmChecklistObserver.observe(list,{childList:true,subtree:true});
+
+    // Após abrir/excluir/alterar equipamentos, sincroniza a visibilidade.
     document.addEventListener('click',()=>setTimeout(updateGeneralChecklistVisibility,0),true);
     document.addEventListener('change',()=>setTimeout(updateGeneralChecklistVisibility,0),true);
   }
