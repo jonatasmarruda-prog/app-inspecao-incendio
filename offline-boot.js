@@ -1,5 +1,5 @@
 (()=>{'use strict';
-const VERSION='20260903-13';
+const VERSION='20260903-14';
 const scripts=['./sst-modulos.js','./compartilhar-relatorio.js','./abnt-relatorio.js','./editar-relatorio.js'];
 const add=(src,i)=>new Promise((resolve,reject)=>{const id='sst-extra-'+i;if(document.getElementById(id))return resolve();const s=document.createElement('script');s.id=id;s.src=src+'?v='+VERSION;s.onload=resolve;s.onerror=()=>reject(new Error(src));document.body.appendChild(s)});
 function bind(){const map={startSafety:'seg',startMachine:'machine',startEpi:'epi',startAccident:'accident',startReport:'report'};Object.entries(map).forEach(([id,kind])=>{const b=document.getElementById(id);if(!b||b.dataset.sstBound)return;b.dataset.sstBound='1';b.onclick=e=>{e.preventDefault();e.stopPropagation();if(typeof window.openSSTModule==='function')window.openSSTModule(kind);else alert('Módulo ainda está carregando. Atualize a página e tente novamente.')}})}
