@@ -1,0 +1,72 @@
+==v?statusClass(v):''}">${v}</button>`).join('')}</div></div>`).join('')}</div></details>`;
+}
+
+function workerHTML(w,i){
+  return `<div class="pt-worker" data-pt-worker="${i}"><div class="pt-worker-head"><b>Executante ${i+1}</b>${ptState.workers.length>1?`<button type="button" class="btn danger" data-pt-remove-worker="${i}" style="padding:7px 9px">Excluir</button>`:''}</div><div class="field"><label>Nome do Executante</label><input data-pt-worker-name="${i}" value="${esc(w.nome)}" placeholder="Nome completo"></div><div class="field" style="margin-top:9px"><label>Assinatura do Executante</label><div class="pt-sign"><canvas id="ptSig-${i}" data-pt-sign="${i}"></canvas></div><button type="button" class="btn secondary full" data-pt-clear-sign="${i}">Limpar assinatura</button></div></div>`;
+}
+
+function renderPT(){
+  const body=$('ptAlturaBody');if(!body||!ptState)return;
+  body.innerHTML=`
+    <div class="card"><div class="sectionTitle">Permissão de Trabalho - Trabalho em Altura</div><div id="ptMsg"></div><div class="grid">
+      <div class="field" style="grid-column:1/-1"><label>Descrição do Trabalho *</label><textarea data-pt-field="description" placeholder="Descreva a atividade a ser executada">${esc(ptState.description)}</textarea></div>
+      <div class="field"><label>Local do Trabalho *</label><input data-pt-field="workLocation" value="${esc(ptState.workLocation)}"></div>
+      <div class="field"><label>Setor</label><input data-pt-field="sector" value="${esc(ptState.sector)}"></div>
+      <div class="field"><label>Data *</label><input type="date" data-pt-field="date" value="${esc(ptState.date)}"></div>
+      <div class="field"><label>Hora Inicial</label><input type="time" data-pt-field="startTime" value="${esc(ptState.startTime)}"></div>
+      <div class="field"><label>Hora Final</label><input type="time" data-pt-field="endTime" value="${esc(ptState.endTime)}"></div>
+    </div>
+    <div class="pt-select-box"><div class="pt-select-title">🪜 Meio de acesso / equipamento utilizado</div>${checkboxGridHTML(ACCESS_OPTIONS,'meiosAcesso','meioAcessoOutro')}</div>
+    <div class="pt-select-box"><div class="pt-select-title">🦺 EPIs previstos para esta atividade</div>${checkboxGridHTML(EPI_OPTIONS,'episSelecionados','epiOutro')}</div>
+    </div>
+
+    <div class="card"><div class="sectionTitle">Checklist Detalhado de Trabalho em Altura</div>
+      <div class="notice info">Marque CONFORME, NÃO CONFORME ou N/A. As categorias podem ser abertas e fechadas para facilitar o preenchimento no celular.</div>
+      ${groupHTML('qualificacao','👷 Qualificação e Autorização',true)}
+      ${groupHTML('epis','🦺 EPIs e Proteção contra Quedas',true)}
+      ${groupHTML('gerais','⚠️ Condições Gerais e Área')}
+      ${groupHTML('energia','🔒 Energia e Bloqueio')}
+      ${groupHTML('escadas','🪜 Escadas')}
+      ${groupHTML('andaimes','🏗️ Andaimes')}
+      ${groupHTML('pta','🚧 Plataforma Elevatória (PTA)')}
+      ${groupHTML('final','✅ Liberação e Encerramento')}
+    </div>
+
+    <div class="card"><div class="sectionTitle">Trabalhadores Autorizados / Executantes</div><div class="notice info">Os colaboradores abaixo receberam treinamento e estão autorizados a executar as atividades.</div><div id="ptWorkers">${ptState.workers.map(workerHTML).join('')}</div><button type="button" id="ptAddWorker" class="btn secondary full">➕ Adicionar Executante</button></div>
+    <div class="card pt-fixed-issuer"><div class="sectionTitle">Responsável pela Liberação</div><div class="grid"><div class="field"><label>Emissor / TST</label><input value="${esc(EMISSOR_NOME)}" readonly></div><div class="field"><label>Cargo</label><input value="${esc(EMISSOR_CARGO)}" readonly></div></div><div class="mini" style="margin-top:10px">Responsável técnico fixado no sistema. Não requer digitação manual.</div></div>
+    <div class="card"><div class="actions pt-actions"><button type="button" id="ptSave" class="btn success">💾 Salvar PT</button><button type="button" id="ptPdf" class="btn primary">📥 Baixar PDF</button><button type="button" id="ptShare" class="btn blue">📲 Compartilhar PDF</button></div></div>`;
+  bindPT();
+  ptState.workers.forEach((w,i)=>setupSignature(i,w.signature));
+}
+
+function bindPT(){
+  const body=$('ptAlturaBody');if(!body)return;
+  body.oninput=e=>{
+    e.stopPropagation();
+    const f=e.target.dataset.ptField;if(f){ptState[f]=e.target.value;scheduleSavePT()}
+    const wi=e.target.dataset.ptWorkerName;if(wi!==undefined){ptState.workers[+wi].nome=e.target.value;scheduleSavePT()}
+  };
+  body.onchange=e=>{
+    e.stopPropagation();
+    const group=e.target.dataset.ptFlagGroup,key=e.target.dataset.ptFlagKey;
+    if(group&&key){ptState[group]=ptState[group]||{};ptState[group][key]=!!e.target.checked;scheduleSavePT()}
+  };
+  body.onclick=e=>{
+    e.stopPropagation();
+    const check=e.target.closest('[data-pt-check]');
+    if(check){const q=ptState.checklistPT.find(x=>x.id===check.dataset.ptCheck);if(q){q.status=check.dataset.ptStatus;const details=check.closest('details');const open=details?.open;renderPT();if(open){const d=[...document.querySelectorAll('#ptAlturaBody details')].find(x=>x.querySelector(`[data-pt-check="${check.dataset.ptCheck}"]`));if(d)d.open=true}scheduleSavePT()}return}
+    const rm=e.target.closest('[data-pt-remove-worker]');if(rm){ptState.workers.splice(+rm.dataset.ptRemoveWorker,1);renderPT();scheduleSavePT();return}
+    const clear=e.target.closest('[data-pt-clear-sign]');if(clear){const i=+clear.dataset.ptClearSign;ptState.workers[i].signature='';const c=$('ptSig-'+i);c?.getContext('2d')?.clearRect(0,0,c.width,c.height);scheduleSavePT();return}
+  };
+  $('ptAddWorker').onclick=e=>{e.stopPropagation();ptState.workers.push(blankWorker());renderPT();scheduleSavePT()};
+  $('ptSave').onclick=e=>{e.stopPropagation();savePT(true)};
+  $('ptPdf').onclick=e=>{e.stopPropagation();savePT(false).then(()=>makePTPdf('download'))};
+  $('ptShare').onclick=e=>{e.stopPropagation();savePT(false).then(()=>makePTPdf('share'))};
+}
+
+function setupSignature(i,data){
+  const c=$('ptSig-'+i);if(!c)return;
+  const ratio=Math.max(1,Math.min(2,window.devicePixelRatio||1));
+  const rect=c.getBoundingClientRect();c.width=Math.max(320,Math.round(rect.width*ratio));c.height=Math.round(145*ratio);
+  const ctx=c.getContext('2d');ctx.lineWidth=2.2*ratio;ctx.lineCap='round';ctx.lineJoin='round';ctx.strokeStyle='#111827';
+  if(data){const img=new Image();img.onload=()=>{ctx.clearRect(
