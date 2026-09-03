@@ -1,0 +1,49 @@
+name: Fix Premium Equipment Contrast
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Add isolated contrast layer
+        shell: bash
+        run: |
+          cat >> premium.css <<'EOF'
+
+          /* TBM — contraste isolado dos cards dinamicos de Iluminacao e Sirene */
+          .premium-extra{background:#fff!important;color:#222!important;border:1px solid #cbd5e1!important;border-left:4px solid #8b1018!important;border-radius:12px!important;box-shadow:0 8px 22px #0002!important}
+          .premium-extra,.premium-extra *,.premium-extra h1,.premium-extra h2,.premium-extra h3,.premium-extra h4,.premium-extra h5,.premium-extra h6,.premium-extra label,.premium-extra b,.premium-extra strong,.premium-extra span,.premium-extra .title{color:#222!important}
+          .premium-extra h3{color:#111!important;font-weight:900!important}
+          .premium-extra label{color:#333!important;font-weight:800!important}
+          .premium-extra .title{color:#111!important;font-weight:900!important}
+          .premium-extra .check,.premium-extra .checkrow{background:#fff!important;color:#222!important}
+          .premium-extra .checkrow b{color:#222!important}
+          .premium-extra input,.premium-extra textarea,.premium-extra select{background:#fff!important;color:#111!important;border:1px solid #c7cdd3!important}
+          .premium-extra input::placeholder,.premium-extra textarea::placeholder{color:#777!important;opacity:1!important}
+          .premium-extra select option{background:#fff!important;color:#111!important}
+          .premium-extra .danger{color:#fff!important}
+          @media(max-width:560px){.premium-extra{padding:14px!important}.premium-extra .checkrow{grid-template-columns:1fr!important}.premium-extra select{width:100%!important}}
+          EOF
+
+      - name: Commit only when needed
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add premium.css
+          if git diff --cached --quiet; then
+            echo 'Contrast layer already present'
+            exit 0
+          fi
+          git commit -m 'fix: improve contrast in dynamic equipment cards'
+          git push
