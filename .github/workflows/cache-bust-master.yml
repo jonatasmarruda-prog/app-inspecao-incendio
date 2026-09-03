@@ -22,7 +22,7 @@ jobs:
           import re
           p=Path('index.html')
           s=p.read_text(encoding='utf-8')
-          version='20260903-30'
+          version='20260903-31'
           s=re.sub(r'(premium\.css\?v=)[^\"\']+', r'\g<1>'+version, s)
           s=re.sub(r'(premium\.js\?v=)[^\"\']+', r'\g<1>'+version, s)
           p.write_text(s,encoding='utf-8')
