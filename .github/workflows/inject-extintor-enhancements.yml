@@ -1,0 +1,36 @@
+name: Ativar melhorias de extintores
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  inject:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Inserir script de melhorias
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('index.html')
+          s=p.read_text(encoding='utf-8')
+          tag='<script src="./extintor-enhancements.js?v=20260903-01" defer></script>'
+          anchor='<script src="./premium.js?v=20260903-31" defer></script>'
+          if tag not in s:
+              if anchor not in s:
+                  raise SystemExit('Âncora premium.js não encontrada; nenhuma alteração feita.')
+              s=s.replace(anchor, anchor+tag, 1)
+              p.write_text(s,encoding='utf-8')
+          else:
+              print('Script já está ativo.')
+          PY
+      - name: Commitar somente se houver alteração
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add index.html
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m 'feat: ativar chips de capacidade e vencimento de extintores'
+          git push
