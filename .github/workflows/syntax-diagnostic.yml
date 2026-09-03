@@ -1,0 +1,40 @@
+name: SST Syntax Diagnostic
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+jobs:
+  syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: sst-modulos.js
+        run: node --check sst-modulos.js
+      - name: offline-boot.js
+        run: node --check offline-boot.js
+      - name: sst-repair-loader.js
+        run: node --check sst-repair-loader.js
+      - name: compartilhar-relatorio.js
+        run: node --check compartilhar-relatorio.js
+      - name: editar-relatorio.js
+        run: node --check editar-relatorio.js
+      - name: abnt-relatorio.js
+        run: node --check abnt-relatorio.js
+      - name: integracao-modulos.js
+        run: node --check integracao-modulos.js
+      - name: sw.js
+        run: node --check sw.js
+      - name: service-worker.js
+        run: node --check service-worker.js
+      - name: index inline scripts
+        run: |
+          python3 - <<'PY'
+          import re
+          from pathlib import Path
+          h=Path('index.html').read_text(encoding='utf-8')
+          ss=re.findall(r'<script(?:\s[^>]*)?>([\s\S]*?)</script>',h,re.I)
+          assert ss, 'No inline scripts found'
+          for i,s in enumerate(ss): Path(f'/tmp/index-{i}.js').write_text(s,encoding='utf-8')
+          print('inline scripts:',len(ss))
+          PY
+          for f in /tmp/index-*.js; do node --check "$f"; done
