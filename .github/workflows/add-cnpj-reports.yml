@@ -1,42 +1,14 @@
 name: Adicionar CNPJ aos relatórios
 on:
-  push:
-    branches: [main]
+  workflow_dispatch:
 permissions:
   contents: write
 jobs:
   update:
-    if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Inserir identificação da TBM Têxtil nos relatórios
+      - name: Verificar CNPJ integrado ao relatório
         run: |
-          python3 - <<'PY'
-          from pathlib import Path
-
-          CNPJ='07.603.376/0003-00'
-          snippet=f'''\n<script id="tbm-cnpj-reports">\n(()=>{{\n  const CNPJ='{CNPJ}';\n  function addCnpj(){{\n    document.querySelectorAll('.reportHeader').forEach(h=>{{\n      if(h.querySelector('.tbm-cnpj')) return;\n      const t=(h.textContent||'').toLowerCase();\n      if(t.includes('tbm têxtil') || t.includes('tbm textil')){{\n        const d=document.createElement('div');\n        d.className='tbm-cnpj';\n        d.style='font-size:10.5px;font-weight:800;margin-top:3px';\n        d.textContent='CNPJ: '+CNPJ;\n        h.appendChild(d);\n      }}\n    }});\n  }}\n  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',addCnpj); else addCnpj();\n  new MutationObserver(addCnpj).observe(document.body,{{childList:true,subtree:true}});\n}})();\n</script>\n'''
-
-          for name in ['index.html','sst-modulos.js']:
-              p=Path(name)
-              s=p.read_text(encoding='utf-8')
-              if 'id="tbm-cnpj-reports"' in s:
-                  continue
-              if name=='index.html':
-                  marker='</body>'
-                  if marker in s:
-                      s=s.replace(marker,snippet+marker,1)
-                  else:
-                      s += snippet
-              else:
-                  s += snippet
-              p.write_text(s,encoding='utf-8')
-          PY
-      - name: Publicar alteração
-        run: |
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add index.html sst-modulos.js
-          git diff --cached --quiet || git commit -m 'Exibir CNPJ da TBM Têxtil em todos os relatórios'
-          git push
+          grep -q "07.603.376/0003-00" sst-modulos.js
+          echo "CNPJ da TBM Têxtil já está integrado ao módulo de relatórios."
