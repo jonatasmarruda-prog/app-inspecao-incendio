@@ -1,0 +1,75 @@
+(()=>{
+'use strict';
+
+const PT_TYPE='pt-altura';
+const PT_TITLE='PT - Trabalho em Altura';
+const EMISSOR_NOME='Jonatas Marques de Arruda';
+const EMISSOR_CARGO='Coordenador / Técnico de Segurança do Trabalho';
+const WORKSPACE_KEY='TBM-SST-07603376000300';
+const LOGO='Têxtil Bezerra de Menezes 2.jpeg';
+let ptState=null;
+let saveTimerPT=null;
+let cloudTimerPT=null;
+
+const EPI_OPTIONS=[
+  ['capacete','Capacete com jugular'],
+  ['cinto','Cinto de segurança tipo paraquedista'],
+  ['talabarte','Talabarte duplo com absorvedor de energia'],
+  ['travaquedas','Trava-quedas'],
+  ['botina','Botina / calçado de segurança'],
+  ['luva','Luva apropriada'],
+  ['oculos','Óculos de segurança'],
+  ['pff2','Máscara PFF2'],
+  ['protetor','Protetor auricular'],
+  ['outro','Outro EPI']
+];
+
+const ACCESS_OPTIONS=[
+  ['escadaSimples','Escada simples / portátil'],
+  ['escadaExtensivel','Escada extensível'],
+  ['andaime','Andaime'],
+  ['pta','Plataforma Elevatória (PTA)'],
+  ['outro','Outro meio de acesso']
+];
+
+const checklistPT=[
+  // Qualificação e autorização
+  {id:'qual1',n:1,categoria:'Qualificação e Autorização',grupo:'qualificacao',item:'Os trabalhadores possuem treinamento de NR 35 válido e compatível com a atividade?'},
+  {id:'qual2',n:2,categoria:'Qualificação e Autorização',grupo:'qualificacao',item:'Os trabalhadores estão formalmente autorizados pela empresa para executar trabalho em altura?'},
+  {id:'qual3',n:3,categoria:'Qualificação e Autorização',grupo:'qualificacao',item:'Os trabalhadores estão aptos no ASO para trabalho em altura, quando aplicável?'},
+  {id:'qual4',n:4,categoria:'Qualificação e Autorização',grupo:'qualificacao',item:'Os trabalhadores receberam orientação sobre riscos, medidas de controle e condições da PT antes do início?'},
+  {id:'qual5',n:5,categoria:'Qualificação e Autorização',grupo:'qualificacao',item:'Os executantes apresentam condições físicas e psicológicas adequadas para a atividade?'},
+
+  // EPIs e sistema de proteção contra quedas
+  {id:'epi1',n:6,categoria:'EPIs e Proteção contra Quedas',grupo:'epis',item:'Os trabalhadores estão utilizando os EPIs definidos para a atividade?'},
+  {id:'epi2',n:7,categoria:'EPIs e Proteção contra Quedas',grupo:'epis',item:'Os EPIs estão em bom estado de conservação, limpos e sem danos aparentes?'},
+  {id:'epi3',n:8,categoria:'EPIs e Proteção contra Quedas',grupo:'epis',item:'O capacete possui jugular e está corretamente ajustado ao trabalhador?'},
+  {id:'epi4',n:9,categoria:'EPIs e Proteção contra Quedas',grupo:'epis',item:'O cinturão tipo paraquedista está em ótimo estado, sem cortes, desgaste excessivo, costuras soltas ou partes danificadas?'},
+  {id:'epi5',n:10,categoria:'EPIs e Proteção contra Quedas',grupo:'epis',item:'O talabarte duplo, absorvedor de energia, conectores e mosquetões estão íntegros e funcionando corretamente?'},
+  {id:'epi6',n:11,categoria:'EPIs e Proteção contra Quedas',grupo:'epis',item:'O trava-quedas, quando utilizado, é compatível com a linha de vida e está em boas condições?'},
+  {id:'epi7',n:12,categoria:'EPIs e Proteção contra Quedas',grupo:'epis',item:'O ponto de ancoragem / linha de vida foi definido, inspecionado e é adequado à atividade?'},
+  {id:'epi8',n:13,categoria:'EPIs e Proteção contra Quedas',grupo:'epis',item:'Durante a exposição à queda, o trabalhador permanece conectado ao sistema de proteção contra quedas?'},
+
+  // Condições gerais e área
+  {id:'geral1',n:14,categoria:'Condições Gerais e Área',grupo:'gerais',item:'As condições atmosféricas estão favoráveis, sem chuva, ventos fortes, descargas atmosféricas ou outra condição impeditiva?'},
+  {id:'geral2',n:15,categoria:'Condições Gerais e Área',grupo:'gerais',item:'A área inferior e o entorno do trabalho estão isolados e sinalizados contra acesso de pessoas não autorizadas?'},
+  {id:'geral3',n:16,categoria:'Condições Gerais e Área',grupo:'gerais',item:'A iluminação é suficiente para executar a atividade com segurança?'},
+  {id:'geral4',n:17,categoria:'Condições Gerais e Área',grupo:'gerais',item:'Ferramentas, peças e materiais estão acondicionados ou amarrados para evitar queda de objetos?'},
+  {id:'geral5',n:18,categoria:'Condições Gerais e Área',grupo:'gerais',item:'O piso, estrutura ou superfície de trabalho apresenta resistência, estabilidade e condições seguras de acesso?'},
+  {id:'geral6',n:19,categoria:'Condições Gerais e Área',grupo:'gerais',item:'Há comunicação eficiente entre executantes, responsável pela atividade e apoio no solo?'},
+  {id:'geral7',n:20,categoria:'Condições Gerais e Área',grupo:'gerais',item:'Existe condição de resgate e resposta a emergência compatível com a atividade e o local?'},
+  {id:'geral8',n:21,categoria:'Condições Gerais e Área',grupo:'gerais',item:'Foram eliminados ou controlados riscos adicionais como aberturas, superfícies frágeis, partes móveis, calor, poeira ou produtos químicos?'},
+
+  // Energia / bloqueio
+  {id:'energia1',n:22,categoria:'Energia e Bloqueio',grupo:'energia',item:'Quando houver risco elétrico ou equipamento energizado, a fonte de energia foi desligada, bloqueada e identificada antes do trabalho?'},
+  {id:'energia2',n:23,categoria:'Energia e Bloqueio',grupo:'energia',item:'Foi verificada ausência de energização ou acionamento inesperado dos equipamentos envolvidos?'},
+  {id:'energia3',n:24,categoria:'Energia e Bloqueio',grupo:'energia',item:'Foram mantidas condições seguras em relação a redes elétricas, barramentos ou condutores próximos?'},
+
+  // Escadas
+  {id:'esc1',n:25,categoria:'Escadas',grupo:'escadas',item:'A escada selecionada é adequada ao serviço, à altura e ao local de utilização?'},
+  {id:'esc2',n:26,categoria:'Escadas',grupo:'escadas',item:'A escada está em boas condições gerais, sem rachaduras, trincas, corrosão, deformações ou improvisações?'},
+  {id:'esc3',n:27,categoria:'Escadas',grupo:'escadas',item:'Degraus, montantes e fixações estão íntegros, firmes e sem folgas?'},
+  {id:'esc4',n:28,categoria:'Escadas',grupo:'escadas',item:'A escada possui sapatas / pés antiderrapantes em boas condições?'},
+  {id:'esc5',n:29,categoria:'Escadas',grupo:'escadas',item:'A escada está apoiada em piso firme, nivelado e estável?'},
+  {id:'esc6',n:30,categoria:'Escadas',grupo:'escadas',item:'A escada está fixada ou protegida contra deslocamento, escorregamento ou tombamento?'},
+  {id:'esc7',n:31,categor
