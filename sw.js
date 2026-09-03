@@ -1,5 +1,5 @@
-const CACHE='inspecao-sst-v18';
-const ASSETS=['./','./index.html','./sst-modulos.js','./compartilhar-relatorio.js','./editar-relatorio.js','./abnt-relatorio.js','./integracao-modulos.js','./manifest.json','./offline-boot.js','./icon.svg'];
+const CACHE='inspecao-sst-v19';
+const ASSETS=['./','./index.html','./sst-modulos.js','./compartilhar-relatorio.js','./editar-relatorio.js','./abnt-relatorio.js','./integracao-modulos.js','./manifest.json','./offline-boot.js','./sst-repair-loader.js','./icon.svg'];
 self.addEventListener('install',event=>{event.waitUntil((async()=>{const cache=await caches.open(CACHE);await Promise.all(ASSETS.map(async url=>{try{const r=await fetch(url,{cache:'no-store'});if(r.ok)await cache.put(url,r)}catch(e){}}));await self.skipWaiting()})())});
 self.addEventListener('activate',event=>{event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('inspecao-')&&k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim()))});
 self.addEventListener('fetch',event=>{if(event.request.method!=='GET')return;const url=new URL(event.request.url);if(url.origin!==location.origin)return;event.respondWith((async()=>{try{const r=await fetch(event.request,{cache:'no-store'});if(r.ok){const c=r.clone();caches.open(CACHE).then(x=>x.put(event.request,c)).catch(()=>{})}return r}catch(e){return (await caches.match(event.request))||caches.match('./index.html')}})())});
