@@ -112,13 +112,11 @@ async function waitImages(root){
  const imgs=[...root.querySelectorAll('img')];
  await Promise.all(imgs.map(img=>new Promise(resolve=>{if(img.complete&&img.naturalWidth){resolve();return}img.onload=resolve;img.onerror=resolve})));
 }
-async function waitFonts(){try{if(document.fonts?.ready)await document.fonts.ready}catch(_){}
-}
+async function waitFonts(){try{if(document.fonts?.ready)await document.fonts.ready}catch(_) {}}
 function currentId(root){
  const candidates=[root?.dataset?.inspectionId,root?.querySelector?.('.pdf-id')?.textContent];
  for(const c of candidates){const m=String(c||'').match(/INS-[A-Z0-9-]+/i);if(m)return m[0]}
- for(const k of ['inspectionId','inspection_id','currentInspectionId','idInspecao']){try{const v=localStorage.getItem(k);if(v)return v}catch(_){}
- }
+ for(const k of ['inspectionId','inspection_id','currentInspectionId','idInspecao']){try{const v=localStorage.getItem(k);if(v)return v}catch(_) {}}
  return null;
 }
 function showModal(text){const m=document.getElementById('modal'),t=document.getElementById('modalText');if(m){if(t)t.textContent=text;m.classList.remove('hidden')}}
@@ -137,7 +135,7 @@ window.makePdf=async function(){
    await waitFonts();
    clone=source.cloneNode(true);
 
-   // 1. Transferir valores dos Inputs e Textareas
+   // Transferir valores dos Inputs e Textareas
    const originalInputs = source.querySelectorAll('input, textarea, select');
    const clonedInputs = clone.querySelectorAll('input, textarea, select');
    originalInputs.forEach((input, index) => {
@@ -149,7 +147,7 @@ window.makePdf=async function(){
      }
    });
 
-   // 2. Transferir desenhos das Assinaturas (Canvas)
+   // Transferir desenhos das Assinaturas (Canvas)
    const originalCanvases = source.querySelectorAll('canvas');
    const clonedCanvases = clone.querySelectorAll('canvas');
    originalCanvases.forEach((canvas, index) => {
@@ -159,30 +157,59 @@ window.makePdf=async function(){
      }
    });
 
-   // 3. Garantir que o clone não quebre no mobile
-   clone.style.position = 'absolute';
-   clone.style.top = '0';
-   clone.style.left = '0';
-   clone.style.zIndex = '-9999';
+   // Correção crítica: o clone não pode ficar atrás do documento.
+   clone.style.position='fixed';
+   clone.style.top='0';
+   clone.style.left='0';
+   clone.style.zIndex='999999';
+   clone.style.pointerEvents='none';
    clone.id='pdfEnterpriseRender';
-   clone.style.width='210mm';clone.style.maxWidth='210mm';clone.style.margin='0';clone.style.padding='0';clone.style.visibility='visible';clone.style.display='block';clone.style.background='#fff';
+   clone.style.width='210mm';
+   clone.style.maxWidth='210mm';
+   clone.style.margin='0';
+   clone.style.padding='0';
+   clone.style.visibility='visible';
+   clone.style.display='block';
+   clone.style.background='#fff';
+   clone.classList.remove('hidden','no-print');
+   clone.querySelectorAll('.hidden,.no-print').forEach(el=>el.classList.remove('hidden','no-print'));
    document.body.appendChild(clone);
+
    const id=currentId(clone);
    if(!id)throw new Error('Não foi possível localizar o ID da inspeção.');
+
    const imgs=[...clone.querySelectorAll('img')];
    const seen=new Set();
    imgs.forEach(img=>{if(img.src){if(seen.has(img.src)){img.remove()}else seen.add(img.src)}});
    await waitImages(clone);
    await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
+
    const filename='Laudo_Inspecao_'+id+'.pdf';
-   const opt={margin:[30,20,20,30],filename,image:{type:'jpeg',quality:0.82},html2canvas:{scale:1.35,useCORS:true,allowTaint:false,backgroundColor:'#fff',logging:false,letterRendering:true},jsPDF:{unit:'mm',format:'a4',orientation:'portrait',compress:true},pagebreak:{mode:['avoid-all','css','legacy']}};
+   const opt={
+     margin:[30,20,20,30],
+     filename,
+     image:{type:'jpeg',quality:0.82},
+     html2canvas:{scale:1.35,useCORS:true,allowTaint:false,backgroundColor:'#fff',logging:false,letterRendering:true},
+     jsPDF:{unit:'mm',format:'a4',orientation:'portrait',compress:true},
+     pagebreak:{mode:['avoid-all','css','legacy']}
+   };
+
    const worker=html2pdf().set(opt).from(clone).toPdf();
    const pdfBlob=await worker.outputPdf('blob');
    const file=new File([pdfBlob],filename,{type:'application/pdf'});
+
    if(navigator.share&&navigator.canShare&&navigator.canShare({files:[file]})){
      await navigator.share({title:'Laudo de Inspeção',text:'Laudo de inspeção de segurança — '+id,files:[file]});
    }else{
-     await html2pdf().set(opt).from(clone).save();
+     const url=URL.createObjectURL(pdfBlob);
+     const a=document.createElement('a');
+     a.href=url;
+     a.download=filename;
+     a.style.display='none';
+     document.body.appendChild(a);
+     a.click();
+     a.remove();
+     setTimeout(()=>URL.revokeObjectURL(url),1000);
    }
    hideModal();
  }catch(e){
