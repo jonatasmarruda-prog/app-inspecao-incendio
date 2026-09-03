@@ -1,0 +1,45 @@
+name: Indice leve dashboard celular
+
+on:
+  push:
+    paths:
+      - '.github/workflows/mobile-dashboard-index.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Evitar leitura de fotos no dashboard
+        shell: python
+        run: |
+          from pathlib import Path
+
+          p=Path('premium-ux.js')
+          s=p.read_text(encoding='utf-8')
+          old="async function allRecords(){try{return typeof window.idbAll==='function'?(await window.idbAll()||[]):[]}catch(e){console.warn('[PREMIUM UX] histórico',e);return[]}}"
+          new="async function allRecords(){try{if(typeof window.tbmDashboardRecords==='function')return await window.tbmDashboardRecords();return typeof window.idbAll==='function'?(await window.idbAll()||[]):[]}catch(e){console.warn('[PREMIUM UX] histórico',e);return[]}}"
+          if old not in s:
+              raise SystemExit('Função allRecords esperada não encontrada')
+          p.write_text(s.replace(old,new,1),encoding='utf-8')
+
+          p=Path('sst-repair-loader.js')
+          s=p.read_text(encoding='utf-8')
+          old='./mobile-performance-fix.js?v=20260903-01&cb='
+          new='./mobile-performance-fix.js?v=20260903-02&cb='
+          if old not in s:
+              raise SystemExit('Loader mobile-performance esperado não encontrado')
+          p.write_text(s.replace(old,new,1),encoding='utf-8')
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add premium-ux.js sst-repair-loader.js
+          git diff --cached --quiet && exit 0
+          git commit -m "Evita recarregar fotos no dashboard móvel"
+          git push
