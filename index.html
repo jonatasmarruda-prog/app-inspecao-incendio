@@ -10,7 +10,7 @@
 <main class="wrap"><section id="home"><div class="hero"><div class="badge">🛡️ CONTROLE PROFISSIONAL DE INSPEÇÕES</div><h1>Inspeção SST</h1><p>Registre, acompanhe, salve e gere relatórios profissionais em PDF.</p><div class="today"><small>Data e hora</small><strong id="todayDate">--</strong><span id="todayTime">--</span></div><div class="title">Qual inspeção você deseja realizar?</div><div class="tiles"><button class="tile fire" data-type="fire"><div class="ico">🧯</div><div><b>Combate a Incêndio</b><span>Extintores e hidrantes</span></div></button><button class="tile safety" data-type="safety"><div class="ico">🦺</div><div><b>Inspeção de Segurança</b><span>Condições e irregularidades</span></div></button><button class="tile machine" data-type="machine"><div class="ico">⚙️</div><div><b>Máquinas e Equipamentos</b><span>Checklist NR-12</span></div></button><button class="tile epi" data-type="epi"><div class="ico">🧤</div><div><b>Inspeção de EPI</b><span>Controle e conformidade</span></div></button><button class="tile accident" data-type="accident"><div class="ico">⚠️</div><div><b>Investigação de Acidente</b><span>Registro, causas e ações</span></div></button><button class="tile general" data-type="report"><div class="ico">📋</div><div><b>Relatório de Inspeção</b><span>Irregularidades e melhorias</span></div></button></div><button id="openHistory" class="btn secondary full">📚 Abrir histórico de inspeções</button><div class="statusline"><span class="dot"></span>Salvamento local automático • sincronização Firebase quando disponível</div></div></section>
 <section id="form" class="hidden"><div class="actions no-print"><button id="backHome" class="btn secondary">← Voltar</button><button id="saveTop" class="btn success">💾 Salvar</button></div><div class="card"><div class="sectionTitle" id="formTitle">📝 Inspeção</div><div id="msg"></div><div class="grid"><div class="field"><label>Empresa / unidade *</label><select id="company"><option>TBM Têxtil</option><option>TBM Log</option><option>Outro</option></select></div><div class="field hidden" id="otherCompanyBox"><label>Nome da empresa *</label><input id="otherCompany"></div><div class="field"><label>Endereço *</label><input id="address" value="Rodovia BR-163, KM 109, S/N - Zona Rural, Rondonópolis - MT"></div><div class="field"><label>Inspetor *</label><select id="inspector"><option>Jonatas Marques de Arruda</option><option>Outro</option></select><input id="inspectorOther" class="hidden" placeholder="Nome do inspetor"></div><div class="field"><label>Função</label><input id="role" value="Técnico de Segurança do Trabalho"></div><div class="field"><label>Acompanhante</label><input id="witness" placeholder="Opcional"></div><div class="field"><label>Data da inspeção *</label><input id="date" type="datetime-local"></div><div class="field"><label>Local / setor</label><input id="sector" placeholder="Ex.: Setor RH, Produção, Almoxarifado"></div></div><button id="gps" class="btn secondary full no-print">📍 Capturar localização GPS</button><div id="gpsText" class="mini">Localização não capturada.</div></div><div class="card" id="equipmentCard"><div class="sectionTitle">🧯🚒 Equipamentos</div><div id="equipmentList"></div><div class="actions no-print"><button id="addExt" class="btn primary">➕ Extintor</button><button id="addHid" class="btn secondary">➕ Hidrante</button></div><div class="counter"><div>🧯<b id="extCount">0</b><span class="mini">Extintores</span></div><div>🚒<b id="hidCount">0</b><span class="mini">Hidrantes</span></div><div>🔴<b id="badCount">0</b><span class="mini">Não conformes</span></div><div>🟡<b id="pendCount">0</b><span class="mini">Pendentes</span></div></div></div><div class="card" id="checklistCard"><div class="sectionTitle">☑️ Checklist</div><div id="checklist"></div></div><div class="card hidden" id="accidentInvestigationCard"><div class="sectionTitle">⚠️ Investigação de Acidente</div><div class="notice info">Registre os dados da ocorrência, as falhas identificadas e o plano de ação. O registro fotográfico e as assinaturas abaixo permanecem intactos.</div><div class="accident-subtitle">1. Dados iniciais do evento</div><div class="accident-grid"><div class="field"><label>Data do Acidente</label><input type="date" data-accident-field="eventDate"></div><div class="field"><label>Hora do Acidente</label><input type="time" data-accident-field="eventTime"></div><div class="field"><label>Local / Setor Exato da Ocorrência</label><input data-accident-field="eventLocation" placeholder="Ex.: Produção, setor de tecelagem, máquina X"></div><div class="field"><label>Supervisor Imediato do Setor</label><input data-accident-field="supervisor" placeholder="Nome do supervisor"></div></div><div class="accident-subtitle" style="margin-top:18px">2. Classificação do evento e dados do acidentado</div><div class="accident-grid"><div class="field"><label>Tipo de Evento</label><select data-accident-field="eventType"><option>Acidente com lesão</option><option>Acidente sem lesão</option><option>Doença Ocupacional</option><option>Incidente / Quase acidente</option><option>Dano material</option><option>Outro</option></select></div><div class="field"><label>Gravidade</label><select data-accident-field="severity"><option>Com Afastamento</option><option>Sem Afastamento</option><option>Fatalidade</option></select></div><div class="field"><label>Classe</label><select data-accident-field="class"><option>0</option><option>1</option><option>2</option><option>3</option><option>4</option></select></div><div class="field"><label>Nome do Acidentado</label><input data-accident-field="victimName"></div><div class="field"><label>Cargo</label><input data-accident-field="victimRole"></div><div class="field"><label>Nº CAT</label><input data-accident-field="cat" placeholder="Se aplicável"></div><div class="field"><label>Tempo de Empresa</label><input data-accident-field="companyTime" placeholder="Ex.: 3 anos e 4 meses"></div><div class="field"><label>Tempo de Função</label><input data-accident-field="functionTime" placeholder="Ex.: 1 ano e 2 meses"></div><div class="field"><label>Data do ASO</label><input type="date" data-accident-field="asoDate"></div></div><div class="accident-subtitle" style="margin-top:18px">3. Identificação das falhas</div><div class="accident-causes"><label class="accident-cause"><input type="checkbox" data-accident-cause="Uso Inadequado de EPIs">Uso Inadequado de EPIs</label><label class="accident-cause"><input type="checkbox" data-accident-cause="Procedimento Não Seguido">Procedimento Não Seguido</label><label class="accident-cause"><input type="checkbox" data-accident-cause="Falha na Gestão de Mudanças">Falha na Gestão de Mudanças</label><label class="accident-cause"><input type="checkbox" data-accident-cause="Falha na Emissão de PT/AR">Falha na Emissão de PT/AR</label><label class="accident-cause"><input type="checkbox" data-accident-cause="Falta de Treinamento">Falta de Treinamento</label><label class="accident-cause"><input type="checkbox" data-accident-cause="Falha em Equipamento">Falha em Equipamento</label><label class="accident-cause"><input type="checkbox" data-accident-cause="Condição Insegura do Local">Condição Insegura do Local</label></div><div class="accident-subtitle" style="margin-top:18px">4. Plano de ação</div><div id="accidentActions"></div><button type="button" id="addAccidentAction" class="btn secondary full no-print">➕ Adicionar Ação</button></div><div class="card"><div class="sectionTitle">📷 Registro fotográfico</div><input id="photoInput" class="no-print" type="file" accept="image/*" multiple><div id="photos" class="photoGrid" style="margin-top:10px"></div></div><div class="card"><div class="sectionTitle">🧾 Diagnóstico e ações</div><div class="grid"><div class="field"><label>Problemas / não conformidades encontradas</label><textarea id="findings" placeholder="Descreva objetivamente os problemas encontrados."></textarea></div><div class="field"><label>Soluções / ações recomendadas</label><textarea id="actions" placeholder="Descreva as medidas adotadas ou recomendadas."></textarea></div></div></div><div class="card"><div class="sectionTitle">✍️ Assinaturas</div><div class="siggrid"><div><b>Inspetor *</b><div class="sigwrap"><canvas id="sig1"></canvas></div><button id="clear1" class="btn secondary full no-print">Limpar</button></div><div><b>Acompanhante</b><div class="sigwrap"><canvas id="sig2"></canvas></div><button id="clear2" class="btn secondary full no-print">Limpar</button></div></div></div><div class="card no-print"><button id="save" class="btn success full">💾 SALVAR INSPEÇÃO</button><button id="pdf" class="btn primary full">📄 GERAR E COMPARTILHAR PDF</button></div></section>
 <section id="history" class="hidden"><button id="historyBack" class="btn secondary no-print">← Voltar</button><div class="card"><div class="sectionTitle">📚 Histórico</div><div id="historyList"></div></div></section><section id="report" class="hidden"><div id="reportContent" class="reportShell"></div><div class="card no-print"><div class="actions"><button id="reportBack" class="btn secondary">← Voltar</button><button id="reportPdf" class="btn primary">📄 PDF</button><button id="reportShare" class="btn blue">📤 Compartilhar PDF</button></div></div></section></main><div id="modal" class="modal hidden"><div class="modalbox"><div id="modalText">Processando...</div></div></div>
-<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script><script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script><script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script><script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script><script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/pdfmake.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/vfs_fonts.js"></script>
 <script>
 'use strict';
 const FIREBASE={apiKey:'AIzaSyBFOJOxX59k1dfZbOauv4zjkh_qhynuLuU',authDomain:'app-inspecao-sst-79aa6.firebaseapp.com',projectId:'app-inspecao-sst-79aa6',storageBucket:'app-inspecao-sst-79aa6.firebasestorage.app',messagingSenderId:'992254064215',appId:'1:992254064215:web:ffa5f1c463b444d8479512'};const DB_NAME='SSTInspecoes',STORE='inspections',APP_VERSION='2026.09.03.3';
@@ -28,8 +28,185 @@ function addEquipment(k){state.equipment.push(k==='ext'?{kind:k,status:'PENDENTE
 function setupCanvas(c,initial,onChange){const ctx=c.getContext('2d');const r=c.getBoundingClientRect(),d=devicePixelRatio||1;c.width=r.width*d;c.height=r.height*d;ctx.setTransform(d,0,0,d,0,0);ctx.lineWidth=2;ctx.lineCap='round';ctx.strokeStyle='#111827';if(initial){const im=new Image();im.onload=()=>ctx.drawImage(im,0,0,r.width,r.height);im.src=initial}let draw=false,last=null;const pos=e=>{const z=c.getBoundingClientRect(),p=e.touches?e.touches[0]:e;return{x:p.clientX-z.left,y:p.clientY-z.top}};c.onpointerdown=e=>{draw=true;last=pos(e);e.preventDefault()};c.onpointermove=e=>{if(!draw)return;const p=pos(e);ctx.beginPath();ctx.moveTo(last.x,last.y);ctx.lineTo(p.x,p.y);ctx.stroke();last=p;e.preventDefault()};c.onpointerup=()=>{if(draw){draw=false;onChange(c.toDataURL('image/png'))}};return()=>{ctx.clearRect(0,0,c.width,c.height);onChange('')}}let clearSig1=()=>{},clearSig2=()=>{};function setupSigs(){clearSig1=setupCanvas($('sig1'),state.signature1,v=>{state.signature1=v;scheduleSave()});clearSig2=setupCanvas($('sig2'),state.signature2,v=>{state.signature2=v;scheduleSave()})}
 function scheduleSave(){clearTimeout(saveTimer);saveTimer=setTimeout(()=>saveInspection(true),700)}async function saveInspection(silent=false){try{if(state.type==='accident'){syncAccidentActions();for(const a of (state.accident?.actions||[])){if(!String(a.action||'').trim()||!String(a.responsible||'').trim()||!String(a.deadline||'').trim()){if(!silent)notice('Preencha Ação, Responsável e Prazo em todas as ações adicionadas.','error');return}}}normalize();state.id=state.id||uidgen();state.createdAt=state.createdAt||new Date().toISOString();state.updatedAt=new Date().toISOString();state.title=TYPES[state.type].name;await idbPut(state);if(window.SST)await window.SST.fs.collection('inspections').doc(state.id).set(cloudSafe(state),{merge:true});if(!silent)notice('Inspeção salva com sucesso.','success')}catch(e){console.error(e);if(!silent)notice('Inspeção salva no dispositivo. A sincronização será tentada novamente.','info')}}
 function reportHTML(x){const t=TYPES[x.type],checks=t.checks,items=x.type==='fire'?[...x.equipment.map((e,i)=>({q:`${e.kind==='ext'?'Extintor':'Hidrante'} #${i+1}`,v:e.status,obs:e.obs})),...checks.map((q,i)=>({q,v:x.checks[i]||'PENDENTE',obs:''}))]:checks.map((q,i)=>({q,v:x.checks[i]||'PENDENTE',obs:''}));const c=items.filter(a=>a.v==='CONFORME').length,n=items.filter(a=>a.v==='NÃO CONFORME').length,p=items.filter(a=>a.v==='PENDENTE').length;return`<div class="reportPage"><div class="reportHeader"><img class="reportLogo" src="icon.svg"><div><h1>RELATÓRIO DE INSPEÇÃO DE SEGURANÇA DO TRABALHO</h1><p><b>${esc(t.name)}</b></p><p>TBM Têxtil • Sistema Profissional SST</p></div><div class="reportNo"><b>Nº ${esc(x.id)}</b><br>Em: ${esc(fmtDate(x.date))}</div></div><div class="rsection"><div class="rtitle">Identificação da inspeção</div><div class="rgrid"><div class="rfield"><div class="rlabel">Empresa / unidade</div><div class="rvalue">${esc(effCompany())}</div></div><div class="rfield"><div class="rlabel">CNPJ</div><div class="rvalue">07.603.776/0003-00</div></div><div class="rfield"><div class="rlabel">Endereço</div><div class="rvalue">${esc(x.address)}</div></div><div class="rfield"><div class="rlabel">Setor / local</div><div class="rvalue">${esc(x.sector||'Não informado')}</div></div><div class="rfield"><div class="rlabel">Inspetor</div><div class="rvalue">${esc(effInspector())}</div></div><div class="rfield"><div class="rlabel">Função</div><div class="rvalue">${esc(x.role)}</div></div><div class="rfield"><div class="rlabel">Acompanhante</div><div class="rvalue">${esc(x.witness||'Não informado')}</div></div><div class="rfield"><div class="rlabel">Localização GPS</div><div class="rvalue">${x.gps?esc(`${x.gps.lat}, ${x.gps.lng}`):'Não capturada'}</div></div></div></div><div class="rsection"><div class="rtitle">Resumo de conformidade</div><table class="rtable"><tr><th>Total</th><th>Conformes</th><th>Não conformes</th><th>Pendentes</th></tr><tr><td>${items.length}</td><td>${c}</td><td>${n}</td><td>${p}</td></tr></table></div>${x.type==='fire'&&x.equipment.length?`<div class="rsection"><div class="rtitle">Equipamentos de combate a incêndio</div><table class="rtable"><tr><th>Equipamento</th><th>Patrimônio</th><th>Dados</th><th>Situação</th><th>Observação</th></tr>${x.equipment.map((e,i)=>`<tr><td>${e.kind==='ext'?'Extintor':'Hidrante'} #${i+1}</td><td>${esc(e.patrimonio||'Não informado')}</td><td>${e.kind==='ext'?esc([e.tipo,e.capacidade,e.ultima?`Última inspeção: ${e.ultima}`:''].filter(Boolean).join(' • ')):esc(e.localizacao||'Não informado')}</td><td>${esc(e.status)}</td><td>${esc(e.obs||'')}</td></tr>`).join('')}</table></div>`:''}<div class="rsection"><div class="rtitle">Checklist de inspeção</div><table class="rtable"><tr><th>Item</th><th>Critério verificado</th><th>Situação</th></tr>${checks.map((q,i)=>`<tr><td>${i+1}</td><td>${esc(q)}</td><td>${esc(x.checks[i]||'PENDENTE')}</td></tr>`).join('')}</table></div>${x.photos.length?`<div class="rsection"><div class="rtitle">Registro fotográfico</div><div class="rphotos">${x.photos.map((p,i)=>`<figure><img src="${p.data}"><figcaption>Foto ${i+1} • ${esc(p.caption||'Registro fotográfico')}</figcaption></figure>`).join('')}</div></div>`:''}<div class="rsection"><div class="rtitle">Diagnóstico e ações</div><div class="rfield"><div class="rlabel">Problemas / não conformidades</div><div class="rvalue">${esc(x.findings||'Nenhuma informação registrada.')}</div></div><div class="rfield"><div class="rlabel">Soluções / ações recomendadas</div><div class="rvalue">${esc(x.actions||'Nenhuma informação registrada.')}</div></div></div><div class="rsection"><div class="rtitle">Assinaturas</div><div class="rsigs"><div class="rsig"><b>Inspetor</b>${x.signature1?`<img src="${x.signature1}">`:''}<div>${esc(effInspector())}</div></div><div class="rsig"><b>Acompanhante</b>${x.signature2?`<img src="${x.signature2}">`:''}<div>${esc(x.witness||'Assinatura não informada')}</div></div></div></div><div class="footer">Documento gerado pelo Sistema Profissional de Inspeção SST • ${esc(x.id)} • ${esc(fmtDate(new Date().toISOString()))}</div></div>`}
-function showReport(x){state=JSON.parse(JSON.stringify(x));$('reportContent').innerHTML=reportHTML(state);show('report')}async function makePdf(share){try{$('modalText').textContent='Gerando PDF profissional…';$('modal').classList.remove('hidden');if(!window.html2pdf)throw Error('Gerador PDF indisponível');const idGerado=state.id;const opt={margin:0,filename: 'Relatorio_fire_' + idGerado + '.pdf',image:{type:'jpeg',quality:.96},html2canvas:{scale:2,useCORS:true,backgroundColor:'#fff'},jsPDF:{unit:'mm',format:'a4',orientation:'portrait'},pagebreak:{mode:['css','legacy']}};const filename=opt.filename;const blob=await html2pdf().set(opt).from($('reportContent')).outputPdf('blob');const file=new File([blob],filename,{type:'application/pdf'});if(share&&navigator.share&&(!navigator.canShare||navigator.canShare({files:[file]}))){await navigator.share({title:'Relatório de Inspeção SST',text:`Relatório ${state.id} • ${TYPES[state.type].name}`,files:[file]})}else{const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=filename;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1500);if(share)alert('Compartilhamento direto não disponível. O PDF foi baixado.')}}catch(e){console.error(e);window.print()}finally{$('modal').classList.add('hidden')}}async function openHistory(){const list=await idbAll();list.sort((a,b)=>String(b.updatedAt).localeCompare(String(a.updatedAt)));$('historyList').innerHTML=list.length?list.map(x=>`<div class="historyItem"><div class="historyTop"><div><b>${esc(TYPES[x.type]?.icon||'📋')} ${esc(TYPES[x.type]?.name||x.title)}</b><div class="mini">${esc(x.id)} • ${esc(fmtDate(x.date))}</div><div class="mini">${esc(x.company==='Outro'?x.otherCompany:x.company)} • ${esc(x.sector||'Sem setor')}</div></div><span class="pill">${x.equipment?.filter(e=>e.status==='NÃO CONFORME').length||0} NC</span></div><div class="actions no-print" style="margin-top:9px"><button class="btn primary" data-open-h="${x.id}">Abrir</button><button class="btn secondary" data-report-h="${x.id}">Relatório</button><button class="btn danger" data-delete-h="${x.id}">Excluir</button></div></div>`).join(''):'<div class="notice info">Nenhuma inspeção salva ainda.</div>';show('history')}
+function showReport(x){state=JSON.parse(JSON.stringify(x));$('reportContent').innerHTML=reportHTML(state);show('report')}async function makePdf(action='download'){
+try{
+$('modalText').textContent='Gerando PDF profissional…';$('modal').classList.remove('hidden');
+if(!window.pdfMake)throw Error('Biblioteca pdfmake indisponível');
+normalize();
+if(state.type==='accident')syncAccidentActions();
+state.id=state.id||uidgen();
 
-document.querySelectorAll('.tile').forEach(b=>b.onclick=()=>openNew(b.dataset.type));$('openHistory').onclick=openHistory;$('historyBack').onclick=()=>show('home');$('backHome').onclick=()=>show('home');$('reportBack').onclick=()=>show('history');$('reportPdf').onclick=()=>makePdf(false);$('reportShare').onclick=()=>makePdf(true);$('save').onclick=()=>saveInspection(false);$('saveTop').onclick=()=>saveInspection(false);$('pdf').onclick=async()=>{await saveInspection(true);showReport(state);setTimeout(()=>makePdf(true),150)};$('company').onchange=()=>{$('otherCompanyBox').classList.toggle('hidden',$('company').value!=='Outro');scheduleSave()};$('inspector').onchange=()=>{$('inspectorOther').classList.toggle('hidden',$('inspector').value!=='Outro');scheduleSave()};$('gps').onclick=()=>{if(!navigator.geolocation)return notice('GPS não disponível.','error');navigator.geolocation.getCurrentPosition(p=>{state.gps={lat:p.coords.latitude,lng:p.coords.longitude,accuracy:p.coords.accuracy};$('gpsText').textContent=`GPS: ${p.coords.latitude.toFixed(6)}, ${p.coords.longitude.toFixed(6)} • precisão ${Math.round(p.coords.accuracy)} m`;scheduleSave()},()=>notice('Não foi possível capturar o GPS. Verifique a permissão.','error'),{enableHighAccuracy:true,timeout:15000,maximumAge:0})};$('addExt').onclick=()=>addEquipment('ext');$('addHid').onclick=()=>addEquipment('hid');$('addAccidentAction').onclick=()=>addAccidentAction();$('photoInput').onchange=e=>addPhotos(e.target.files);$('clear1').onclick=()=>clearSig1();$('clear2').onclick=()=>clearSig2();document.addEventListener('input',e=>{if(!e.target.matches('input,textarea,select')||e.target.id==='photoInput')return;if(e.target.dataset.e){const i=+e.target.dataset.e,k=e.target.dataset.k;if(state.equipment[i]&&k){state.equipment[i][k]=e.target.value;scheduleSave()}}else if(e.target.dataset.photo!==undefined){if(state.photos[+e.target.dataset.photo])state.photos[+e.target.dataset.photo].caption=e.target.value;scheduleSave()}else if(e.target.dataset.accidentField){state.accident=state.accident||{};state.accident[e.target.dataset.accidentField]=e.target.value;scheduleSave()}else if(e.target.dataset.actionIndex!==undefined){syncAccidentActions();scheduleSave()}else scheduleSave()});document.addEventListener('change',e=>{if(e.target.dataset.check!==undefined){state.checks[+e.target.dataset.check]=e.target.value;scheduleSave()}if(e.target.dataset.e!==undefined&&e.target.dataset.status){state.equipment[+e.target.dataset.e].status=e.target.dataset.status;renderEquipment();scheduleSave()}if(e.target.dataset.accidentCause){state.accident=state.accident||{};state.accident.causes=[...document.querySelectorAll('[data-accident-cause]:checked')].map(el=>el.dataset.accidentCause);scheduleSave()}});document.addEventListener('click',async e=>{let t=e.target.closest('[data-del-e]');if(t){state.equipment.splice(+t.dataset.delE,1);renderEquipment();scheduleSave()}t=e.target.closest('[data-del-photo]');if(t){state.photos.splice(+t.dataset.delPhoto,1);renderPhotos();scheduleSave()}t=e.target.closest('[data-del-action]');if(t){syncAccidentActions();state.accident.actions.splice(+t.dataset.delAction,1);renderAccident();scheduleSave()}t=e.target.closest('[data-open-h]');if(t){const x=await idbGet(t.dataset.openH);if(x){state=JSON.parse(JSON.stringify(x));renderForm();show('form')}}t=e.target.closest('[data-report-h]');if(t){const x=await idbGet(t.dataset.reportH);if(x)showReport(x)}t=e.target.closest('[data-delete-h]');if(t&&confirm('Excluir esta inspeção do histórico?')){await idbDelete(t.dataset.deleteH);if(window.SST)window.SST.fs.collection('inspections').doc(t.dataset.deleteH).delete().catch(()=>{});openHistory()}});
+const gv=id=>{const e=$(id);return e?String(e.value??'').trim():''};
+const effComp=()=>gv('company')==='Outro'?(gv('otherCompany')||'Outro'):gv('company');
+const effInsp=()=>gv('inspector')==='Outro'?(gv('inspectorOther')||'Outro'):gv('inspector');
+const safe=v=>String(v??'').trim()||'Não informado';
+const fmt=v=>{if(!v)return'Não informado';try{return new Date(v).toLocaleString('pt-BR')}catch{return String(v)}};
+const imgData=async src=>{
+ if(!src)return null;
+ if(/^data:image\//i.test(src))return src;
+ try{
+   const res=await fetch(src,{cache:'no-store'});
+   const blob=await res.blob();
+   return await new Promise((resolve,reject)=>{const fr=new FileReader();fr.onload=()=>resolve(fr.result);fr.onerror=reject;fr.readAsDataURL(blob)});
+ }catch(e){console.warn('Imagem ignorada no PDF:',e);return null}
+};
+const canvasData=id=>{
+ const cv=$(id);if(!cv)return null;
+ try{
+   const blank=document.createElement('canvas');blank.width=cv.width;blank.height=cv.height;
+   return cv.toDataURL('image/png')!==blank.toDataURL('image/png')?cv.toDataURL('image/png'):null;
+ }catch{return null}
+};
+
+const logo=await imgData('Têxtil Bezerra de Menezes 2.jpeg');
+const photos=(state.photos||[]).map((p,i)=>({data:p.data,caption:p.caption||('Registro fotográfico '+(i+1))})).filter(p=>/^data:image\//i.test(p.data||''));
+const sig1=canvasData('sig1')||state.signature1||null;
+const sig2=canvasData('sig2')||state.signature2||null;
+
+const typeName=(TYPES[state.type]?.name)||state.title||'Inspeção SST';
+const checks=(TYPES[state.type]?.checks||[]).map((q,i)=>[String(i+1),q,state.checks?.[i]||'PENDENTE']);
+const eq=(state.equipment||[]).map((e,i)=>[
+ e.kind==='ext'?('Extintor #'+(i+1)):e.kind==='hid'?('Hidrante #'+(i+1)):e.kind==='light'?('Iluminação #'+(i+1)):('Alarme #'+(i+1)),
+ safe(e.patrimonio),
+ e.kind==='ext'?safe([e.tipo,e.capacidade,e.ultima?('Última inspeção: '+e.ultima):''].filter(Boolean).join(' • ')):safe(e.localizacao),
+ safe(e.status),
+ safe(e.obs)
+]);
+
+const sectionTitle=t=>({text:t,style:'sectionTitle',margin:[0,12,0,6]});
+const infoRows=[
+ ['Empresa / unidade',safe(effComp()),'CNPJ','07.603.776/0003-00'],
+ ['Endereço',safe(gv('address')||state.address),'Setor / local',safe(gv('sector')||state.sector)],
+ ['Inspetor',safe(effInsp()),'Função',safe(gv('role')||state.role)],
+ ['Acompanhante',safe(gv('witness')||state.witness),'Data da inspeção',fmt(gv('date')||state.date)],
+ ['GPS',state.gps?(state.gps.lat+', '+state.gps.lng):'Não capturada','Nº do relatório',state.id]
+].map(r=>[
+ {text:r[0],style:'labelCell'},{text:r[1],style:'valueCell'},
+ {text:r[2],style:'labelCell'},{text:r[3],style:'valueCell'}
+]);
+
+const content=[];
+content.push({
+ columns:[
+   logo?{image:logo,width:90,margin:[0,0,15,0]}:{text:'TBM TÊXTIL',style:'logoText',width:105},
+   {stack:[{text:'RELATÓRIO DE INSPEÇÃO DE SEGURANÇA DO TRABALHO',style:'title'},{text:typeName,style:'subtitle'},{text:'TBM Têxtil • Sistema Profissional SST',style:'small'}]},
+   {stack:[{text:'Nº '+state.id,bold:true,alignment:'right'},{text:fmt(state.date||gv('date')),fontSize:8,alignment:'right',margin:[0,4,0,0]}],width:150}
+ ],
+ margin:[0,0,0,10]
+});
+content.push({canvas:[{type:'line',x1:0,y1:0,x2:515,y2:0,lineWidth:2,lineColor:'#8b1018'}],margin:[0,0,0,8]});
+
+content.push(sectionTitle('Identificação da inspeção'));
+content.push({table:{widths:[85,'*',70,'*'],body:infoRows},layout:'lightHorizontalLines'});
+
+if(eq.length){
+ content.push(sectionTitle('Equipamentos'));
+ content.push({table:{headerRows:1,widths:[70,65,120,75,'*'],body:[
+   [{text:'Equipamento',style:'th'},{text:'Patrimônio',style:'th'},{text:'Dados / Localização',style:'th'},{text:'Situação',style:'th'},{text:'Observação',style:'th'}],
+   ...eq
+ ]},layout:'lightHorizontalLines',fontSize:8});
+}
+
+if(checks.length){
+ content.push(sectionTitle('Checklist de inspeção'));
+ content.push({table:{headerRows:1,widths:[25,'*',90],body:[
+   [{text:'Item',style:'th'},{text:'Critério verificado',style:'th'},{text:'Situação',style:'th'}],
+   ...checks
+ ]},layout:'lightHorizontalLines',fontSize:8});
+}
+
+if(state.type==='accident'&&state.accident){
+ const a=state.accident;
+ content.push(sectionTitle('Investigação de acidente'));
+ content.push({table:{widths:[90,'*'],body:[
+   [{text:'Tipo de evento',style:'labelCell'},safe(a.eventType)],
+   [{text:'Gravidade',style:'labelCell'},safe(a.severity)],
+   [{text:'Acidentado',style:'labelCell'},safe(a.victimName)],
+   [{text:'Cargo',style:'labelCell'},safe(a.victimRole)],
+   [{text:'Local da ocorrência',style:'labelCell'},safe(a.eventLocation)],
+   [{text:'Falhas identificadas',style:'labelCell'},safe((a.causes||[]).join(', '))]
+ ]},layout:'lightHorizontalLines'});
+ if((a.actions||[]).length){
+   content.push({text:'Plano de ação',bold:true,margin:[0,8,0,4]});
+   content.push({table:{headerRows:1,widths:['*',120,75],body:[
+     [{text:'Ação',style:'th'},{text:'Responsável',style:'th'},{text:'Prazo',style:'th'}],
+     ...(a.actions||[]).map(x=>[safe(x.action),safe(x.responsible),safe(x.deadline)])
+   ]},layout:'lightHorizontalLines',fontSize:8});
+ }
+}
+
+content.push(sectionTitle('Diagnóstico e ações'));
+content.push({table:{widths:['*','*'],body:[
+ [{text:'Problemas / não conformidades',style:'th'},{text:'Soluções / ações recomendadas',style:'th'}],
+ [safe(gv('findings')||state.findings),safe(gv('actions')||state.actions)]
+]},layout:'lightHorizontalLines'});
+
+if(photos.length){
+ content.push(sectionTitle('Registro fotográfico'));
+ const rows=[];
+ for(let i=0;i<photos.length;i+=2){
+   const cells=[];
+   for(let j=0;j<2;j++){
+     const p=photos[i+j];
+     cells.push(p?{stack:[{image:p.data,fit:[235,165],alignment:'center'},{text:p.caption,fontSize:8,alignment:'center',margin:[0,4,0,0]}],margin:[3,3,3,8]}:{text:''});
+   }
+   rows.push(cells);
+ }
+ content.push({table:{widths:['*','*'],body:rows},layout:'noBorders'});
+}
+
+content.push(sectionTitle('Assinaturas'));
+content.push({table:{widths:['*','*'],body:[[
+ {stack:[{text:'Inspetor',bold:true,alignment:'center'},...(sig1?[{image:sig1,fit:[220,75],alignment:'center',margin:[0,8,0,4]}]:[{text:'Assinatura não registrada',italics:true,fontSize:8,alignment:'center',margin:[0,25,0,25]}]),{text:safe(effInsp()),alignment:'center',fontSize:9}]},
+ {stack:[{text:'Acompanhante',bold:true,alignment:'center'},...(sig2?[{image:sig2,fit:[220,75],alignment:'center',margin:[0,8,0,4]}]:[{text:'Assinatura não registrada',italics:true,fontSize:8,alignment:'center',margin:[0,25,0,25]}]),{text:safe(gv('witness')||state.witness),alignment:'center',fontSize:9}]}
+]]},layout:'lightHorizontalLines'});
+
+const docDefinition={
+ pageSize:'A4',pageMargins:[40,42,40,42],
+ defaultStyle:{font:'Roboto',fontSize:9,color:'#17202b'},
+ content,
+ styles:{
+   title:{fontSize:15,bold:true,color:'#8b1018'},
+   subtitle:{fontSize:10,bold:true,margin:[0,5,0,2]},
+   small:{fontSize:8,color:'#64748b'},
+   sectionTitle:{fontSize:10,bold:true,color:'#fff',fillColor:'#8b1018',margin:[0,10,0,5]},
+   th:{bold:true,fillColor:'#e5e7eb',color:'#111827'},
+   labelCell:{bold:true,fillColor:'#f3f4f6',color:'#374151'},
+   valueCell:{color:'#111827'},
+   logoText:{fontSize:14,bold:true,color:'#8b1018'}
+ },
+ footer:(currentPage,pageCount)=>({text:'Sistema Profissional de Inspeção SST • '+state.id+' • Página '+currentPage+' de '+pageCount,alignment:'center',fontSize:7,color:'#64748b',margin:[0,15,0,0]})
+};
+
+const filename='Laudo_Inspecao_'+state.id+'.pdf';
+if(action===true)action='share';
+if(action===false)action='download';
+if(action==='share'){
+ window.pdfMake.createPdf(docDefinition).getBlob(async blob=>{
+   try{
+     const file=new File([blob],filename,{type:'application/pdf'});
+     if(navigator.share&&(!navigator.canShare||navigator.canShare({files:[file]}))){
+       await navigator.share({title:'Laudo de Inspeção SST',text:'Laudo '+state.id+' • '+typeName,files:[file]});
+     }else{
+       window.pdfMake.createPdf(docDefinition).download(filename);
+       alert('Compartilhamento direto não disponível. O PDF foi baixado.');
+     }
+   }catch(e){
+     if(e?.name!=='AbortError'){console.error(e);window.pdfMake.createPdf(docDefinition).download(filename)}
+   }finally{$('modal').classList.add('hidden')}
+ });
+ return;
+}
+window.pdfMake.createPdf(docDefinition).download(filename);
+}catch(e){
+ console.error('[PDFMAKE]',e);
+ alert('Não foi possível gerar o PDF: '+(e?.message||e));
+}finally{
+ if(action!=='share')$('modal').classList.add('hidden');
+}
+}
+async function openHistory(){const list=await idbAll();list.sort((a,b)=>String(b.updatedAt).localeCompare(String(a.updatedAt)));$('historyList').innerHTML=list.length?list.map(x=>`<div class="historyItem"><div class="historyTop"><div><b>${esc(TYPES[x.type]?.icon||'📋')} ${esc(TYPES[x.type]?.name||x.title)}</b><div class="mini">${esc(x.id)} • ${esc(fmtDate(x.date))}</div><div class="mini">${esc(x.company==='Outro'?x.otherCompany:x.company)} • ${esc(x.sector||'Sem setor')}</div></div><span class="pill">${x.equipment?.filter(e=>e.status==='NÃO CONFORME').length||0} NC</span></div><div class="actions no-print" style="margin-top:9px"><button class="btn primary" data-open-h="${x.id}">Abrir</button><button class="btn secondary" data-report-h="${x.id}">Relatório</button><button class="btn danger" data-delete-h="${x.id}">Excluir</button></div></div>`).join(''):'<div class="notice info">Nenhuma inspeção salva ainda.</div>';show('history')}
+
+document.querySelectorAll('.tile').forEach(b=>b.onclick=()=>openNew(b.dataset.type));$('openHistory').onclick=openHistory;$('historyBack').onclick=()=>show('home');$('backHome').onclick=()=>show('home');$('reportBack').onclick=()=>show('history');$('reportPdf').textContent='📥 Baixar PDF';$('reportShare').textContent='📲 Compartilhar PDF';$('reportPdf').onclick=()=>makePdf('download');$('reportShare').onclick=()=>makePdf('share');$('save').onclick=()=>saveInspection(false);$('saveTop').onclick=()=>saveInspection(false);$('pdf').onclick=async()=>{await saveInspection(true);showReport(state);setTimeout(()=>makePdf('share'),150)};$('company').onchange=()=>{$('otherCompanyBox').classList.toggle('hidden',$('company').value!=='Outro');scheduleSave()};$('inspector').onchange=()=>{$('inspectorOther').classList.toggle('hidden',$('inspector').value!=='Outro');scheduleSave()};$('gps').onclick=()=>{if(!navigator.geolocation)return notice('GPS não disponível.','error');navigator.geolocation.getCurrentPosition(p=>{state.gps={lat:p.coords.latitude,lng:p.coords.longitude,accuracy:p.coords.accuracy};$('gpsText').textContent=`GPS: ${p.coords.latitude.toFixed(6)}, ${p.coords.longitude.toFixed(6)} • precisão ${Math.round(p.coords.accuracy)} m`;scheduleSave()},()=>notice('Não foi possível capturar o GPS. Verifique a permissão.','error'),{enableHighAccuracy:true,timeout:15000,maximumAge:0})};$('addExt').onclick=()=>addEquipment('ext');$('addHid').onclick=()=>addEquipment('hid');$('addAccidentAction').onclick=()=>addAccidentAction();$('photoInput').onchange=e=>addPhotos(e.target.files);$('clear1').onclick=()=>clearSig1();$('clear2').onclick=()=>clearSig2();document.addEventListener('input',e=>{if(!e.target.matches('input,textarea,select')||e.target.id==='photoInput')return;if(e.target.dataset.e){const i=+e.target.dataset.e,k=e.target.dataset.k;if(state.equipment[i]&&k){state.equipment[i][k]=e.target.value;scheduleSave()}}else if(e.target.dataset.photo!==undefined){if(state.photos[+e.target.dataset.photo])state.photos[+e.target.dataset.photo].caption=e.target.value;scheduleSave()}else if(e.target.dataset.accidentField){state.accident=state.accident||{};state.accident[e.target.dataset.accidentField]=e.target.value;scheduleSave()}else if(e.target.dataset.actionIndex!==undefined){syncAccidentActions();scheduleSave()}else scheduleSave()});document.addEventListener('change',e=>{if(e.target.dataset.check!==undefined){state.checks[+e.target.dataset.check]=e.target.value;scheduleSave()}if(e.target.dataset.e!==undefined&&e.target.dataset.status){state.equipment[+e.target.dataset.e].status=e.target.dataset.status;renderEquipment();scheduleSave()}if(e.target.dataset.accidentCause){state.accident=state.accident||{};state.accident.causes=[...document.querySelectorAll('[data-accident-cause]:checked')].map(el=>el.dataset.accidentCause);scheduleSave()}});document.addEventListener('click',async e=>{let t=e.target.closest('[data-del-e]');if(t){state.equipment.splice(+t.dataset.delE,1);renderEquipment();scheduleSave()}t=e.target.closest('[data-del-photo]');if(t){state.photos.splice(+t.dataset.delPhoto,1);renderPhotos();scheduleSave()}t=e.target.closest('[data-del-action]');if(t){syncAccidentActions();state.accident.actions.splice(+t.dataset.delAction,1);renderAccident();scheduleSave()}t=e.target.closest('[data-open-h]');if(t){const x=await idbGet(t.dataset.openH);if(x){state=JSON.parse(JSON.stringify(x));renderForm();show('form')}}t=e.target.closest('[data-report-h]');if(t){const x=await idbGet(t.dataset.reportH);if(x)showReport(x)}t=e.target.closest('[data-delete-h]');if(t&&confirm('Excluir esta inspeção do histórico?')){await idbDelete(t.dataset.deleteH);if(window.SST)window.SST.fs.collection('inspections').doc(t.dataset.deleteH).delete().catch(()=>{});openHistory()}});
 function tick(){const d=new Date();$('todayDate').textContent=d.toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});$('todayTime').textContent=d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',second:'2-digit'})}tick();setInterval(tick,1000);(async()=>{try{await initDB();await firebaseStart()}catch(e){console.error(e);$('cloudState').textContent='● Local'}})();
 </script><script src="./integracao-modulos.js?v=20260903-21"></script><script src="./sst-repair-loader.js?v=20260903-22"></script><script src="./delete-draft.js?v=20260903-01"></script></body></html>
