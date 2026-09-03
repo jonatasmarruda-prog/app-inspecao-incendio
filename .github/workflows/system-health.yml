@@ -1,0 +1,50 @@
+name: System Health Check
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+jobs:
+  health:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check JavaScript syntax
+        run: |
+          set -e
+          for f in sst-modulos.js offline-boot.js sst-repair-loader.js compartilhar-relatorio.js editar-relatorio.js abnt-relatorio.js integracao-modulos.js sw.js service-worker.js; do
+            echo "Checking $f"
+            node --check "$f"
+          done
+          python3 - <<'PY'
+          import re, pathlib
+          html=pathlib.Path('index.html').read_text(encoding='utf-8')
+          scripts=re.findall(r'<script(?:[^>]*)>(.*?)</script>',html,re.S|re.I)
+          for i,src in enumerate(scripts):
+              pathlib.Path(f'/tmp/inline-{i}.js').write_text(src,encoding='utf-8')
+          print(f'Found {len(scripts)} inline script blocks')
+          PY
+          for f in /tmp/inline-*.js; do [ -s "$f" ] && node --check "$f"; done
+      - name: Check required application assets
+        run: |
+          set -e
+          for f in index.html sst-modulos.js offline-boot.js sst-repair-loader.js compartilhar-relatorio.js editar-relatorio.js abnt-relatorio.js integracao-modulos.js sw.js manifest.json icon.svg; do test -f "$f"; done
+          grep -q 'id="startSafety"' index.html
+          grep -q 'id="startMachine"' index.html
+          grep -q 'id="startEpi"' index.html
+          grep -q 'id="startAccident"' index.html
+          grep -q 'id="startReport"' index.html
+          grep -q 'sst-modulos.js' index.html
+          grep -q 'offline-boot.js' index.html
+          echo 'Required assets and module entry points verified.'
+      - name: Check module entry points
+        run: |
+          set -e
+          grep -q 'window.openSSTModule' sst-modulos.js
+          grep -q "startSafety:'seg'" offline-boot.js
+          grep -q "startMachine:'machine'" offline-boot.js
+          grep -q "startEpi:'epi'" offline-boot.js
+          grep -q "startAccident:'accident'" offline-boot.js
+          grep -q "startReport:'report'" offline-boot.js
+          grep -q 'sharePDF' compartilhar-relatorio.js
+          grep -q 'CNPJ' abnt-relatorio.js
+          echo 'Module entry points and report/sharing hooks verified.'
