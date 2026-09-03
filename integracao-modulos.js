@@ -1,2 +1,11 @@
-/* Integração dos módulos SST */
-(function(){'use strict';const BASE='./';const modules=[{name:'sst-modulos.js',global:'SSTModulos'},{name:'abnt-relatorio.js',global:'ABNTRelatorio'},{name:'compartilhar-relatorio.js',global:'CompartilharRelatorio'},{name:'editar-relatorio.js',global:'EditarRelatorio'}];function load(src){return new Promise((resolve,reject)=>{const old=document.querySelector('script[data-sst-src="'+src+'"]');if(old)return resolve();const s=document.createElement('script');s.src=BASE+src+'?v=20260903';s.async=false;s.dataset.sstSrc=src;s.onload=resolve;s.onerror=()=>reject(new Error('Não foi possível carregar '+src));document.head.appendChild(s)})}window.SSTAppModules=window.SSTAppModules||{};window.SSTAppModules.ready=modules.reduce((p,m)=>p.then(()=>load(m.name).then(()=>{window.SSTAppModules[m.global]=true})),Promise.resolve()).catch(err=>{console.error(err);window.SSTAppModules.error=err})})();
+/* Integração SST — carregamento único e confiável */
+(()=>{'use strict';
+const VERSION='20260903-19';
+const FILES=['sst-modulos.js','abnt-relatorio.js','compartilhar-relatorio.js','editar-relatorio.js'];
+window.SSTAppModules=window.SSTAppModules||{};
+function load(src){return new Promise((resolve,reject)=>{if(src==='sst-modulos.js'&&typeof window.openSSTModule==='function')return resolve();const s=document.createElement('script');s.src='./'+src+'?v='+VERSION+'&t='+Date.now();s.async=false;s.onload=()=>resolve();s.onerror=()=>reject(new Error(src));document.head.appendChild(s)})}
+window.SSTAppModules.ready=(async()=>{for(const f of FILES){try{await load(f);window.SSTAppModules[f]=true}catch(e){console.error('SST:',e)}}return true})();
+function bind(){const map={startSafety:'seg',startMachine:'machine',startEpi:'epi',startAccident:'accident',startReport:'report'};for(const [id,type] of Object.entries(map)){const b=document.getElementById(id);if(!b||b.dataset.sstBound==='1')continue;b.dataset.sstBound='1';b.onclick=async e=>{e.preventDefault();e.stopPropagation();if(typeof window.openSSTModule!=='function')await window.SSTAppModules.ready;if(typeof window.openSSTModule==='function')window.openSSTModule(type);else alert('Não foi possível carregar esta inspeção. Atualize a página e tente novamente.')}}}
+function start(){bind();[300,1000,2500].forEach(ms=>setTimeout(bind,ms));}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start);else start();
+})();
