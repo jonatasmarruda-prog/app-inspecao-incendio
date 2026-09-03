@@ -1,0 +1,33 @@
+name: Hotfix autosave debounce
+
+on:
+  push:
+    paths:
+      - '.github/workflows/hotfix-autosave-debounce.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Ajustar debounce do autosave
+        run: python3 .github/scripts/patch_autosave_debounce.py
+
+      - name: Publicar ajuste
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html service-worker.js sw.js
+          if git diff --cached --quiet; then
+            echo "Sem alterações pendentes"
+            exit 0
+          fi
+          git commit -m "Reduz frequência do autosave durante preenchimento"
+          git pull --rebase origin main
+          git push origin HEAD:main
