@@ -1,0 +1,35 @@
+name: Aplicar exclusão de inspeção
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Inserir módulo de exclusão
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('index.html')
+          s=p.read_text(encoding='utf-8')
+          tag='<script src="./delete-draft.js?v=20260903-01"></script>'
+          if tag not in s:
+              marker='</body>'
+              if marker not in s:
+                  raise SystemExit('Tag </body> não encontrada no index.html')
+              s=s.replace(marker,tag+marker,1)
+              p.write_text(s,encoding='utf-8')
+          PY
+      - name: Publicar alteração
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add index.html
+          git commit -m 'feat: ativar botão excluir inspeção' || true
+          git push
