@@ -25,6 +25,11 @@ function loadPhotoMultiFix(){
   if(old)old.remove();
   const s=document.createElement('script');s.id='tbm-photo-multi-fix';s.src='./photo-multi-fix.js?v=20260903-02&cb='+Date.now();s.async=false;document.body.appendChild(s);return new Promise(resolve=>{s.onload=resolve;s.onerror=resolve});
 }
+function loadSaveButtonFix(){
+  const old=document.getElementById('tbm-save-button-fix');
+  if(old)old.remove();
+  const s=document.createElement('script');s.id='tbm-save-button-fix';s.src='./save-button-fix.js?v=20260903-01&cb='+Date.now();s.async=false;document.body.appendChild(s);return new Promise(resolve=>{s.onload=resolve;s.onerror=resolve});
+}
 function loadPdfPhotoFitFix(){
   if(document.getElementById('tbm-pdf-photo-fit-fix'))return Promise.resolve();
   const s=document.createElement('script');s.id='tbm-pdf-photo-fit-fix';s.src='./pdf-photo-fit-fix.js?v=20260903-01';s.async=false;document.body.appendChild(s);return new Promise(resolve=>{s.onload=resolve;s.onerror=resolve});
@@ -39,6 +44,6 @@ function loadFinalPdfFix(){
   if(old)old.remove();
   return new Promise(resolve=>{const s=document.createElement('script');s.id='tbm-final-pdf-fix';s.src='./pdf-final-fix.js?v=20260903-02';s.async=false;document.body.appendChild(s);s.onload=resolve;s.onerror=resolve});
 }
-async function loadRepairs(){await loadChecklistConditional();await loadPhotoMultiFix();await loadPdfPhotoFitFix();await loadAbntMaster();await loadFinalPdfFix()}
+async function loadRepairs(){await loadChecklistConditional();await loadPhotoMultiFix();await loadSaveButtonFix();await loadPdfPhotoFitFix();await loadAbntMaster();await loadFinalPdfFix()}
 if(document.readyState==='loading')window.addEventListener('DOMContentLoaded',loadRepairs,{once:true});else loadRepairs();
 })();
