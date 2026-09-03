@@ -1,0 +1,63 @@
+ia:'Escadas',grupo:'escadas',item:'Na escada extensível, travas, guias, cordas e sistemas de extensão estão íntegros e funcionando corretamente?'},
+  {id:'esc8',n:32,categoria:'Escadas',grupo:'escadas',item:'A escada permite acesso e movimentação sem que o trabalhador precise se projetar excessivamente para os lados?'},
+  {id:'esc9',n:33,categoria:'Escadas',grupo:'escadas',item:'A escada não está posicionada diante de portas, circulação de veículos ou áreas de risco sem bloqueio e sinalização?'},
+
+  // Andaimes
+  {id:'and1',n:34,categoria:'Andaimes',grupo:'andaimes',item:'O andaime possui todas as peças estruturais necessárias, sem componentes ausentes, improvisados ou danificados?'},
+  {id:'and2',n:35,categoria:'Andaimes',grupo:'andaimes',item:'Bases, sapatas ou rodas estão instaladas corretamente sobre superfície firme e nivelada?'},
+  {id:'and3',n:36,categoria:'Andaimes',grupo:'andaimes',item:'Travamentos, diagonais e contraventamentos estão instalados e firmes?'},
+  {id:'and4',n:37,categoria:'Andaimes',grupo:'andaimes',item:'O piso / plataforma de trabalho está completo, firme, nivelado, sem vãos perigosos e com resistência adequada?'},
+  {id:'and5',n:38,categoria:'Andaimes',grupo:'andaimes',item:'O andaime possui guarda-corpo, travessão intermediário e rodapé nas áreas necessárias?'},
+  {id:'and6',n:39,categoria:'Andaimes',grupo:'andaimes',item:'O acesso ao andaime é seguro e realizado por meio apropriado, sem escalada pela estrutura externa?'},
+  {id:'and7',n:40,categoria:'Andaimes',grupo:'andaimes',item:'O andaime está amarrado, ancorado ou estabilizado adequadamente contra tombamento e deslocamento?'},
+  {id:'and8',n:41,categoria:'Andaimes',grupo:'andaimes',item:'Quando o andaime possuir rodas, todas estão travadas durante a execução do trabalho?'},
+  {id:'and9',n:42,categoria:'Andaimes',grupo:'andaimes',item:'A capacidade de carga do andaime está sendo respeitada, sem excesso de pessoas, materiais ou equipamentos?'},
+  {id:'and10',n:43,categoria:'Andaimes',grupo:'andaimes',item:'O andaime foi inspecionado antes do uso e não apresenta alteração que comprometa sua segurança?'},
+
+  // Plataforma elevatória
+  {id:'pta1',n:44,categoria:'Plataforma Elevatória (PTA)',grupo:'pta',item:'Foi realizado checklist pré-operacional da plataforma e o equipamento foi aprovado para utilização?'},
+  {id:'pta2',n:45,categoria:'Plataforma Elevatória (PTA)',grupo:'pta',item:'O operador da plataforma é treinado, autorizado e está presente durante a operação?'},
+  {id:'pta3',n:46,categoria:'Plataforma Elevatória (PTA)',grupo:'pta',item:'A plataforma está posicionada em piso firme, nivelado e compatível com o equipamento?'},
+  {id:'pta4',n:47,categoria:'Plataforma Elevatória (PTA)',grupo:'pta',item:'A área de movimentação da plataforma está isolada e sinalizada?'},
+  {id:'pta5',n:48,categoria:'Plataforma Elevatória (PTA)',grupo:'pta',item:'Guarda-corpos, portão de acesso e pontos de ancoragem da plataforma estão íntegros e funcionando corretamente?'},
+  {id:'pta6',n:49,categoria:'Plataforma Elevatória (PTA)',grupo:'pta',item:'Comandos, parada de emergência, alarmes e sistema de descida de emergência estão operacionais?'},
+  {id:'pta7',n:50,categoria:'Plataforma Elevatória (PTA)',grupo:'pta',item:'O trabalhador está conectado ao ponto de ancoragem definido pelo fabricante durante a utilização da plataforma?'},
+  {id:'pta8',n:51,categoria:'Plataforma Elevatória (PTA)',grupo:'pta',item:'Foram avaliados obstáculos aéreos, estruturas, tubulações e riscos de esmagamento durante a movimentação?'},
+  {id:'pta9',n:52,categoria:'Plataforma Elevatória (PTA)',grupo:'pta',item:'Foram controlados riscos de proximidade com instalações elétricas e partes energizadas?'},
+  {id:'pta10',n:53,categoria:'Plataforma Elevatória (PTA)',grupo:'pta',item:'A carga, quantidade de pessoas e materiais estão dentro da capacidade permitida da plataforma?'},
+  {id:'pta11',n:54,categoria:'Plataforma Elevatória (PTA)',grupo:'pta',item:'É proibido subir no guarda-corpo, usar escadas ou improvisar aumento de altura dentro da plataforma?'},
+
+  // Encerramento
+  {id:'final1',n:55,categoria:'Liberação e Encerramento',grupo:'final',item:'Todas as medidas de controle previstas foram implantadas antes da liberação do trabalho?'},
+  {id:'final2',n:56,categoria:'Liberação e Encerramento',grupo:'final',item:'Qualquer condição de risco não prevista implica interrupção do trabalho e reavaliação da PT?'},
+  {id:'final3',n:57,categoria:'Liberação e Encerramento',grupo:'final',item:'Ao final, materiais, ferramentas, proteções e área de trabalho serão deixados em condição segura?'},
+];
+window.checklistPT=checklistPT;
+window.PT_EPI_OPTIONS=EPI_OPTIONS;
+window.PT_ACCESS_OPTIONS=ACCESS_OPTIONS;
+
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+const nowISO=()=>new Date().toISOString();
+function idPT(){return 'PT-'+Date.now().toString(36).toUpperCase()+'-'+Math.random().toString(36).slice(2,6).toUpperCase()}
+function blankChecklist(){return checklistPT.map(x=>({...x,status:'N/A'}))}
+function blankWorker(){return {id:'W-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,5),nome:'',signature:''}}
+function blankFlags(options){return Object.fromEntries(options.map(([k])=>[k,false]))}
+function freshState(){
+  const d=new Date();
+  return {
+    id:idPT(),type:PT_TYPE,title:PT_TITLE,createdAt:nowISO(),updatedAt:nowISO(),
+    description:'',workLocation:'',sector:'',date:d.toISOString().slice(0,10),startTime:'',endTime:'',
+    episSelecionados:blankFlags(EPI_OPTIONS),epiOutro:'',meiosAcesso:blankFlags(ACCESS_OPTIONS),meioAcessoOutro:'',
+    checklistPT:blankChecklist(),workers:[blankWorker()],
+    issuer:{name:EMISSOR_NOME,role:EMISSOR_CARGO},status:'RASCUNHO'
+  };
+}
+function normalizeState(x){
+  const s=JSON.parse(JSON.stringify(x||freshState()));
+  s.type=PT_TYPE;s.title=PT_TITLE;s.issuer={name:EMISSOR_NOME,role:EMISSOR_CARGO};
+  s.checklistPT=checklistPT.map(q=>{const old=(s.checklistPT||[]).find(z=>z.id===q.id)||{};return {...q,status:['CONFORME','NÃO CONFORME','N/A'].includes(old.status)?old.status:'N/A'}});
+  s.episSelecionados={...blankFlags(EPI_OPTIONS),...(s.episSelecionados||{})};
+  s.meiosAcesso={...blankFlags(ACCESS_OPTIONS),...(s.meiosAcesso||{})};
+  s.epiOutro=s.epiOutro||'';s.meioAcessoOutro=s.meioAcessoOutro||'';
+  s.
