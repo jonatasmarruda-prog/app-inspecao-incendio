@@ -1,0 +1,1 @@
+Sistema SST health check trigger
