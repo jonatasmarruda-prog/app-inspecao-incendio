@@ -20,24 +20,3 @@ function report(r){const o=shell(),b=$('#sstBody'),title={seg:'RELATÓRIO DE INS
 async function history(){const o=shell(),b=$('#sstBody'),a=await getAll();o.style.display='block';b.innerHTML='<button id="sstBack" class="btn secondary full no-print">← Voltar</button><div class="card"><h1>🗂️ Histórico SST</h1>'+(a.length?a.map(r=>`<div class="equip"><b>${esc(r.kind)}</b><br>${esc(r.company)} • ${esc(r.sector)} • ${new Date(r.created).toLocaleDateString('pt-BR')}<button class="btn primary full" data-open="${r.id}">Abrir relatório</button><button class="btn danger full" data-del="${r.id}">Excluir</button></div>`).join(''):'<p>Nenhum registro SST salvo.</p>')+'</div>';$('#sstBack').onclick=()=>o.style.display='none';all('[data-open]').forEach(x=>x.onclick=async()=>{const r=(await getAll()).find(z=>String(z.id)===x.dataset.open);if(r)report(r)});all('[data-del]').forEach(x=>x.onclick=async()=>{if(confirm('Excluir este registro?')){await remove(Number(x.dataset.del));history()}})}
 function nowBR(){return new Date().toLocaleString('pt-BR')}menu();
 })();
-
-<script id="tbm-cnpj-reports">
-(()=>{
-  const CNPJ='07.603.376/0003-00';
-  function addCnpj(){
-    document.querySelectorAll('.reportHeader').forEach(h=>{
-      if(h.querySelector('.tbm-cnpj')) return;
-      const t=(h.textContent||'').toLowerCase();
-      if(t.includes('tbm têxtil') || t.includes('tbm textil')){
-        const d=document.createElement('div');
-        d.className='tbm-cnpj';
-        d.style='font-size:10.5px;font-weight:800;margin-top:3px';
-        d.textContent='CNPJ: '+CNPJ;
-        h.appendChild(d);
-      }
-    });
-  }
-  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',addCnpj); else addCnpj();
-  new MutationObserver(addCnpj).observe(document.body,{childList:true,subtree:true});
-})();
-</script>
