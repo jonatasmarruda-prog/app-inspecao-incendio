@@ -85,6 +85,7 @@ async function limparInspecao(){
   try { sessionStorage.clear(); } catch (_) {}
   if (id) {
     try { if (typeof window.idbDelete === 'function') { await window.idbDelete(id); } } catch (e) { console.warn('Falha idbDelete:', e); }
+    try { await removeCurrentFromIndexedDB(id); } catch (e) { console.warn('Falha na limpeza completa do IndexedDB:', e); }
     try { if (window.SST?.fs) { await window.SST.fs.collection('inspections').doc(String(id)).delete(); } } catch (e) { console.warn('Falha nuvem:', e); }
   }
   window.location.reload();
