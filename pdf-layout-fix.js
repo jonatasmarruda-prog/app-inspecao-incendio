@@ -235,7 +235,6 @@ window.makePdf=async function(action='download'){
     content.push({canvas:[{type:'line',x1:0,y1:0,x2:515,y2:0,lineWidth:0.7,lineColor:'#cccccc'}],margin:[0,2,0,8]});
     content.push({text:`Documento eletrônico emitido pelo Sistema Profissional de Inspeção SST • ID ${id}`,alignment:'center',fontSize:7.8,color:'#222222',margin:[0,0,0,14]});
     content.push({canvas:[{type:'line',x1:170,y1:0,x2:345,y2:0,lineWidth:0.7,lineColor:'#222222'}],margin:[0,0,0,5]});
-    content.push({text:'Técnico de Segurança do Trabalho',alignment:'center',fontSize:8,color:'#111111'});
     content.push({text:`Relatório gerado em ${emitido}`,alignment:'center',fontSize:8,color:'#111111',margin:[0,3,0,0]});
 
     const docDefinition={
