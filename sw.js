@@ -1,4 +1,4 @@
-const CACHE='inspecao-sst-v17';
+const CACHE='inspecao-sst-v18';
 const ASSETS=['./','./index.html','./sst-modulos.js','./compartilhar-relatorio.js','./editar-relatorio.js','./abnt-relatorio.js','./integracao-modulos.js','./manifest.json','./offline-boot.js','./icon.svg'];
 self.addEventListener('install',event=>{event.waitUntil((async()=>{const cache=await caches.open(CACHE);await Promise.all(ASSETS.map(async url=>{try{const r=await fetch(url,{cache:'no-store'});if(r.ok)await cache.put(url,r)}catch(e){}}));await self.skipWaiting()})())});
 self.addEventListener('activate',event=>{event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('inspecao-')&&k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim()))});
