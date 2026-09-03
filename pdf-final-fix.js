@@ -1,23 +1,25 @@
 (()=>{
 'use strict';
-/* PDF FINAL v4 — captura robusta, estado preservado, ABNT, compartilhamento nativo. */
+/* PDF FINAL v5 — renderização visível e independente, estado preservado, ABNT e Web Share. */
 let busy=false;
 const $=id=>document.getElementById(id);
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 
 function getState(){
   try{if(typeof state!=='undefined'&&state&&typeof state==='object')return state}catch(_){}
-  return window.state||window.appState||window.inspectionState||window.currentInspection||{};
+  try{if(window.current&&typeof window.current==='object')return window.current}catch(_){}
+  return window.state||window.appState||window.inspectionState||window.currentInspection||window.inspection||{};
 }
 
 function getId(st){
   const candidates=[
-    st?.id,
-    window.currentInspectionId,
-    window.inspectionId,
-    window.idGerado,
+    st?.id,st?.inspectionId,st?.idInspecao,
+    typeof window.currentInspectionId==='string'?window.currentInspectionId:'',
+    window.inspectionId,window.idGerado,
     document.querySelector('[data-inspection-id]')?.dataset?.inspectionId,
     document.getElementById('inspectionId')?.value,
+    document.getElementById('inspectionID')?.value,
+    document.getElementById('idInspecao')?.value,
     document.querySelector('.reportNo')?.textContent,
     document.querySelector('.pdf-id')?.textContent
   ];
@@ -36,9 +38,7 @@ function getId(st){
   return id;
 }
 
-async function waitFonts(){
-  try{if(document.fonts?.ready)await document.fonts.ready}catch(_){}
-}
+async function waitFonts(){try{if(document.fonts?.ready)await document.fonts.ready}catch(_) {}}
 
 async function waitImages(root){
   const imgs=[...root.querySelectorAll('img')];
@@ -48,13 +48,13 @@ async function waitImages(root){
     const finish=()=>{if(done)return;done=true;img.removeEventListener('load',finish);img.removeEventListener('error',finish);resolve()};
     img.addEventListener('load',finish,{once:true});
     img.addEventListener('error',finish,{once:true});
-    setTimeout(finish,10000);
+    setTimeout(finish,15000);
   })));
 }
 
 async function inlineSameOriginImages(root){
   for(const img of [...root.querySelectorAll('img[src]')]){
-    const src=img.getAttribute('src');
+    const src=img.getAttribute('src')||'';
     if(!src||src.startsWith('data:')||src.startsWith('blob:'))continue;
     try{
       const url=new URL(src,location.href);
@@ -69,7 +69,7 @@ async function inlineSameOriginImages(root){
         reader.readAsDataURL(blob);
       });
       img.src=data;
-    }catch(e){console.warn('[PDF] imagem externa mantida:',src,e)}
+    }catch(e){console.warn('[PDF] imagem local mantida:',src,e)}
   }
 }
 
@@ -87,8 +87,7 @@ function transferFields(source,clone){
   originalCanvases.forEach((canvas,index)=>{
     const target=copiedCanvases[index];
     if(!target)return;
-    target.width=canvas.width;
-    target.height=canvas.height;
+    target.width=canvas.width;target.height=canvas.height;
     const ctx=target.getContext('2d');
     if(ctx)ctx.drawImage(canvas,0,0);
   });
@@ -101,40 +100,31 @@ function dedupePhotos(root){
     if(!img)return;
     const key=img.getAttribute('src')||img.src||'';
     if(!key)return;
-    if(seen.has(key))card.remove();
-    else seen.add(key);
+    if(seen.has(key))card.remove();else seen.add(key);
   });
 }
 
-function findVisibleReport(){
-  const content=$('reportContent');
-  if(content&&content.innerHTML.trim())return content;
-  return document.querySelector('#report .reportShell')||document.querySelector('.reportPage')||document.querySelector('.pdf-enterprise');
-}
-
 function buildReport(st){
-  const source=findVisibleReport();
   const root=document.createElement('div');
   root.id='tbmPdfFinalRender';
-  if(source){
-    root.innerHTML=source.innerHTML;
-    transferFields(source,root);
+  /* Preferimos a montagem oficial do laudo: não depende de cloneNode nem de inputs. */
+  if(typeof window.reportHTML==='function'){
+    try{root.innerHTML=window.reportHTML(st)||''}catch(e){console.warn('[PDF] reportHTML falhou; usando DOM atual.',e)}
   }
-  if(!root.innerHTML.trim()&&typeof window.reportHTML==='function'){
-    root.innerHTML=window.reportHTML(st)||'';
+  if(!root.innerHTML.trim()){
+    const source=document.querySelector('#reportContent .pdf-enterprise,#reportContent .reportPage,#reportContent .reportShell,#reportContent .abnt-report,#reportContent .report,#report .reportShell,.reportPage,.pdf-enterprise');
+    if(source){root.innerHTML=source.outerHTML;transferFields(source,root)}
   }
-  if(!root.textContent.trim()&&!root.querySelector('img,table,canvas')){
-    throw new Error('O conteúdo do relatório está vazio. Abra ou gere o relatório antes de exportar.');
-  }
+  if(!root.textContent.trim()&&!root.querySelector('img,table,canvas'))throw new Error('O conteúdo do relatório está vazio. Abra ou gere o relatório antes de exportar.');
   return root;
 }
 
 function styleRoot(root){
   Object.assign(root.style,{
-    position:'absolute',left:'0',top:'0',width:'794px',maxWidth:'794px',
+    position:'fixed',left:'0',top:'0',width:'794px',maxWidth:'794px',minHeight:'1px',
     margin:'0',padding:'0',background:'#fff',color:'#111',display:'block',
     visibility:'visible',opacity:'1',pointerEvents:'none',zIndex:'2147483000',overflow:'visible',
-    fontFamily:'Arial,Helvetica,sans-serif'
+    fontFamily:'Arial,Helvetica,sans-serif',transform:'none'
   });
   root.querySelectorAll('*').forEach(el=>{
     el.style.boxSizing='border-box';
@@ -142,30 +132,24 @@ function styleRoot(root){
     el.style.opacity='1';
     el.style.fontFamily='Arial,Helvetica,sans-serif';
   });
-  root.querySelectorAll('.pdf-enterprise,.pdf-page,.reportPage,.reportShell').forEach(el=>{
-    el.style.background='#fff';
-    el.style.color='#111';
-    el.style.margin='0';
-    el.style.maxWidth='none';
+  root.querySelectorAll('.hidden,[hidden]').forEach(el=>{
+    el.classList.remove('hidden');el.removeAttribute('hidden');
+  });
+  root.querySelectorAll('.pdf-enterprise,.pdf-page,.reportPage,.reportShell,.abnt-report').forEach(el=>{
+    el.style.background='#fff';el.style.color='#111';el.style.margin='0';el.style.maxWidth='none';el.style.display='block';el.style.visibility='visible';
   });
   root.querySelectorAll('.no-print,button,input,textarea,select').forEach(el=>el.style.display='none');
   root.querySelectorAll('table,.pdf-section,.rsection,.pdf-photo,.rphotos,.rsig,.pdf-signatures,.pdf-signature,.pdf-summary,.photoCard').forEach(el=>{
-    el.style.breakInside='avoid';
-    el.style.pageBreakInside='avoid';
+    el.style.breakInside='avoid';el.style.pageBreakInside='avoid';
   });
   root.querySelectorAll('img').forEach(img=>{
-    img.style.maxWidth='100%';
-    img.style.height=img.style.height||'auto';
-    img.style.objectFit='contain';
-    img.style.objectPosition='center';
-    img.removeAttribute('loading');
+    img.style.maxWidth='100%';img.style.objectPosition='center';img.style.objectFit='contain';img.removeAttribute('loading');
   });
 }
 
 function injectPrintCss(){
   if($('tbmPdfFinalPrintCss'))return;
-  const style=document.createElement('style');
-  style.id='tbmPdfFinalPrintCss';
+  const style=document.createElement('style');style.id='tbmPdfFinalPrintCss';
   style.textContent=`
     .tbmPdfFinalExport{font-family:Arial,Helvetica,sans-serif!important;background:#fff!important;color:#111!important;font-size:12pt!important;line-height:1.5!important}
     .tbmPdfFinalExport *{font-family:Arial,Helvetica,sans-serif!important;color:#111}
@@ -200,6 +184,7 @@ async function makePdfFinal(forceShare=true){
     await inlineSameOriginImages(root);
     dedupePhotos(root);
     await waitImages(root);
+    /* Delay explícito para eliminar captura antes do DOM estar pronto. */
     await sleep(1000);
     await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
     window.scrollTo(0,0);
@@ -207,7 +192,7 @@ async function makePdfFinal(forceShare=true){
 
     const filename='Laudo_Inspecao_'+id+'.pdf';
     const opt={
-      margin:[30,30,20,20],
+      margin:[30,20,20,30],
       filename,
       image:{type:'jpeg',quality:0.86},
       html2canvas:{
@@ -216,7 +201,7 @@ async function makePdfFinal(forceShare=true){
         allowTaint:false,
         backgroundColor:'#fff',
         logging:false,
-        imageTimeout:15000,
+        imageTimeout:30000,
         removeContainer:true,
         scrollX:0,
         scrollY:0,
@@ -224,10 +209,7 @@ async function makePdfFinal(forceShare=true){
         width:794
       },
       jsPDF:{unit:'mm',format:'a4',orientation:'portrait',compress:true},
-      pagebreak:{
-        mode:['avoid-all','css','legacy'],
-        avoid:['.pdf-section','.rsection','.pdf-photo','.rphotos figure','.pdf-signature','.rsig','.pdf-summary','table','tr']
-      }
+      pagebreak:{mode:['avoid-all','css','legacy'],avoid:['.pdf-section','.rsection','.pdf-photo','.rphotos figure','.pdf-signature','.rsig','.pdf-summary','table','tr']}
     };
 
     const worker=window.html2pdf().set(opt).from(root).toContainer().toCanvas().toPdf();
@@ -237,34 +219,20 @@ async function makePdfFinal(forceShare=true){
     if(!blob||blob.size<1500)throw new Error('O PDF foi gerado sem conteúdo.');
 
     const file=new File([blob],filename,{type:'application/pdf'});
-    if(forceShare&&navigator.share&&navigator.canShare){
+    if(forceShare&&typeof navigator.share==='function'&&typeof navigator.canShare==='function'){
       try{
         if(navigator.canShare({files:[file]})){
-          await navigator.share({
-            title:'Laudo de Inspeção SST',
-            text:'Laudo de inspeção de segurança — '+id,
-            files:[file]
-          });
+          await navigator.share({title:'Laudo de Inspeção SST',text:'Laudo de inspeção de segurança — '+id,files:[file]});
           return;
         }
-      }catch(e){
-        if(e?.name==='AbortError')return;
-        console.warn('[PDF] compartilhamento não concluído:',e);
-      }
+      }catch(e){if(e?.name==='AbortError')return;console.warn('[PDF] compartilhamento não concluído:',e)}
     }
 
     const url=URL.createObjectURL(blob);
-    const a=document.createElement('a');
-    a.href=url;
-    a.download=filename;
-    a.rel='noopener';
-    a.style.display='none';
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(()=>URL.revokeObjectURL(url),60000);
+    const a=document.createElement('a');a.href=url;a.download=filename;a.rel='noopener';a.style.display='none';
+    document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);
   }catch(e){
-    console.error('[PDF FINAL v4]',e);
+    console.error('[PDF FINAL v5]',e);
     alert('Não foi possível gerar o PDF: '+(e?.message||e));
   }finally{
     if(root)root.remove();
@@ -275,34 +243,37 @@ async function makePdfFinal(forceShare=true){
 window.makePdfFinal=makePdfFinal;
 window.makePdf=makePdfFinal;
 window.gerarPDF=makePdfFinal;
+window.gerarPDFMaster=makePdfFinal;
 window.compartilharPDF=()=>makePdfFinal(true);
 window.gerarRelatorioPDF=makePdfFinal;
 
 function bindButtons(){
   const pdf=$('pdf');
   if(pdf&&!pdf.dataset.tbmPdfFinal){
-    pdf.dataset.tbmPdfFinal='1';
-    pdf.type='button';
-    pdf.textContent='📄 GERAR E COMPARTILHAR PDF';
+    pdf.dataset.tbmPdfFinal='1';pdf.type='button';pdf.textContent='📄 GERAR E COMPARTILHAR PDF';
     pdf.addEventListener('click',e=>{e.preventDefault();e.stopImmediatePropagation();makePdfFinal(true)},true);
   }
   const reportPdf=$('reportPdf');
   if(reportPdf&&!reportPdf.dataset.tbmPdfFinal){
-    reportPdf.dataset.tbmPdfFinal='1';
-    reportPdf.type='button';
-    reportPdf.textContent='⬇️ BAIXAR PDF';
+    reportPdf.dataset.tbmPdfFinal='1';reportPdf.type='button';reportPdf.textContent='⬇️ BAIXAR PDF';
     reportPdf.addEventListener('click',e=>{e.preventDefault();e.stopImmediatePropagation();makePdfFinal(false)},true);
   }
   const reportShare=$('reportShare');
   if(reportShare&&!reportShare.dataset.tbmPdfFinal){
-    reportShare.dataset.tbmPdfFinal='1';
-    reportShare.type='button';
-    reportShare.textContent='📤 COMPARTILHAR PDF';
+    reportShare.dataset.tbmPdfFinal='1';reportShare.type='button';reportShare.textContent='📤 COMPARTILHAR PDF';
     reportShare.addEventListener('click',e=>{e.preventDefault();e.stopImmediatePropagation();makePdfFinal(true)},true);
+  }
+  /* Garante que a opção de compartilhar apareça também no formulário principal. */
+  const actions=document.querySelector('#form .actions');
+  if(actions&&!document.getElementById('tbmShareMain')){
+    const b=document.createElement('button');
+    b.id='tbmShareMain';b.type='button';b.className='btn blue no-print';
+    b.textContent='📄 GERAR E COMPARTILHAR PDF';
+    b.addEventListener('click',e=>{e.preventDefault();makePdfFinal(true)},true);
+    actions.appendChild(b);
   }
 }
 
-if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bindButtons,{once:true});
-else bindButtons();
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bindButtons,{once:true});else bindButtons();
 [300,800,1500,3000,5000].forEach(t=>setTimeout(bindButtons,t));
 })();
