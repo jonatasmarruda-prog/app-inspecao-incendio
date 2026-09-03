@@ -8,6 +8,7 @@ const DELETE_QUEUE_KEY='tbm-sst-cloud-delete-queue';
 const SYNC_DEBOUNCE=1200;
 const FIRESTORE_WAIT=2500;
 const SYNC_INTERVAL=120000; // 2 minutos
+const MOBILE_DEVICE=(()=>{try{return matchMedia('(max-width: 900px)').matches||matchMedia('(pointer: coarse)').matches||/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent||'')}catch(_){return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent||'')}})();
 let pushTimer=null;
 let unsubscribe=null;
 let applyingRemote=false;
@@ -337,9 +338,9 @@ function installObservers(){
 
 function startPeriodicSync(){
   if(periodicTimer)return;
-  periodicTimer=setInterval(()=>{if(navigator.onLine!==false)syncAll({silent:true}).catch(()=>{})},SYNC_INTERVAL);
-  window.addEventListener('online',()=>syncAll({silent:true}).catch(()=>{}));
-  document.addEventListener('visibilitychange',()=>{if(!document.hidden&&navigator.onLine!==false)syncAll({silent:true}).catch(()=>{})});
+  periodicTimer=setInterval(()=>{if(navigator.onLine!==false&&(!MOBILE_DEVICE||document.hidden))syncAll({silent:true}).catch(()=>{})},MOBILE_DEVICE?600000:SYNC_INTERVAL);
+  window.addEventListener('online',()=>{if(!MOBILE_DEVICE)syncAll({silent:true}).catch(()=>{});else pushCloud('online-mobile').catch(()=>{})});
+  document.addEventListener('visibilitychange',()=>{if(!MOBILE_DEVICE&&!document.hidden&&navigator.onLine!==false)syncAll({silent:true}).catch(()=>{})});
 }
 
 function startCloudProbe(){
@@ -350,7 +351,7 @@ function startCloudProbe(){
     if(window.SST?.fs){
       clearInterval(retry);indicator('sync','● Nuvem sincronizada');
       const st=getState();if(st?.id)attachRealtime(String(st.id));
-      setTimeout(()=>syncAll({silent:true}).catch(()=>{}),700);
+      if(MOBILE_DEVICE){if(st?.id)pushCloud('startup-mobile').catch(()=>{})}else setTimeout(()=>syncAll({silent:true}).catch(()=>{}),700);
       return;
     }
     if(tries>=15){clearInterval(retry);indicator('offline','● Local • Nuvem pendente')}
