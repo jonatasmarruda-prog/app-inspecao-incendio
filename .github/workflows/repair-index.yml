@@ -1,0 +1,39 @@
+name: Repair SST index
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Patch broken wiring
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('index.html')
+          s=p.read_text(encoding='utf-8')
+          for a,b in {
+            "$('todayDate')":"$('premiumToday')",
+            "$('todayTime')":"$('premiumTime')",
+            "$('startFire')":"$('start')",
+            "$('historyBtn')":"$('hist')",
+          }.items():
+            s=s.replace(a,b)
+          tag='<script src="./master-fix.js?v=20260903-master"></script>'
+          if tag not in s:
+            marker='<script>if(\'serviceWorker\' in navigator)'
+            s=s.replace(marker, '<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>\n'+tag+'\n'+marker, 1)
+          p.write_text(s,encoding='utf-8')
+          PY
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "fix: repair SST index wiring"
+          git push
