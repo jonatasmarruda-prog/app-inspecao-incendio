@@ -150,6 +150,10 @@ function init(){
     requestAnimationFrame(scan);
   });
   observer.observe(root,{childList:true,subtree:true});
+  const pdfScript=document.createElement('script');
+  pdfScript.src='./pdf-master-fix.js?v=20260903-01';
+  pdfScript.defer=true;
+  document.head.appendChild(pdfScript);
 }
 
 if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',init,{once:true});
