@@ -142,9 +142,19 @@ function scan(){
   document.querySelectorAll('.equipment').forEach(enhanceCard);
 }
 
+function loadPdfLayoutFix(){
+  if(document.querySelector('script[data-tbm-pdf-layout-fix]')) return;
+  const s=document.createElement('script');
+  s.src='./pdf-layout-fix.js?v=20260903-02';
+  s.defer=true;
+  s.dataset.tbmPdfLayoutFix='1';
+  document.head.appendChild(s);
+}
+
 function init(){
   injectCSS();
   scan();
+  loadPdfLayoutFix();
   const root=document.getElementById('equipmentList')||document.body;
   const observer=new MutationObserver(()=>{
     requestAnimationFrame(scan);
