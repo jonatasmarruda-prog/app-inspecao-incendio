@@ -1,0 +1,90 @@
+from pathlib import Path
+
+p = Path('index.html')
+s = p.read_text(encoding='utf-8')
+changed = False
+
+css_anchor = '.modalbox{background:#fff;border-radius:18px;padding:18px;max-width:460px;width:100%;max-height:90vh;overflow:auto}'
+css_add = '.accident-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.accident-subtitle{font-size:15px;font-weight:900;margin:0 0 10px}.accident-causes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.accident-cause{display:flex;align-items:center;gap:9px;padding:11px;border:1px solid var(--line);border-radius:10px;background:#f8fafc;font-size:12px;font-weight:800}.accident-cause input{width:18px;height:18px;accent-color:var(--red)}.actionCard{border:1px solid #d9e0e8;border-radius:13px;padding:12px;margin:10px 0;background:#fbfcfe}.actionCardHead{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px}.actionCardTitle{font-size:13px;font-weight:900}.actionDelete{padding:7px 9px!important}.accident-empty{padding:12px;border:1px dashed #cbd5e1;border-radius:10px;color:var(--muted);font-size:12px;text-align:center}@media(max-width:760px){.accident-grid,.accident-causes{grid-template-columns:1fr}}'
+if '.accident-grid{' not in s and css_anchor in s:
+    s = s.replace(css_anchor, css_anchor + css_add, 1)
+    changed = True
+
+old_html = '<div class="card"><div class="sectionTitle">☑️ Checklist</div><div id="checklist"></div></div><div class="card"><div class="sectionTitle">📷 Registro fotográfico</div>'
+new_html = '''<div class="card" id="checklistCard"><div class="sectionTitle">☑️ Checklist</div><div id="checklist"></div></div><div class="card hidden" id="accidentInvestigationCard"><div class="sectionTitle">⚠️ Investigação de Acidente</div><div class="notice info">Registre os dados da ocorrência, as falhas identificadas e o plano de ação. O registro fotográfico e as assinaturas abaixo permanecem intactos.</div><div class="accident-subtitle">1. Dados iniciais do evento</div><div class="accident-grid"><div class="field"><label>Data do Acidente</label><input type="date" data-accident-field="eventDate"></div><div class="field"><label>Hora do Acidente</label><input type="time" data-accident-field="eventTime"></div><div class="field"><label>Local / Setor Exato da Ocorrência</label><input data-accident-field="eventLocation" placeholder="Ex.: Produção, setor de tecelagem, máquina X"></div><div class="field"><label>Supervisor Imediato do Setor</label><input data-accident-field="supervisor" placeholder="Nome do supervisor"></div></div><div class="accident-subtitle" style="margin-top:18px">2. Classificação do evento e dados do acidentado</div><div class="accident-grid"><div class="field"><label>Tipo de Evento</label><select data-accident-field="eventType"><option>Acidente com lesão</option><option>Acidente sem lesão</option><option>Doença Ocupacional</option><option>Incidente / Quase acidente</option><option>Dano material</option><option>Outro</option></select></div><div class="field"><label>Gravidade</label><select data-accident-field="severity"><option>Com Afastamento</option><option>Sem Afastamento</option><option>Fatalidade</option></select></div><div class="field"><label>Classe</label><select data-accident-field="class"><option>0</option><option>1</option><option>2</option><option>3</option><option>4</option></select></div><div class="field"><label>Nome do Acidentado</label><input data-accident-field="victimName"></div><div class="field"><label>Cargo</label><input data-accident-field="victimRole"></div><div class="field"><label>Nº CAT</label><input data-accident-field="cat" placeholder="Se aplicável"></div><div class="field"><label>Tempo de Empresa</label><input data-accident-field="companyTime" placeholder="Ex.: 3 anos e 4 meses"></div><div class="field"><label>Tempo de Função</label><input data-accident-field="functionTime" placeholder="Ex.: 1 ano e 2 meses"></div><div class="field"><label>Data do ASO</label><input type="date" data-accident-field="asoDate"></div></div><div class="accident-subtitle" style="margin-top:18px">3. Identificação das falhas</div><div class="accident-causes"><label class="accident-cause"><input type="checkbox" data-accident-cause="Uso Inadequado de EPIs">Uso Inadequado de EPIs</label><label class="accident-cause"><input type="checkbox" data-accident-cause="Procedimento Não Seguido">Procedimento Não Seguido</label><label class="accident-cause"><input type="checkbox" data-accident-cause="Falha na Gestão de Mudanças">Falha na Gestão de Mudanças</label><label class="accident-cause"><input type="checkbox" data-accident-cause="Falha na Emissão de PT/AR">Falha na Emissão de PT/AR</label><label class="accident-cause"><input type="checkbox" data-accident-cause="Falta de Treinamento">Falta de Treinamento</label><label class="accident-cause"><input type="checkbox" data-accident-cause="Falha em Equipamento">Falha em Equipamento</label><label class="accident-cause"><input type="checkbox" data-accident-cause="Condição Insegura do Local">Condição Insegura do Local</label></div><div class="accident-subtitle" style="margin-top:18px">4. Plano de ação</div><div id="accidentActions"></div><button type="button" id="addAccidentAction" class="btn secondary full no-print">➕ Adicionar Ação</button></div><div class="card"><div class="sectionTitle">📷 Registro fotográfico</div>'''
+if 'id="accidentInvestigationCard"' not in s:
+    if old_html not in s:
+        raise SystemExit('Não encontrei o bloco Checklist + Registro fotográfico para inserir a investigação.')
+    s = s.replace(old_html, new_html, 1)
+    changed = True
+
+old_reset = "checks:{},photos:[],findings:'',actions:'',signature1:'',signature2:'',createdAt:null,updatedAt:null}"
+new_reset = "checks:{},photos:[],findings:'',actions:'',signature1:'',signature2:'',accident:{eventDate:'',eventTime:'',eventLocation:'',supervisor:'',eventType:'Acidente com lesão',severity:'Sem Afastamento',class:'0',victimName:'',victimRole:'',cat:'',companyTime:'',functionTime:'',asoDate:'',causes:[],actions:[]},createdAt:null,updatedAt:null}"
+if 'accident:{eventDate:' not in s and old_reset in s:
+    s = s.replace(old_reset, new_reset, 1)
+    changed = True
+
+old_norm = "state.findings=$('findings').value.trim();state.actions=$('actions').value.trim()}"
+new_norm = "state.findings=$('findings').value.trim();state.actions=$('actions').value.trim();if(state.type==='accident'){state.accident=state.accident||{};document.querySelectorAll('[data-accident-field]').forEach(el=>{state.accident[el.dataset.accidentField]=el.value});state.accident.causes=[...document.querySelectorAll('[data-accident-cause]:checked')].map(el=>el.dataset.accidentCause)}}"
+if "state.accident.causes=[...document.querySelectorAll('[data-accident-cause]:checked')]" not in s and old_norm in s:
+    s = s.replace(old_norm, new_norm, 1)
+    changed = True
+
+old_render = "$('equipmentCard').classList.toggle('hidden',state.type!=='fire');renderChecklist();renderEquipment();renderPhotos();setupSigs();$('gpsText').textContent=state.gps?`GPS: ${state.gps.lat.toFixed(6)}, ${state.gps.lng.toFixed(6)}`:'Localização não capturada.'}"
+new_render = "$('equipmentCard').classList.toggle('hidden',state.type!=='fire');$('checklistCard').classList.toggle('hidden',state.type==='accident');$('accidentInvestigationCard').classList.toggle('hidden',state.type!=='accident');renderChecklist();renderEquipment();renderAccident();renderPhotos();setupSigs();$('gpsText').textContent=state.gps?`GPS: ${state.gps.lat.toFixed(6)}, ${state.gps.lng.toFixed(6)}`:'Localização não capturada.'}"
+if old_render in s:
+    s = s.replace(old_render, new_render, 1)
+    changed = True
+
+if 'function renderAccident()' not in s:
+    marker = 'function renderChecklist(){'
+    fn = '''function renderAccident(){if(state.type!=='accident')return;state.accident=state.accident||{eventDate:'',eventTime:'',eventLocation:'',supervisor:'',eventType:'Acidente com lesão',severity:'Sem Afastamento',class:'0',victimName:'',victimRole:'',cat:'',companyTime:'',functionTime:'',asoDate:'',causes:[],actions:[]};document.querySelectorAll('[data-accident-field]').forEach(el=>{el.value=state.accident[el.dataset.accidentField]??''});document.querySelectorAll('[data-accident-cause]').forEach(el=>el.checked=(state.accident.causes||[]).includes(el.dataset.accidentCause));const box=$('accidentActions');box.innerHTML=(state.accident.actions||[]).length?state.accident.actions.map((a,i)=>`<div class="actionCard"><div class="actionCardHead"><div class="actionCardTitle">Ação #${i+1}</div><button type="button" class="btn danger actionDelete no-print" data-del-action="${i}">Excluir</button></div><div class="grid"><div class="field"><label>Ação a ser tomada *</label><input required data-action-index="${i}" data-action-key="action" value="${esc(a.action||'')}" placeholder="Descreva a ação corretiva/preventiva"></div><div class="field"><label>Responsável *</label><input required data-action-index="${i}" data-action-key="responsible" value="${esc(a.responsible||'')}" placeholder="Nome ou função"></div><div class="field"><label>Prazo *</label><input required type="date" data-action-index="${i}" data-action-key="deadline" value="${esc(a.deadline||'')}"></div></div></div>`).join(''):'<div class="accident-empty">Nenhuma ação adicionada. Clique em “Adicionar Ação” para criar o plano de ação.</div>'}function addAccidentAction(){state.accident=state.accident||{};state.accident.actions=state.accident.actions||[];state.accident.actions.push({action:'',responsible:'',deadline:''});renderAccident();scheduleSave()}function syncAccidentActions(){if(state.type!=='accident'||!state.accident)return;state.accident.actions=[...document.querySelectorAll('[data-action-index]')].reduce((arr,el)=>{const i=+el.dataset.actionIndex,k=el.dataset.actionKey;arr[i]=arr[i]||{};arr[i][k]=el.value;return arr},[])}
+'''
+    if marker not in s:
+        raise SystemExit('Não encontrei renderChecklist().')
+    s = s.replace(marker, fn + marker, 1)
+    changed = True
+
+old_photos = '''function renderPhotos(){$('photos').innerHTML=state.photos.map((p,i)=>`<div class="photoCard"><img src="${p.data}"><input data-photo="${i}" value="${esc(p.caption||'')}" placeholder="Legenda"><button class="btn danger full no-print" data-del-photo="${i}">Excluir</button></div>`).join('')}function addPhotos(files){[...files].forEach(f=>{if(!f.type.startsWith('image/'))return;const r=new FileReader();r.onload=()=>{state.photos.push({data:r.result,caption:''});renderPhotos();scheduleSave()};r.readAsDataURL(f)})}'''
+new_photos = '''function renderPhotos(){$('photos').innerHTML=state.photos.map((p,i)=>`<div class="photoCard"><img src="${p.data}"><input data-photo="${i}" value="${esc(p.caption||'')}" placeholder="Legenda"><button class="btn danger full no-print" data-del-photo="${i}">Excluir</button></div>`).join('')}async function hashFile(file){try{const buf=await file.arrayBuffer();const digest=await crypto.subtle.digest('SHA-256',buf);return [...new Uint8Array(digest)].map(b=>b.toString(16).padStart(2,'0')).join('')}catch{return ''}}async function addPhotos(files){for(const f of [...files]){if(!f.type.startsWith('image/'))continue;const hash=await hashFile(f);if(hash&&state.photos.some(p=>p.hash===hash)){notice('Foto duplicada ignorada. A mesma evidência já está registrada.','error');continue}const r=new FileReader();r.onload=()=>{const data=r.result;if(state.photos.some(p=>p.data===data)){notice('Foto duplicada ignorada. A mesma evidência já está registrada.','error');return}state.photos.push({data,caption:'',hash});renderPhotos();scheduleSave()};r.readAsDataURL(f)}}'''
+if 'async function hashFile(file)' not in s:
+    if old_photos not in s:
+        raise SystemExit('Não encontrei a função atual de fotos para aplicar a proteção contra duplicatas.')
+    s = s.replace(old_photos, new_photos, 1)
+    changed = True
+
+old_save = "function scheduleSave(){clearTimeout(saveTimer);saveTimer=setTimeout(()=>saveInspection(true),700)}async function saveInspection(silent=false){try{normalize();state.id=state.id||uidgen();"
+new_save = "function scheduleSave(){clearTimeout(saveTimer);saveTimer=setTimeout(()=>saveInspection(true),700)}async function saveInspection(silent=false){try{if(state.type==='accident'){syncAccidentActions();for(const a of (state.accident?.actions||[])){if(!String(a.action||'').trim()||!String(a.responsible||'').trim()||!String(a.deadline||'').trim()){if(!silent)notice('Preencha Ação, Responsável e Prazo em todas as ações adicionadas.','error');return}}}normalize();state.id=state.id||uidgen();"
+if old_save in s:
+    s = s.replace(old_save, new_save, 1)
+    changed = True
+
+old_events = "$('addExt').onclick=()=>addEquipment('ext');$('addHid').onclick=()=>addEquipment('hid');$('photoInput').onchange=e=>addPhotos(e.target.files);$('clear1').onclick=()=>clearSig1();$('clear2').onclick=()=>clearSig2();"
+new_events = "$('addExt').onclick=()=>addEquipment('ext');$('addHid').onclick=()=>addEquipment('hid');$('addAccidentAction').onclick=()=>addAccidentAction();$('photoInput').onchange=e=>addPhotos(e.target.files);$('clear1').onclick=()=>clearSig1();$('clear2').onclick=()=>clearSig2();"
+if old_events in s:
+    s = s.replace(old_events, new_events, 1)
+    changed = True
+
+old_input = "document.addEventListener('input',e=>{if(!e.target.matches('input,textarea,select')||e.target.id==='photoInput')return;if(e.target.dataset.e){const i=+e.target.dataset.e,k=e.target.dataset.k;if(state.equipment[i]&&k){state.equipment[i][k]=e.target.value;scheduleSave()}}else if(e.target.dataset.photo!==undefined){state.photos[+e.target.dataset.photo].caption=e.target.value;scheduleSave()}else scheduleSave()});"
+new_input = "document.addEventListener('input',e=>{if(!e.target.matches('input,textarea,select')||e.target.id==='photoInput')return;if(e.target.dataset.e){const i=+e.target.dataset.e,k=e.target.dataset.k;if(state.equipment[i]&&k){state.equipment[i][k]=e.target.value;scheduleSave()}}else if(e.target.dataset.photo!==undefined){if(state.photos[+e.target.dataset.photo])state.photos[+e.target.dataset.photo].caption=e.target.value;scheduleSave()}else if(e.target.dataset.accidentField){state.accident=state.accident||{};state.accident[e.target.dataset.accidentField]=e.target.value;scheduleSave()}else if(e.target.dataset.actionIndex!==undefined){syncAccidentActions();scheduleSave()}else scheduleSave()});"
+if old_input in s:
+    s = s.replace(old_input, new_input, 1)
+    changed = True
+
+old_change = "document.addEventListener('change',e=>{if(e.target.dataset.check!==undefined){state.checks[+e.target.dataset.check]=e.target.value;scheduleSave()}if(e.target.dataset.e!==undefined&&e.target.dataset.status){state.equipment[+e.target.dataset.e].status=e.target.dataset.status;renderEquipment();scheduleSave()}});"
+new_change = "document.addEventListener('change',e=>{if(e.target.dataset.check!==undefined){state.checks[+e.target.dataset.check]=e.target.value;scheduleSave()}if(e.target.dataset.e!==undefined&&e.target.dataset.status){state.equipment[+e.target.dataset.e].status=e.target.dataset.status;renderEquipment();scheduleSave()}if(e.target.dataset.accidentCause){state.accident=state.accident||{};state.accident.causes=[...document.querySelectorAll('[data-accident-cause]:checked')].map(el=>el.dataset.accidentCause);scheduleSave()}});"
+if old_change in s:
+    s = s.replace(old_change, new_change, 1)
+    changed = True
+
+old_click = "t=e.target.closest('[data-del-photo]');if(t){state.photos.splice(+t.dataset.delPhoto,1);renderPhotos();scheduleSave()}t=e.target.closest('[data-open-h]');"
+new_click = "t=e.target.closest('[data-del-photo]');if(t){state.photos.splice(+t.dataset.delPhoto,1);renderPhotos();scheduleSave()}t=e.target.closest('[data-del-action]');if(t){syncAccidentActions();state.accident.actions.splice(+t.dataset.delAction,1);renderAccident();scheduleSave()}t=e.target.closest('[data-open-h]');"
+if old_click in s:
+    s = s.replace(old_click, new_click, 1)
+    changed = True
+
+if not changed:
+    print('Nenhuma alteração necessária; o patch já está aplicado.')
+else:
+    p.write_text(s, encoding='utf-8')
+    print('Investigação de acidente e proteção contra fotos duplicadas aplicadas com sucesso.')
