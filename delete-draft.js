@@ -52,12 +52,42 @@ async function removeCurrentFromIndexedDB(id){
 async function limparInspecao(){
   const ok=confirm('Tem certeza que deseja excluir esta inspeção? Todos os dados não salvos, fotos e assinaturas serão perdidos.');
   if(!ok)return;
+
   const id=currentInspectionId();
+
   try{window.__tbmExtra=[]}catch(_){ }
   try{if(Array.isArray(window.photos))window.photos.length=0}catch(_){ }
+
+  // Remove somente o rascunho/estado da inspeção atual.
+  // Não chama nenhuma rotina de salvamento ou criação de histórico.
+  const draftKeys=['inspectionId','inspection_id','currentInspectionId','idInspecao','inspection','draftInspection','inspectionDraft','currentInspection'];
+  for(const key of draftKeys){
+    try{localStorage.removeItem(key)}catch(_){ }
+  }
+
+  // Se a inspeção já tiver sido inserida temporariamente no histórico,
+  // remove somente o registro correspondente ao ID cancelado.
+  const historyKeys=['historico','historicoInspecoes','inspectionHistory','inspection_history','inspections','savedInspections'];
+  if(id){
+    for(const key of historyKeys){
+      try{
+        const raw=localStorage.getItem(key);
+        if(!raw)continue;
+        const data=JSON.parse(raw);
+        if(!Array.isArray(data))continue;
+        const filtered=data.filter(item=>{
+          const itemId=item?.id??item?.inspectionId??item?.idInspecao??item?.numeroInspecao??'';
+          return String(itemId).trim()!==String(id).trim();
+        });
+        localStorage.setItem(key,JSON.stringify(filtered));
+      }catch(_){ }
+    }
+  }
+
   try{sessionStorage.clear()}catch(_){ }
-  try{localStorage.clear()}catch(_){ }
   await removeCurrentFromIndexedDB(id);
+
+  // Não chamar salvarNoHistorico(), salvarInspecao() ou qualquer persistência.
   window.location.reload();
 }
 
