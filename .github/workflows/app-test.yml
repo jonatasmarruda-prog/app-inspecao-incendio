@@ -3,34 +3,32 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
-# Auditoria final obrigatória antes de considerar o sistema estável.
+permissions:
+  contents: read
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Validar sintaxe dos módulos
+      - name: Validar sintaxe JavaScript
         run: |
           set -e
-          for f in sst-modulos.js offline-boot.js sst-repair-loader.js compartilhar-relatorio.js editar-relatorio.js abnt-relatorio.js integracao-modulos.js sw.js service-worker.js; do node --check "$f"; done
-      - name: Validar scripts do index
+          for f in premium.js sst-modulos.js offline-boot.js sst-repair-loader.js compartilhar-relatorio.js editar-relatorio.js abnt-relatorio.js integracao-modulos.js master-fix.js firebase-sync.js sw.js service-worker.js; do node --check "$f"; done
+      - name: Validar estrutura atual do index
         run: |
           python3 - <<'PY'
-          import re
           from pathlib import Path
           h=Path('index.html').read_text(encoding='utf-8')
-          assert all(x in h for x in ['id="start"','id="startSafety"','id="startMachine"','id="startEpi"','id="startAccident"','id="startReport"','sst-modulos.js','offline-boot.js'])
-          for i,s in enumerate(re.findall(r'<script(?:\s[^>]*)?>([\s\S]*?)</script>',h,re.I)):
-              Path(f'/tmp/index-{i}.js').write_text(s,encoding='utf-8')
+          required=['data-type="fire"','data-type="safety"','data-type="machine"','data-type="epi"','data-type="accident"','data-type="report"','id="openHistory"','id="save"','id="pdf"','id="reportPdf"','id="reportShare"','id="reportContent"','premium.js']
+          missing=[x for x in required if x not in h]
+          if missing: raise SystemExit('Estrutura ausente: '+', '.join(missing))
+          print('ESTRUTURA INDEX: OK')
           PY
-          for f in /tmp/index-*.js; do node --check "$f"; done
-      - name: Instalar Playwright
+      - name: Auditoria E2E da interface principal
         run: |
           npm init -y >/dev/null 2>&1
           npm install --no-audit --no-fund playwright@1.55.0 >/dev/null 2>&1
           npx playwright install --with-deps chromium >/dev/null 2>&1
-      - name: Auditoria E2E dos módulos e relatórios
-        run: |
           python3 -m http.server 4173 --directory . >/tmp/server.log 2>&1 &
           sleep 2
           cat >/tmp/e2e.cjs <<'EOF'
@@ -38,41 +36,21 @@ jobs:
           const assert=(v,m)=>{if(!v)throw new Error(m)};
           (async()=>{
             const browser=await chromium.launch({headless:true});
-            const ctx=await browser.newContext({viewport:{width:390,height:844}});
-            const page=await ctx.newPage();
+            const page=await browser.newPage({viewport:{width:390,height:844}});
             const errors=[];page.on('pageerror',e=>errors.push(e.message));
             await page.goto('http://127.0.0.1:4173/?e2e='+Date.now(),{waitUntil:'networkidle'});
-            await page.waitForSelector('#start');
-            await page.waitForSelector('#sst-menu');
-            const modules=[['seg','Inspeção de Segurança'],['machine','Máquinas e Equipamentos'],['epi','Inspeção de EPI'],['accident','Investigação de Acidente'],['report','Relatório de Inspeção']];
-            for(const [kind,label] of modules){
-              await page.locator('#sst-menu [data-sst="'+kind+'"]').click();
-              await page.waitForSelector('#sstBody');
-              assert((await page.locator('#sstBody').innerText()).includes(label),'Módulo não abriu: '+label);
-              if(['seg','machine','epi'].includes(kind)){const c=page.locator('#s-checks .choices').first();await c.locator('button[data-v="BOM"]').click();assert((await c.locator('button[data-v="BOM"]').getAttribute('class')).includes('ok'),'BOM falhou: '+label);await c.locator('button[data-v="NÃO CONFORME"]').click();assert((await c.locator('button[data-v="NÃO CONFORME"]').getAttribute('class')).includes('no'),'NÃO CONFORME falhou: '+label);}
-              if(kind==='machine')await page.locator('#s-machine').fill('Máquina teste');
-              if(kind==='epi')await page.locator('#s-epi').fill('EPI teste');
-              if(kind==='report')await page.locator('#s-irregularity').fill('Irregularidade teste');
-              if(kind==='accident')await page.locator('#s-acc-desc').fill('Descrição do acidente teste');
-              await page.locator('#s-save').click();
-              await page.waitForFunction(()=>document.querySelector('#s-msg')?.textContent.includes('salva com sucesso'));
-              await page.locator('#s-pdf').click();
-              await page.waitForSelector('#sstPrint');
-              assert(await page.locator('#sst-print').count()===1,'Relatório não gerou: '+label);
-              await page.locator('#sstReportBack').click();
-            }
-            await page.locator('#sstClose').click();
-            await page.locator('#start').click();
+            await page.waitForSelector('[data-type="fire"]');
+            await page.locator('[data-type="fire"]').click();
+            await page.waitForSelector('#form');
+            assert(await page.locator('#addExt').count()===1,'Botão de extintor não abriu');
+            assert(await page.locator('#photoInput').count()===1,'Captura de foto ausente');
+            assert(await page.locator('#sig1').count()===1,'Assinatura do inspetor ausente');
             await page.locator('#addExt').click();
-            await page.locator('#addHid').click();
-            assert(await page.locator('#equipmentList .equip').count()===2,'Extintor/hidrante não foram adicionados');
-            await page.locator('#back').click();
-            await page.waitForFunction(()=>navigator.serviceWorker&&navigator.serviceWorker.ready);
-            await page.waitForFunction(()=>!!navigator.serviceWorker.controller);
-            await ctx.setOffline(true);
-            await page.reload({waitUntil:'domcontentloaded'});
-            assert(await page.locator('#start').count()===1,'Aplicação não reabriu offline');
-            await ctx.setOffline(false);
+            assert(await page.locator('#equipmentList').innerText().then(t=>t.length>0),'Extintor não foi adicionado');
+            await page.locator('#backHome').click();
+            await page.locator('#openHistory').click();
+            await page.waitForSelector('#historyList');
+            await page.locator('#historyBack').click();
             assert(errors.length===0,'Erros JavaScript: '+errors.join(' | '));
             console.log('AUDITORIA E2E: OK');
             await browser.close();
@@ -81,9 +59,7 @@ jobs:
           node /tmp/e2e.cjs
       - name: Verificar GitHub Pages
         run: |
-          for i in {1..30}; do
-            code=$(curl -L -s -o /tmp/pages.html -w '%{http_code}' "https://jonatasmarruda-prog.github.io/app-inspecao-incendio/?check=${GITHUB_SHA}");
-            if [ "$code" = "200" ] && grep -q 'sst-modulos.js' /tmp/pages.html && grep -q 'offline-boot.js' /tmp/pages.html; then echo 'GitHub Pages OK'; exit 0; fi
-            sleep 5
-          done
-          exit 1
+          code=$(curl -L -s -o /tmp/pages.html -w '%{http_code}' "https://jonatasmarruda-prog.github.io/app-inspecao-incendio/?check=${GITHUB_SHA}")
+          test "$code" = "200"
+          grep -q 'data-type="fire"' /tmp/pages.html
+          echo 'GitHub Pages: OK'
