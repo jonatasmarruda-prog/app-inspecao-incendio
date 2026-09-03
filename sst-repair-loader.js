@@ -16,49 +16,25 @@ async function repairSSTModule(){
 window.repairSSTModule=repairSSTModule;
 window.addEventListener('sst-modules-loaded',()=>repairSSTModule());
 repairSSTModule();
-function loadFireChecklistSplit(){
-  const old=document.getElementById('tbm-fire-checklist-split');
-  if(old)old.remove();
-  const s=document.createElement('script');s.id='tbm-fire-checklist-split';s.src='./fire-checklist-split.js?v=20260903-01&cb='+Date.now();s.async=false;document.body.appendChild(s);return new Promise(resolve=>{s.onload=resolve;s.onerror=resolve});
+function loadFireChecklistSplit(){const old=document.getElementById('tbm-fire-checklist-split');if(old)old.remove();const s=document.createElement('script');s.id='tbm-fire-checklist-split';s.src='./fire-checklist-split.js?v=20260903-02&cb='+Date.now();s.async=false;document.body.appendChild(s);return new Promise(resolve=>{s.onload=resolve;s.onerror=resolve})}
+function loadChecklistConditional(){if(document.getElementById('tbm-checklist-conditional'))return Promise.resolve();const s=document.createElement('script');s.id='tbm-checklist-conditional';s.src='./checklist-conditional.js?v=20260903-01';s.defer=true;document.head.appendChild(s);return new Promise(resolve=>{s.onload=resolve;s.onerror=resolve})}
+function loadPhotoMultiFix(){const old=document.getElementById('tbm-photo-multi-fix');if(old)old.remove();const s=document.createElement('script');s.id='tbm-photo-multi-fix';s.src='./photo-multi-fix.js?v=20260903-02&cb='+Date.now();s.async=false;document.body.appendChild(s);return new Promise(resolve=>{s.onload=resolve;s.onerror=resolve})}
+function loadSaveButtonFix(){const old=document.getElementById('tbm-save-button-fix');if(old)old.remove();const s=document.createElement('script');s.id='tbm-save-button-fix';s.src='./save-button-fix.js?v=20260903-01&cb='+Date.now();s.async=false;document.body.appendChild(s);return new Promise(resolve=>{s.onload=resolve;s.onerror=resolve})}
+function loadCloudCrossDevice(){const old=document.getElementById('tbm-cloud-cross-device');if(old)old.remove();const s=document.createElement('script');s.id='tbm-cloud-cross-device';s.src='./cloud-cross-device.js?v=20260903-02&cb='+Date.now();s.async=true;document.body.appendChild(s)}
+function loadCnpjAutofill(){const old=document.getElementById('tbm-cnpj-autofill');if(old)old.remove();const s=document.createElement('script');s.id='tbm-cnpj-autofill';s.src='./cnpj-autofill.js?v=20260903-01&cb='+Date.now();s.async=false;document.body.appendChild(s);return new Promise(resolve=>{s.onload=resolve;s.onerror=resolve})}
+function loadPdfPhotoFitFix(){if(document.getElementById('tbm-pdf-photo-fit-fix'))return Promise.resolve();const s=document.createElement('script');s.id='tbm-pdf-photo-fit-fix';s.src='./pdf-photo-fit-fix.js?v=20260903-01';s.async=false;document.body.appendChild(s);return new Promise(resolve=>{s.onload=resolve;s.onerror=resolve})}
+function loadAbntMaster(){const old=document.getElementById('tbm-abnt-master');if(old)old.remove();return new Promise(resolve=>{const s=document.createElement('script');s.id='tbm-abnt-master';s.src='./abnt-master.js?v=20260903-36';s.async=false;document.body.appendChild(s);s.onload=resolve;s.onerror=resolve})}
+function loadFinalPdfFix(){const old=document.getElementById('tbm-final-pdf-fix');if(old)old.remove();return new Promise(resolve=>{const s=document.createElement('script');s.id='tbm-final-pdf-fix';s.src='./pdf-final-fix.js?v=20260903-03&cb='+Date.now();s.async=false;document.body.appendChild(s);s.onload=resolve;s.onerror=resolve})}
+async function loadRepairs(){
+  await loadFireChecklistSplit();
+  await loadChecklistConditional();
+  await loadPhotoMultiFix();
+  await loadSaveButtonFix();
+  await loadCnpjAutofill();
+  await loadPdfPhotoFitFix();
+  await loadAbntMaster();
+  await loadFinalPdfFix();
+  setTimeout(loadCloudCrossDevice,0);
 }
-function loadChecklistConditional(){
-  if(document.getElementById('tbm-checklist-conditional'))return Promise.resolve();
-  const s=document.createElement('script');s.id='tbm-checklist-conditional';s.src='./checklist-conditional.js?v=20260903-01';s.defer=true;document.head.appendChild(s);return new Promise(resolve=>{s.onload=resolve;s.onerror=resolve});
-}
-function loadPhotoMultiFix(){
-  const old=document.getElementById('tbm-photo-multi-fix');
-  if(old)old.remove();
-  const s=document.createElement('script');s.id='tbm-photo-multi-fix';s.src='./photo-multi-fix.js?v=20260903-02&cb='+Date.now();s.async=false;document.body.appendChild(s);return new Promise(resolve=>{s.onload=resolve;s.onerror=resolve});
-}
-function loadSaveButtonFix(){
-  const old=document.getElementById('tbm-save-button-fix');
-  if(old)old.remove();
-  const s=document.createElement('script');s.id='tbm-save-button-fix';s.src='./save-button-fix.js?v=20260903-01&cb='+Date.now();s.async=false;document.body.appendChild(s);return new Promise(resolve=>{s.onload=resolve;s.onerror=resolve});
-}
-function loadCloudCrossDevice(){
-  const old=document.getElementById('tbm-cloud-cross-device');
-  if(old)old.remove();
-  const s=document.createElement('script');s.id='tbm-cloud-cross-device';s.src='./cloud-cross-device.js?v=20260903-01&cb='+Date.now();s.async=false;document.body.appendChild(s);return new Promise(resolve=>{s.onload=resolve;s.onerror=resolve});
-}
-function loadCnpjAutofill(){
-  const old=document.getElementById('tbm-cnpj-autofill');
-  if(old)old.remove();
-  const s=document.createElement('script');s.id='tbm-cnpj-autofill';s.src='./cnpj-autofill.js?v=20260903-01&cb='+Date.now();s.async=false;document.body.appendChild(s);return new Promise(resolve=>{s.onload=resolve;s.onerror=resolve});
-}
-function loadPdfPhotoFitFix(){
-  if(document.getElementById('tbm-pdf-photo-fit-fix'))return Promise.resolve();
-  const s=document.createElement('script');s.id='tbm-pdf-photo-fit-fix';s.src='./pdf-photo-fit-fix.js?v=20260903-01';s.async=false;document.body.appendChild(s);return new Promise(resolve=>{s.onload=resolve;s.onerror=resolve});
-}
-function loadAbntMaster(){
-  const old=document.getElementById('tbm-abnt-master');
-  if(old)old.remove();
-  return new Promise(resolve=>{const s=document.createElement('script');s.id='tbm-abnt-master';s.src='./abnt-master.js?v=20260903-36';s.async=false;document.body.appendChild(s);s.onload=resolve;s.onerror=resolve});
-}
-function loadFinalPdfFix(){
-  const old=document.getElementById('tbm-final-pdf-fix');
-  if(old)old.remove();
-  return new Promise(resolve=>{const s=document.createElement('script');s.id='tbm-final-pdf-fix';s.src='./pdf-final-fix.js?v=20260903-02'+Date.now();s.async=false;document.body.appendChild(s);s.onload=resolve;s.onerror=resolve});
-}
-async function loadRepairs(){await loadFireChecklistSplit();await loadChecklistConditional();await loadPhotoMultiFix();await loadSaveButtonFix();await loadCloudCrossDevice();await loadCnpjAutofill();await loadPdfPhotoFitFix();await loadAbntMaster();await loadFinalPdfFix()}
 if(document.readyState==='loading')window.addEventListener('DOMContentLoaded',loadRepairs,{once:true});else loadRepairs();
 })();
