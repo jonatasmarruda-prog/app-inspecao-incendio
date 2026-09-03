@@ -1,0 +1,119 @@
+name: Adicionar voltar e excluir rascunho
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Aplicar melhoria sem alterar estrutura
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('premium.js')
+          s=p.read_text(encoding='utf-8')
+          marker='/* TBM_CANCEL_DRAFT_V1 */'
+          if marker in s:
+              print('Patch já aplicado.')
+              raise SystemExit(0)
+          patch=r'''
+
+/* TBM_CANCEL_DRAFT_V1 */
+(function(){
+  'use strict';
+  function injectStyle(){
+    if(document.getElementById('tbmCancelStyle'))return;
+    const s=document.createElement('style');
+    s.id='tbmCancelStyle';
+    s.textContent='.tbm-form-actions{display:flex;gap:8px;flex-wrap:wrap}.tbm-form-actions .btn{min-width:120px}@media(max-width:560px){.tbm-form-actions{display:grid;grid-template-columns:1fr 1fr}.tbm-form-actions .btn{width:100%;min-width:0}}';
+    document.head.appendChild(s);
+  }
+  function getId(){
+    try{return window.state&&window.state.id?window.state.id:null}catch(_){return null}
+  }
+  function deleteIndexedDB(id){
+    return new Promise(resolve=>{
+      if(!id||!window.indexedDB)return resolve(false);
+      try{
+        const req=indexedDB.open('tbm_inspecao');
+        req.onsuccess=()=>{
+          const db=req.result;
+          try{
+            const stores=[...db.objectStoreNames];
+            const store=stores.find(x=>/inspection|inspec|inspections/i.test(x))||stores[0];
+            if(!store)return resolve(false);
+            const tx=db.transaction(store,'readwrite');
+            tx.objectStore(store).delete(id);
+            tx.oncomplete=()=>resolve(true);
+            tx.onerror=()=>resolve(false);
+          }catch(_){resolve(false)}
+        };
+        req.onerror=()=>resolve(false);
+      }catch(_){resolve(false)}
+    });
+  }
+  async function removeFromCloud(id){
+    try{
+      if(typeof window.deleteCloudInspection==='function'){
+        await window.deleteCloudInspection(id);return true;
+      }
+    }catch(e){console.warn('Exclusão Firebase:',e)}
+    return false;
+  }
+  async function clearDraft(){
+    const id=getId();
+    const ok=confirm(id?'Excluir esta inspeção definitivamente? Ela será removida do histórico local e, quando disponível, da nuvem.':'Cancelar esta inspeção? Os dados preenchidos não serão salvos no histórico.');
+    if(!ok)return;
+    try{
+      if(window.clearTimeout&&window.__tbmSaveTimer)clearTimeout(window.__tbmSaveTimer);
+      if(id)await deleteIndexedDB(id);
+      if(id)await removeFromCloud(id);
+      if(typeof window.setExtra==='function')window.setExtra([]);
+      if(typeof window.reset==='function')window.reset();
+      else if(typeof window.resetForm==='function')window.resetForm();
+      const form=document.getElementById('form'),home=document.getElementById('home');
+      if(form)form.classList.add('hidden');
+      if(home)home.classList.remove('hidden');
+      window.scrollTo({top:0,behavior:'smooth'});
+      alert('Inspeção excluída. Ela não ficará no histórico local.');
+    }catch(e){
+      console.error('Excluir inspeção:',e);
+      alert('Não foi possível excluir a inspeção. Nenhum dado foi alterado.');
+    }
+  }
+  function install(){
+    injectStyle();
+    const back=document.getElementById('backHome');
+    if(!back||document.getElementById('deleteInspection'))return;
+    const wrap=document.createElement('div');
+    wrap.className='tbm-form-actions no-print';
+    back.parentNode.insertBefore(wrap,back);
+    wrap.appendChild(back);
+    const save=document.getElementById('saveTop');
+    if(save)wrap.appendChild(save);
+    const del=document.createElement('button');
+    del.type='button';del.id='deleteInspection';del.className='btn danger';del.textContent='🗑️ Excluir';
+    del.title='Cancelar e excluir esta inspeção';
+    del.addEventListener('click',clearDraft);
+    wrap.appendChild(del);
+  }
+  const obs=new MutationObserver(install);
+  function boot(){install();const f=document.getElementById('form');if(f)obs.observe(f,{childList:true,subtree:true,attributes:true,attributeFilter:['class']});}
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
+})();
+'''
+          p.write_text(s+patch,encoding='utf-8')
+          PY
+      - name: Commitar se houve alteração
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add premium.js
+          if git diff --cached --quiet; then echo 'Sem alterações.'; exit 0; fi
+          git commit -m 'feat: botão voltar e excluir inspeção'
+          git push
