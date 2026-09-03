@@ -1,0 +1,67 @@
+workers=Array.isArray(s.workers)&&s.workers.length?s.workers.map(w=>({id:w.id||blankWorker().id,nome:w.nome||'',signature:w.signature||''})):[blankWorker()];
+  return s;
+}
+function statusClass(v){return v==='CONFORME'?'ok':v==='NÃO CONFORME'?'no':'na'}
+
+function injectStyle(){
+  if($('pt-altura-style'))return;
+  const s=document.createElement('style');s.id='pt-altura-style';
+  s.textContent=`
+    .ptaltura{background:linear-gradient(145deg,#0f4c5c,#2a9d8f)}
+    #ptAlturaOverlay{position:fixed;inset:0;background:#eef2f6;z-index:9998;overflow:auto;color:#17202b!important}
+    #ptAlturaOverlay .ptbar{position:sticky;top:0;z-index:5;background:linear-gradient(135deg,#0f4c5c,#2a9d8f);color:#fff;box-shadow:0 8px 24px #0002}
+    #ptAlturaOverlay .ptbarin{max-width:1080px;margin:auto;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;gap:10px}
+    #ptAlturaOverlay .card{background:#fff!important;color:#17202b!important;border-color:#d8dee7!important;box-shadow:0 10px 32px #17202b0d!important}
+    #ptAlturaOverlay .sectionTitle,#ptAlturaOverlay .field label,#ptAlturaOverlay .pt-check-title,#ptAlturaOverlay .pt-check-item b,#ptAlturaOverlay .pt-worker,#ptAlturaOverlay .pt-worker b{color:#17202b!important}
+    #ptAlturaOverlay .field input,#ptAlturaOverlay .field textarea,#ptAlturaOverlay .field select{background:#fff!important;color:#17202b!important;border:1px solid #cbd5e1!important}
+    #ptAlturaOverlay .field input::placeholder,#ptAlturaOverlay .field textarea::placeholder{color:#64748b!important}
+    .pt-select-box{border:1px solid #d9e0e8;border-radius:14px;padding:12px;background:#fbfcfe;margin:10px 0;color:#17202b!important}
+    .pt-select-title{font-weight:900;margin-bottom:10px;color:#17202b!important}
+    .pt-select-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+    .pt-option{display:flex;align-items:flex-start;gap:8px;padding:10px;border:1px solid #dbe2ea;border-radius:10px;background:#fff;color:#17202b!important;font-size:12px;font-weight:800}
+    .pt-option input{width:18px;height:18px;margin:0;accent-color:#0f766e;flex:0 0 auto}
+    .pt-check-group{border:1px solid #d9e0e8;border-radius:14px;margin:12px 0;background:#fbfcfe;overflow:hidden;color:#17202b!important}
+    .pt-check-group summary{list-style:none;cursor:pointer;padding:13px 14px;font-size:15px;font-weight:900;background:#f1f5f9;color:#17202b!important;display:flex;align-items:center;justify-content:space-between;gap:8px}
+    .pt-check-group summary::-webkit-details-marker{display:none}
+    .pt-check-content{padding:10px 12px 12px}
+    .pt-count{font-size:10px;padding:4px 7px;border-radius:999px;background:#e2e8f0;color:#334155!important;white-space:nowrap}
+    .pt-check-item{border:1px solid #dfe5ec;border-radius:10px;padding:10px;margin:8px 0;background:#fff;color:#17202b!important}
+    .pt-check-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin-top:8px}
+    .pt-check-actions button{padding:9px 5px;border-radius:9px;background:#e9edf2;color:#17202b!important;font-size:11px;font-weight:900;min-height:38px}
+    .pt-check-actions .ok{background:#dcfce7!important;color:#166534!important}.pt-check-actions .no{background:#fee2e2!important;color:#991b1b!important}.pt-check-actions .na{background:#e2e8f0!important;color:#334155!important}
+    .pt-worker{border:1px solid #d9e0e8;border-radius:14px;padding:12px;margin:10px 0;background:#fbfcfe;color:#17202b!important}
+    .pt-worker-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:9px}
+    .pt-sign{border:2px solid #94a3b8;border-radius:12px;background:#fff;overflow:hidden;margin-top:9px}
+    .pt-sign canvas{display:block;width:100%;height:145px;background:#fff;touch-action:none}
+    .pt-fixed-issuer{border-left:4px solid #0f4c5c!important;background:#f0fdfa!important;color:#17202b!important}
+    #ptAlturaOverlay .mini{color:#64748b!important}
+    @media(max-width:650px){.pt-select-grid{grid-template-columns:1fr}.pt-check-actions{grid-template-columns:repeat(3,minmax(0,1fr))}.pt-check-actions button{font-size:10px;padding:8px 3px}.pt-worker-head{align-items:flex-start}.pt-actions .btn{width:100%}}
+  `;
+  document.head.appendChild(s);
+}
+
+function addTile(){
+  if($('ptAlturaTile'))return;
+  const tiles=document.querySelector('#home .tiles');if(!tiles)return;
+  const b=document.createElement('button');b.id='ptAlturaTile';b.type='button';b.className='tile ptaltura';
+  b.innerHTML='<div class="ico">🪜</div><div><b>PT - Trabalho em Altura</b><span>NR 35 • Escadas, Andaimes e PTA</span></div>';
+  b.onclick=()=>openPTAltura();tiles.appendChild(b);
+}
+
+function ensureOverlay(){
+  let o=$('ptAlturaOverlay');if(o)return o;
+  o=document.createElement('section');o.id='ptAlturaOverlay';o.className='hidden';
+  o.innerHTML=`<div class="ptbar"><div class="ptbarin"><div><b>🪜 PT • Trabalho em Altura</b><div style="font-size:11px;opacity:.8">NR 35 • Permissão de Trabalho Simplificada</div></div><button type="button" id="ptClose" class="btn secondary">✕ Fechar</button></div></div><main class="wrap" id="ptAlturaBody"></main>`;
+  document.body.appendChild(o);$('ptClose').onclick=()=>closePTAltura();return o;
+}
+
+function checkboxGridHTML(options,stateKey,otherField){
+  const stateObj=ptState[stateKey]||{};
+  return `<div class="pt-select-grid">${options.map(([key,label])=>`<label class="pt-option"><input type="checkbox" data-pt-flag-group="${stateKey}" data-pt-flag-key="${key}" ${stateObj[key]?'checked':''}><span>${esc(label)}</span></label>`).join('')}</div>${otherField?`<div class="field" style="margin-top:10px"><label>Especifique outro</label><input data-pt-field="${otherField}" value="${esc(ptState[otherField]||'')}" placeholder="Descreva aqui"></div>`:''}`;
+}
+
+function groupHTML(group,title,open=false){
+  const items=ptState.checklistPT.filter(x=>x.grupo===group);
+  const nc=items.filter(x=>x.status==='NÃO CONFORME').length;
+  const conformes=items.filter(x=>x.status==='CONFORME').length;
+  return `<details class="pt-check-group" ${open?'open':''}><summary><span>${title}</span><span class="pt-count">${conformes} C • ${nc} NC • ${items.length} itens</span></summary><div class="pt-check-content">${items.map(q=>`<div class="pt-check-item"><b style="font-size:12px">${q.n}. ${esc(q.item)}</b><div class="pt-check-actions">${['CONFORME','NÃO CONFORME','N/A'].map(v=>`<button type="button" data-pt-check="${q.id}" data-pt-status="${v}" class="${q.status=
