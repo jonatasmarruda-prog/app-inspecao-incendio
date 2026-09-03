@@ -37,3 +37,5 @@ body{background:radial-gradient(circle at 50% -10%,#18222d 0,#070b10 42%,#05080c
 .premium-extra select option{background:#fff!important;color:#111!important}
 .premium-extra .danger{color:#fff!important}
 @media(max-width:560px){.premium-extra{padding:14px!important}.premium-extra .checkrow{grid-template-columns:1fr!important}.premium-extra select{width:100%!important}}
+
+/* trigger: investigacao acidente */
