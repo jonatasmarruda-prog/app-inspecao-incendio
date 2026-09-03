@@ -1,4 +1,4 @@
-name: Limpeza do módulo SST
+name: Auditoria e limpeza SST
 on:
   push:
     branches: [main]
@@ -11,20 +11,29 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Remover HTML acidental do módulo
+      - name: Limpar HTML acidental do módulo SST
         run: |
           python3 - <<'PY'
           from pathlib import Path
-          p=Path('sst-modulos.js')
-          s=p.read_text(encoding='utf-8')
+          p=Path('sst-modulos.js'); s=p.read_text(encoding='utf-8')
           marker='<script id="tbm-cnpj-reports">'
-          if marker in s:
-              s=s.split(marker,1)[0].rstrip()+"\n"
+          if marker in s: s=s.split(marker,1)[0].rstrip()+'\n'
           p.write_text(s,encoding='utf-8')
           PY
-      - name: Validar módulo limpo
-        run: node --check sst-modulos.js
-      - name: Salvar correção
+      - name: Validar sintaxe de todos os módulos
+        run: |
+          set -e
+          for f in sst-modulos.js offline-boot.js sst-repair-loader.js compartilhar-relatorio.js editar-relatorio.js abnt-relatorio.js integracao-modulos.js sw.js service-worker.js; do echo "OK $f"; node --check "$f"; done
+      - name: Validar index e pontos de entrada
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          h=Path('index.html').read_text(encoding='utf-8')
+          for x in ['id="start"','id="startSafety"','id="startMachine"','id="startEpi"','id="startAccident"','id="startReport"','sst-modulos.js','offline-boot.js']:
+              assert x in h, x
+          print('INDEX OK')
+          PY
+      - name: Commit limpeza se necessária
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
