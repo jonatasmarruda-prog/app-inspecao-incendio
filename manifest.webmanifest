@@ -1,0 +1,11 @@
+{
+  "name": "Inspeção SST • TBM Têxtil",
+  "short_name": "Inspeção SST",
+  "lang": "pt-BR",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#eef2f6",
+  "theme_color": "#8b1018",
+  "description": "Sistema profissional de inspeção de Segurança do Trabalho e Combate a Incêndio.",
+  "icons": [{"src":"Têxtil%20Bezerra%20de%20Menezes%202.jpeg","sizes":"any","type":"image/jpeg","purpose":"any maskable"}]
+}
