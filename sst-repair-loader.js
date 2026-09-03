@@ -35,6 +35,11 @@ function loadCloudCrossDevice(){
   if(old)old.remove();
   const s=document.createElement('script');s.id='tbm-cloud-cross-device';s.src='./cloud-cross-device.js?v=20260903-01&cb='+Date.now();s.async=false;document.body.appendChild(s);return new Promise(resolve=>{s.onload=resolve;s.onerror=resolve});
 }
+function loadCnpjAutofill(){
+  const old=document.getElementById('tbm-cnpj-autofill');
+  if(old)old.remove();
+  const s=document.createElement('script');s.id='tbm-cnpj-autofill';s.src='./cnpj-autofill.js?v=20260903-01&cb='+Date.now();s.async=false;document.body.appendChild(s);return new Promise(resolve=>{s.onload=resolve;s.onerror=resolve});
+}
 function loadPdfPhotoFitFix(){
   if(document.getElementById('tbm-pdf-photo-fit-fix'))return Promise.resolve();
   const s=document.createElement('script');s.id='tbm-pdf-photo-fit-fix';s.src='./pdf-photo-fit-fix.js?v=20260903-01';s.async=false;document.body.appendChild(s);return new Promise(resolve=>{s.onload=resolve;s.onerror=resolve});
@@ -49,6 +54,6 @@ function loadFinalPdfFix(){
   if(old)old.remove();
   return new Promise(resolve=>{const s=document.createElement('script');s.id='tbm-final-pdf-fix';s.src='./pdf-final-fix.js?v=20260903-02';s.async=false;document.body.appendChild(s);s.onload=resolve;s.onerror=resolve});
 }
-async function loadRepairs(){await loadChecklistConditional();await loadPhotoMultiFix();await loadSaveButtonFix();await loadCloudCrossDevice();await loadPdfPhotoFitFix();await loadAbntMaster();await loadFinalPdfFix()}
+async function loadRepairs(){await loadChecklistConditional();await loadPhotoMultiFix();await loadSaveButtonFix();await loadCloudCrossDevice();await loadCnpjAutofill();await loadPdfPhotoFitFix();await loadAbntMaster();await loadFinalPdfFix()}
 if(document.readyState==='loading')window.addEventListener('DOMContentLoaded',loadRepairs,{once:true});else loadRepairs();
 })();
