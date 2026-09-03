@@ -2,22 +2,22 @@
 'use strict';
 
 /*
-  V12 — camada de correção sem substituir a estrutura principal.
-  Mantém GPS, IndexedDB, Firebase e o layout existentes.
+  V13 — camada de correção sem substituir a estrutura principal.
+  Mantém GPS, IndexedDB, Firebase, fotos, PDF e layout existentes.
 */
 const LOGO='Têxtil Bezerra de Menezes 2.jpeg';
 const LIGHT=['Luminária fixada corretamente?','Bateria/Teste funcionando?','Cabos bem isolados?'];
 const ALARM=['Acionador manual desobstruído?','Sinal sonoro audível?','Painel central sem erro?'];
 const $=id=>document.getElementById(id);
-const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+const esc=s=>String(s??'').replace(/[&<>\"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[m]));
 
 const extra=()=>window.__tbmExtra||[];
 const setExtra=a=>{window.__tbmExtra=Array.isArray(a)?a:[]};
 
 function css(){
-  if($('tbmV12'))return;
+  if($('tbmV13'))return;
   const s=document.createElement('style');
-  s.id='tbmV12';
+  s.id='tbmV13';
   s.textContent=`
     .logo{height:58px!important;width:auto!important;max-width:210px!important;object-fit:contain!important;background:#fff!important;padding:5px!important;border-radius:10px!important}
     .reportLogo{width:105px!important;height:78px!important;object-fit:contain!important;background:#fff!important;padding:3px!important;border-radius:6px!important}
@@ -29,8 +29,9 @@ function css(){
     .photoTools{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
     .photoTools button{min-height:46px;touch-action:manipulation}
     .photoCard{break-inside:avoid;page-break-inside:avoid}
-    .sigwrap{background:#fff!important;border:2px solid #cbd5e1!important}
-    .sigwrap canvas{background:#fff!important;touch-action:none!important;cursor:crosshair!important;display:block!important;width:100%!important;height:140px!important}
+    .sigwrap{background:#fff!important;border:2px solid #94a3b8!important;box-shadow:inset 0 0 0 1px #e2e8f0,0 8px 22px #0002!important}
+    .sigwrap canvas{background:#fff!important;color:#111827!important;border:0!important;touch-action:none!important;cursor:crosshair!important;display:block!important;width:100%!important;height:140px!important;position:relative!important;z-index:2!important}
+    .sigwrap:before{background:#f8fafc!important;color:#64748b!important}
     .reportPage{font-family:Arial,Helvetica,sans-serif!important;color:#111!important;background:#fff!important}
     .reportPage .rtable tbody tr:nth-child(even){background:#f8fafc}
     .reportPage .rtable tr,.reportPage .rphotos figure,.reportPage .rsigs,.reportPage .rsig{break-inside:avoid;page-break-inside:avoid}
@@ -40,6 +41,7 @@ function css(){
       .premium-meta{grid-template-columns:1fr}
       .photoTools{grid-template-columns:1fr}
       .reportPage .rphotos{grid-template-columns:1fr 1fr!important}
+      .sigwrap canvas{height:160px!important}
     }
   `;
   document.head.appendChild(s);
@@ -98,8 +100,8 @@ async function processFiles(files){
 
 function photo(){
   const i=$('photoInput');
-  if(!i||i.dataset.tbmPhotoV12)return;
-  i.dataset.tbmPhotoV12='1';
+  if(!i||i.dataset.tbmPhotoV13)return;
+  i.dataset.tbmPhotoV13='1';
   const old=i.onchange;
   i.onchange=async e=>{
     const files=[...(e.target.files||[])];
@@ -108,14 +110,12 @@ function photo(){
       const processed=await processFiles(files);
       const dt=new DataTransfer();
       processed.forEach(f=>dt.items.add(f));
-      try{Object.defineProperty(i,'files',{configurable:true,value:dt.files})}catch(_){/* fallback abaixo */}
+      try{Object.defineProperty(i,'files',{configurable:true,value:dt.files})}catch(_){ }
       if(typeof old==='function')await old.call(i,{target:i});
     }catch(err){
       console.error('Processamento fotográfico:',err);
       alert('Não foi possível processar uma ou mais fotos.');
-    }finally{
-      i.value='';
-    }
+    }finally{i.value='';}
   };
 }
 
@@ -130,14 +130,8 @@ function photoButtons(){
   camera.className=gallery.className='btn secondary';
   camera.textContent='📷 TIRAR FOTO';
   gallery.textContent='🖼️ ESCOLHER DA GALERIA';
-  camera.onclick=()=>{
-    i.setAttribute('capture','environment');
-    i.click();
-  };
-  gallery.onclick=()=>{
-    i.removeAttribute('capture');
-    i.click();
-  };
+  camera.onclick=()=>{i.setAttribute('capture','environment');i.click()};
+  gallery.onclick=()=>{i.removeAttribute('capture');i.click()};
   t.append(camera,gallery);
   i.insertAdjacentElement('afterend',t);
 }
@@ -161,7 +155,6 @@ function addPremium(kind){
   window.scheduleSave?.();
 }
 
-/* Funções públicas solicitadas: não dependem de onclick inline. */
 window.adicionarIluminacao=()=>addPremium('light');
 window.adicionarSirene=()=>addPremium('alarm');
 
@@ -201,14 +194,13 @@ function buttons(){
   const h=$('addHid');
   if(!h||$('addIluminacao'))return;
   const items=[
-    ['addIluminacao','💡 Iluminação','light','adicionarIluminacao'],
-    ['addSirene','🚨 Sirene/Alarme','alarm','adicionarSirene']
+    ['addIluminacao','➕ Iluminação','adicionarIluminacao'],
+    ['addSirene','➕ Sirene/Alarme','adicionarSirene']
   ];
   let after=h;
-  for(const [id,text,k,fn] of items){
+  for(const [id,text,fn] of items){
     const b=document.createElement('button');
-    b.id=id;b.type='button';b.className=h.className;b.textContent='➕ '+text.replace(/^./,'');
-    b.textContent=id==='addIluminacao'?'➕ Iluminação':'➕ Sirene/Alarme';
+    b.id=id;b.type='button';b.className=h.className;b.textContent=text;
     b.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();window[fn]();});
     after.insertAdjacentElement('afterend',b);
     after=b;
@@ -216,8 +208,8 @@ function buttons(){
 }
 
 const oldPut=window.idbPut;
-if(oldPut&&!window.__tbmPutV12){
-  window.__tbmPutV12=1;
+if(oldPut&&!window.__tbmPutV13){
+  window.__tbmPutV13=1;
   window.idbPut=async x=>{
     const y=JSON.parse(JSON.stringify(x));
     const ex=extra();
@@ -227,8 +219,8 @@ if(oldPut&&!window.__tbmPutV12){
 }
 
 const oldCloud=window.cloudSafe;
-if(oldCloud&&!window.__tbmCloudV12){
-  window.__tbmCloudV12=1;
+if(oldCloud&&!window.__tbmCloudV13){
+  window.__tbmCloudV13=1;
   window.cloudSafe=x=>{
     const y=oldCloud(x);
     const ex=extra();
@@ -238,28 +230,26 @@ if(oldCloud&&!window.__tbmCloudV12){
 }
 
 const oldReset=window.reset;
-if(oldReset&&!window.__tbmResetV12){
-  window.__tbmResetV12=1;
+if(oldReset&&!window.__tbmResetV13){
+  window.__tbmResetV13=1;
   window.reset=k=>{setExtra([]);return oldReset(k)};
 }
 
 const oldGet=window.idbGet;
-if(oldGet&&!window.__tbmGetV12){
-  window.__tbmGetV12=1;
+if(oldGet&&!window.__tbmGetV13){
+  window.__tbmGetV13=1;
   window.idbGet=async id=>{
     const x=await oldGet(id);
     if(x){
-      setExtra((x.equipment||[])
-        .filter(e=>e.kind==='light'||e.kind==='alarm')
-        .map(e=>normalizeExtra({kind:e.kind,status:e.status,patrimonio:e.patrimonio,localizacao:e.localizacao,obs:e.obs,checks:e.premiumChecks||e.checks||[]})));
+      setExtra((x.equipment||[]).filter(e=>e.kind==='light'||e.kind==='alarm').map(e=>normalizeExtra({kind:e.kind,status:e.status,patrimonio:e.patrimonio,localizacao:e.localizacao,obs:e.obs,checks:e.premiumChecks||e.checks||[]})));
     }
     return x;
   };
 }
 
 function events(){
-  if(document.body.dataset.tbmV12Events)return;
-  document.body.dataset.tbmV12Events='1';
+  if(document.body.dataset.tbmV13Events)return;
+  document.body.dataset.tbmV13Events='1';
   document.addEventListener('input',e=>{
     const i=e.target.dataset.tbmE,k=e.target.dataset.tbmK;
     if(i===undefined||!k)return;
@@ -280,48 +270,39 @@ function events(){
 }
 
 /*
-  Reforço do Canvas: pointer events + mouse/touch como fallback.
-  O código original continua intacto; esta camada substitui apenas o
-  setup dos dois canvases para garantir desenho em celular e desktop.
+  CORREÇÃO DEFINITIVA DO CANVAS DE ASSINATURA
+  O problema era o canvas ser dimensionado enquanto o formulário estava
+  escondido. Nesse momento getBoundingClientRect() retornava largura 0.
+  Não substituímos setupSigs nem tocamos no state original: apenas
+  chamamos a função original depois que #form estiver realmente visível.
 */
-function robustCanvas(c,initial,onChange){
-  if(!c)return()=>{};
-  const rect=c.getBoundingClientRect();
-  const cssW=Math.max(1,Math.round(rect.width));
-  const cssH=Math.max(1,Math.round(rect.height));
-  const d=Math.max(1,Math.min(2,window.devicePixelRatio||1));
-  c.width=Math.round(cssW*d);c.height=Math.round(cssH*d);
-  c.style.touchAction='none';
-  const ctx=c.getContext('2d');
-  ctx.setTransform(d,0,0,d,0,0);
-  ctx.lineWidth=2.5;ctx.lineCap='round';ctx.lineJoin='round';ctx.strokeStyle='#111827';
-  let drawing=false,last=null,changed=false;
-  const pos=e=>{const r=c.getBoundingClientRect();return{x:(e.clientX-r.left)*(cssW/r.width),y:(e.clientY-r.top)*(cssH/r.height)}};
-  const begin=e=>{if(e.pointerType==='mouse'&&e.button!==0)return;drawing=true;last=pos(e);changed=true;e.preventDefault();try{c.setPointerCapture(e.pointerId)}catch(_){}ctx.beginPath();ctx.arc(last.x,last.y,1.2,0,Math.PI*2);ctx.fillStyle='#111827';ctx.fill();};
-  const move=e=>{if(!drawing)return;const p=pos(e);ctx.beginPath();ctx.moveTo(last.x,last.y);ctx.lineTo(p.x,p.y);ctx.stroke();last=p;e.preventDefault()};
-  const end=e=>{if(!drawing)return;drawing=false;last=null;try{c.releasePointerCapture(e.pointerId)}catch(_){}if(changed)onChange(c.toDataURL('image/png'))};
-  c.onpointerdown=begin;c.onpointermove=move;c.onpointerup=end;c.onpointercancel=end;c.onpointerleave=e=>{if(e.pointerType==='mouse')end(e)};
-  if(initial){const im=new Image();im.onload=()=>ctx.drawImage(im,0,0,cssW,cssH);im.src=initial;}
-  return()=>{ctx.clearRect(0,0,cssW,cssH);changed=false;onChange('')};
+function refreshSignatures(){
+  const form=$('form');
+  if(!form||form.classList.contains('hidden'))return;
+  setTimeout(()=>{
+    try{
+      if(typeof window.setupSigs==='function')window.setupSigs();
+    }catch(e){console.error('Assinaturas SST:',e)}
+  },80);
 }
 
-const oldSetupSigs=window.setupSigs;
-if(oldSetupSigs&&!window.__tbmSigV12){
-  window.__tbmSigV12=1;
-  window.setupSigs=function(){
-    let clear1=()=>{},clear2=()=>{};
-    clear1=robustCanvas($('sig1'),state.signature1,v=>{state.signature1=v;window.scheduleSave?.()});
-    clear2=robustCanvas($('sig2'),state.signature2,v=>{state.signature2=v;window.scheduleSave?.()});
-    window.__tbmClearSig1=clear1;window.__tbmClearSig2=clear2;
-  };
-  const c1=$('clear1'),c2=$('clear2');
-  if(c1)c1.onclick=()=>window.__tbmClearSig1?.();
-  if(c2)c2.onclick=()=>window.__tbmClearSig2?.();
+function signatureFix(){
+  const form=$('form');
+  if(!form||form.dataset.tbmSignatureFix)return;
+  form.dataset.tbmSignatureFix='1';
+  const observer=new MutationObserver(()=>{
+    if(!form.classList.contains('hidden'))refreshSignatures();
+  });
+  observer.observe(form,{attributes:true,attributeFilter:['class']});
+  window.addEventListener('resize',()=>{
+    if(!form.classList.contains('hidden'))refreshSignatures();
+  },{passive:true});
+  if(!form.classList.contains('hidden'))refreshSignatures();
 }
 
 function reportPatch(){
-  if(typeof window.reportHTML!=='function'||window.__tbmReportV12)return;
-  window.__tbmReportV12=1;
+  if(typeof window.reportHTML!=='function'||window.__tbmReportV13)return;
+  window.__tbmReportV13=1;
   const old=window.reportHTML;
   window.reportHTML=x=>{
     let h=old(x).replaceAll('src="icon.svg"',`src="${LOGO}"`);
@@ -340,8 +321,8 @@ function reportPatch(){
     return h;
   };
   const oldPdf=window.makePdf;
-  if(typeof oldPdf==='function'&&!window.__tbmPdfV12){
-    window.__tbmPdfV12=1;
+  if(typeof oldPdf==='function'&&!window.__tbmPdfV13){
+    window.__tbmPdfV13=1;
     window.makePdf=async share=>{
       const c=$('reportContent');
       if(c){
@@ -354,9 +335,9 @@ function reportPatch(){
 }
 
 function setup(){
-  css();logo();buttons();photo();photoButtons();events();reportPatch();
-  setTimeout(()=>{css();logo();buttons();photo();photoButtons();reportPatch()},700);
-  setTimeout(()=>{logo();buttons();photo();photoButtons()},1800);
+  css();logo();buttons();photo();photoButtons();events();signatureFix();reportPatch();
+  setTimeout(()=>{css();logo();buttons();photo();photoButtons();signatureFix();reportPatch();refreshSignatures()},700);
+  setTimeout(()=>{logo();buttons();photo();photoButtons();signatureFix();refreshSignatures()},1800);
 }
 
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',setup);else setup();
