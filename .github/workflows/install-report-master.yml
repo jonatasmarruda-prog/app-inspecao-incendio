@@ -1,10 +1,13 @@
 name: Instalar relatório Master
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
 permissions:
   contents: write
 jobs:
   install:
+    if: github.event.head_commit.message != 'feat: ativar relatório PDF Master profissional'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -20,13 +23,11 @@ jobs:
               s=s.replace('</body>',tag+'</body>',1)
               p.write_text(s,encoding='utf-8')
           PY
-      - name: Publicar e remover instalador
+      - name: Publicar alteração
         shell: bash
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add index.html
-          git commit -m 'feat: ativar relatório PDF Master profissional' || true
-          git rm .github/workflows/install-report-master.yml
-          git commit -m 'chore: remover instalador temporário' || true
+          git commit -m 'feat: ativar relatório PDF Master profissional' || exit 0
           git push
