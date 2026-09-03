@@ -16,4 +16,20 @@ async function repairSSTModule(){
 window.repairSSTModule=repairSSTModule;
 window.addEventListener('sst-modules-loaded',()=>repairSSTModule());
 repairSSTModule();
+
+// Correção complementar carregada após os módulos existentes, sem substituir
+// nenhuma lógica do aplicativo.
+function loadChecklistConditional(){
+  if(document.getElementById('tbm-checklist-conditional'))return;
+  const s=document.createElement('script');
+  s.id='tbm-checklist-conditional';
+  s.src='./checklist-conditional.js?v=20260903-01';
+  s.defer=true;
+  document.head.appendChild(s);
+}
+if(document.readyState==='loading'){
+  window.addEventListener('DOMContentLoaded',loadChecklistConditional,{once:true});
+}else{
+  loadChecklistConditional();
+}
 })();
