@@ -256,7 +256,29 @@ function bindPT(){
   body.onclick=e=>{
     e.stopPropagation();
     const check=e.target.closest('[data-pt-check]');
-    if(check){const q=ptState.checklistPT.find(x=>x.id===check.dataset.ptCheck);if(q){q.status=check.dataset.ptStatus;const details=check.closest('details');const open=details?.open;renderPT();if(open){const d=[...document.querySelectorAll('#ptAlturaBody details')].find(x=>x.querySelector(`[data-pt-check="${check.dataset.ptCheck}"]`));if(d)d.open=true}scheduleSavePT()}return}
+    if(check){
+      const q=ptState.checklistPT.find(x=>x.id===check.dataset.ptCheck);
+      if(q){
+        q.status=check.dataset.ptStatus;
+        const item=check.closest('.pt-check-item');
+        if(item){
+          item.querySelectorAll('[data-pt-check]').forEach(btn=>{
+            btn.classList.remove('ok','no','na');
+            if(btn.dataset.ptStatus===q.status)btn.classList.add(statusClass(q.status));
+          });
+        }
+        const details=check.closest('details');
+        const count=details?.querySelector('.pt-count');
+        if(count){
+          const items=ptState.checklistPT.filter(x=>x.grupo===q.grupo);
+          const conformes=items.filter(x=>x.status==='CONFORME').length;
+          const nc=items.filter(x=>x.status==='NÃO CONFORME').length;
+          count.textContent=`${conformes} C • ${nc} NC • ${items.length} itens`;
+        }
+        scheduleSavePT();
+      }
+      return;
+    }
     const rm=e.target.closest('[data-pt-remove-worker]');if(rm){ptState.workers.splice(+rm.dataset.ptRemoveWorker,1);renderPT();scheduleSavePT();return}
     const clear=e.target.closest('[data-pt-clear-sign]');if(clear){const i=+clear.dataset.ptClearSign;ptState.workers[i].signature='';const c=$('ptSig-'+i);c?.getContext('2d')?.clearRect(0,0,c.width,c.height);scheduleSavePT();return}
   };
@@ -283,14 +305,31 @@ function setupSignature(i,data){
 function showMsg(text,type='successbox'){
   const m=$('ptMsg');if(!m)return;m.className='notice '+type;m.textContent=text;setTimeout(()=>{if(m.textContent===text)m.textContent=''},2500)
 }
-function scheduleSavePT(){clearTimeout(saveTimerPT);saveTimerPT=setTimeout(()=>savePT(false),900);clearTimeout(cloudTimerPT);cloudTimerPT=setTimeout(()=>pushPTCloud().catch(()=>{}),1800)}
+function scheduleSavePT(){
+  clearTimeout(saveTimerPT);
+  saveTimerPT=setTimeout(()=>savePT(false,false),900);
+  clearTimeout(cloudTimerPT);
+  cloudTimerPT=setTimeout(()=>{
+    const sync=()=>pushPTCloud().catch(()=>{});
+    if(typeof requestIdleCallback==='function')requestIdleCallback(sync,{timeout:5000});
+    else setTimeout(sync,0);
+  },5000);
+}
 
-async function savePT(feedback=false){
+async function savePT(feedback=false,syncCloud=feedback){
   if(!ptState)return false;
   ptState.updatedAt=nowISO();ptState.issuer={name:EMISSOR_NOME,role:EMISSOR_CARGO};
   try{
-    if(typeof window.idbPut==='function')await window.idbPut(JSON.parse(JSON.stringify(ptState)));
-    pushPTCloud().catch(()=>{});
+    if(typeof window.idbPut==='function'){
+      const previousExtra=window.__tbmExtra;
+      try{
+        window.__tbmExtra=[];
+        await window.idbPut(ptState);
+      }finally{
+        window.__tbmExtra=previousExtra;
+      }
+    }
+    if(syncCloud)pushPTCloud().catch(()=>{});
     if(feedback)showMsg('✅ PT salva com sucesso.');
     return true;
   }catch(e){console.error('[PT SAVE]',e);if(feedback)showMsg('❌ Não foi possível salvar a PT.','errorbox');return false}
@@ -299,7 +338,7 @@ async function savePT(feedback=false){
 async function pushPTCloud(){
   if(!ptState?.id||!window.SST?.fs)return false;
   const payload=JSON.parse(JSON.stringify(ptState));
-  payload.workspaceKey=WORKSPACE_KEY;payload.cloudDeviceId=(localStorage.getItem('tbm-sst-device-id')||'PT');payload.cloudClientUpdatedAt=nowISO();payload.ownerUid=window.SST?.uid||'';payload.appVersion='2026.09.03.pt-altura.2';
+  payload.workspaceKey=WORKSPACE_KEY;payload.cloudDeviceId=(localStorage.getItem('tbm-sst-device-id')||'PT');payload.cloudClientUpdatedAt=nowISO();payload.ownerUid=window.SST?.uid||'';payload.appVersion='2026.09.03.pt-altura.3';
   if(window.firebase?.firestore?.FieldValue?.serverTimestamp)payload.cloudSyncedAt=window.firebase.firestore.FieldValue.serverTimestamp();
   try{await window.SST.fs.collection('inspections').doc(String(payload.id)).set(payload,{merge:true});return true}catch(e){console.warn('[PT CLOUD]',e);return false}
 }
@@ -391,9 +430,10 @@ function installHistoryInterceptor(){
     const report=e.target.closest?.('[data-report-h]');
     const t=open||report;if(!t)return;
     const id=open?open.dataset.openH:report.dataset.reportH;
+    if(!String(id||'').startsWith('PT-'))return;
+    e.preventDefault();e.stopImmediatePropagation();
     let x=null;try{x=typeof window.idbGet==='function'?await window.idbGet(id):null}catch(_){ }
     if(!x||x.type!==PT_TYPE)return;
-    e.preventDefault();e.stopImmediatePropagation();
     openPTAltura(x);
     if(report)setTimeout(()=>makePTPdf('download'),120);
   },true);
