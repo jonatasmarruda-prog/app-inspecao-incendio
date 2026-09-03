@@ -86,9 +86,13 @@ function setAnswer(kind,index,status){
   if(!st)return;
   const arr=kind==='extintor'?st.checklistExtintores:st.checklistHidrantes;
   arr[index]=status;
-  renderSplitChecklist();
+  const selector=`[data-fire-check-kind="${kind}"][data-fire-check-index="${index}"]`;
+  const buttons=document.querySelectorAll(selector);
+  buttons.forEach(btn=>{
+    btn.classList.remove('ok','no','pend');
+    if(btn.dataset.fireCheckStatus===status)btn.classList.add(statusClass(status));
+  });
   if(typeof window.scheduleSave==='function')window.scheduleSave();
-  if(typeof window.tbmPushCloud==='function')window.tbmPushCloud('fire-checklist');
 }
 
 function install(){

@@ -211,7 +211,7 @@ const oldPut=window.idbPut;
 if(oldPut&&!window.__tbmPutV13){
   window.__tbmPutV13=1;
   window.idbPut=async x=>{
-    const y=JSON.parse(JSON.stringify(x));
+    const y=(x&&typeof x==='object')?{...x}:x;
     const ex=extra();
     if(ex.length)y.equipment=[...(y.equipment||[]),...ex.map(normalizeExtra).map(e=>({kind:e.kind,status:e.status,patrimonio:e.patrimonio,localizacao:e.localizacao,obs:e.obs,premiumChecks:e.checks}))];
     return oldPut(y);
@@ -276,14 +276,14 @@ function events(){
   Não substituímos setupSigs nem tocamos no state original: apenas
   chamamos a função original depois que #form estiver realmente visível.
 */
+let tbmSignatureRefreshTimer=null;
 function refreshSignatures(){
   const form=$('form');
   if(!form||form.classList.contains('hidden'))return;
-  setTimeout(()=>{
-    try{
-      if(typeof window.setupSigs==='function')window.setupSigs();
-    }catch(e){console.error('Assinaturas SST:',e)}
-  },80);
+  clearTimeout(tbmSignatureRefreshTimer);
+  tbmSignatureRefreshTimer=setTimeout(()=>{
+    try{if(typeof window.setupSigs==='function')window.setupSigs()}catch(e){console.error('Assinaturas SST:',e)}
+  },120);
 }
 
 function signatureFix(){
@@ -294,8 +294,12 @@ function signatureFix(){
     if(!form.classList.contains('hidden'))refreshSignatures();
   });
   observer.observe(form,{attributes:true,attributeFilter:['class']});
+  let lastFormWidth=Math.round(form.getBoundingClientRect().width||window.innerWidth||0);
   window.addEventListener('resize',()=>{
-    if(!form.classList.contains('hidden'))refreshSignatures();
+    if(form.classList.contains('hidden'))return;
+    const width=Math.round(form.getBoundingClientRect().width||window.innerWidth||0);
+    if(Math.abs(width-lastFormWidth)<18)return; // teclado móvel altera altura, não precisa recriar os canvases
+    lastFormWidth=width;refreshSignatures();
   },{passive:true});
   if(!form.classList.contains('hidden'))refreshSignatures();
 }

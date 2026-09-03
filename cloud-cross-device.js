@@ -5,7 +5,7 @@
 const WORKSPACE_KEY='TBM-SST-07603376000300';
 const DEVICE_STORAGE_KEY='tbm-sst-device-id';
 const DELETE_QUEUE_KEY='tbm-sst-cloud-delete-queue';
-const SYNC_DEBOUNCE=1200;
+const SYNC_DEBOUNCE=5000;
 const FIRESTORE_WAIT=2500;
 const SYNC_INTERVAL=120000; // 2 minutos
 const MOBILE_DEVICE=(()=>{try{return matchMedia('(max-width: 900px)').matches||matchMedia('(pointer: coarse)').matches||/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent||'')}catch(_){return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent||'')}})();
@@ -56,7 +56,8 @@ function normalizeExtra(e){
 }
 
 function completePayload(source){
-  const st=clone(source||getState());
+  const src=source||getState();
+  const st=src&&typeof src==='object'?{...src}:{};
   if(!st?.id)return null;
   const original=Array.isArray(st.equipment)?st.equipment:[];
   const core=original.filter(e=>e?.kind!=='light'&&e?.kind!=='alarm');
@@ -297,21 +298,14 @@ function addCloudButton(){
 }
 
 function wrapSaving(){
-  if(typeof window.saveInspection==='function'&&!window.__tbmCloudSaveWrapped){
-    window.__tbmCloudSaveWrapped=true;const original=window.saveInspection;
-    window.saveInspection=async function(...args){const result=await original.apply(this,args);pushCloud(args[0]===true?'autosave':'manual').catch(()=>{});return result};
-  }
-  if(typeof window.scheduleSave==='function'&&!window.__tbmCloudScheduleWrapped){
-    window.__tbmCloudScheduleWrapped=true;const original=window.scheduleSave;
-    window.scheduleSave=function(...args){const r=original.apply(this,args);schedulePush();return r};
-  }
+  // O salvamento principal já solicita a sincronização. Não envolver novamente.
 }
+
 
 function installObservers(){
   if(document.body.dataset.tbmCloudObservers)return;document.body.dataset.tbmCloudObservers='1';
-  document.addEventListener('input',e=>{if(e.target?.matches?.('input,textarea,select')&&e.target.id!=='photoInput')schedulePush()},{passive:true});
-  document.addEventListener('change',e=>{if(e.target?.matches?.('input,textarea,select'))schedulePush()},{passive:true});
-  const photos=document.getElementById('photos');if(photos)new MutationObserver(()=>schedulePush()).observe(photos,{childList:true});
+  // Não sincronizar diretamente em input/change/MutationObserver.
+  // scheduleSave -> saveInspection -> tbmPushCloud já cobre as alterações com debounce.
 
   /* Sobrescreve as exclusões antigas que apagavam só um dispositivo ou removiam o doc sem tombstone. */
   document.addEventListener('click',e=>{
@@ -364,7 +358,10 @@ function install(){
 }
 
 window.carregarDaNuvem=carregarDaNuvem;
-window.tbmPushCloud=pushCloud;
+window.tbmPushCloud=(reason='auto')=>{
+  if(reason==='main-save'||reason==='autosave'||reason==='fire-checklist'){schedulePush();return Promise.resolve(true)}
+  return pushCloud(reason);
+};
 window.tbmAttachRealtime=attachRealtime;
 window.tbmSyncAllCloud=syncAll;
 window.tbmDeleteCloudInspection=deleteCloudInspection;

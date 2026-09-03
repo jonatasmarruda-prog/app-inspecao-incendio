@@ -34,9 +34,7 @@
     window.__tbmChecklistObserver=new MutationObserver(()=>updateGeneralChecklistVisibility());
     window.__tbmChecklistObserver.observe(list,{childList:true,subtree:true});
 
-    // Após abrir/excluir/alterar equipamentos, sincroniza a visibilidade.
-    document.addEventListener('click',()=>setTimeout(updateGeneralChecklistVisibility,0),true);
-    document.addEventListener('change',()=>setTimeout(updateGeneralChecklistVisibility,0),true);
+    // O próprio MutationObserver do equipmentList atualiza a visibilidade somente quando necessário.
   }
 
   if(document.readyState==='loading'){

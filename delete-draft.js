@@ -111,8 +111,6 @@ function addDeleteButton(){
 
 function init(){
   addDeleteButton();
-  const obs=new MutationObserver(addDeleteButton);
-  obs.observe(document.body,{childList:true,subtree:true});
   setTimeout(addDeleteButton,300);
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();

@@ -149,7 +149,7 @@ async function normalizedDataUrl(file){
   const decoded=await decodePhoto(file);
   try{
     const originalW=Math.max(1,decoded.width),originalH=Math.max(1,decoded.height);
-    const maxSide=1400;
+    const maxSide=1100;
     const scale=Math.min(1,maxSide/Math.max(originalW,originalH));
     const width=Math.max(1,Math.round(originalW*scale)),height=Math.max(1,Math.round(originalH*scale));
     const canvas=document.createElement('canvas');canvas.width=width;canvas.height=height;
@@ -157,7 +157,7 @@ async function normalizedDataUrl(file){
     if(!ctx)throw new Error('Canvas indisponível.');
     ctx.fillStyle='#fff';ctx.fillRect(0,0,width,height);
     ctx.drawImage(decoded.source,0,0,width,height);
-    const blob=await canvasBlob(canvas,'image/jpeg',0.80);
+    const blob=await canvasBlob(canvas,'image/jpeg',0.74);
     const data=await blobDataUrl(blob);
     canvas.width=1;canvas.height=1;
     return data;
@@ -182,8 +182,7 @@ async function processBatch(files){
       if(!Array.isArray(current.photos))current.photos=[];
       current.photos.push({id:photoId(),data,caption:'',name:file.name||'foto',originalType:file.type||fileExt(file)||'imagem'});
       added++;
-      window.renderPhotos?.();
-      await new Promise(r=>(window.requestAnimationFrame||setTimeout)(()=>r(),16));
+      if((i+1)%3===0)await new Promise(r=>setTimeout(r,0));
     }catch(e){
       failed++;console.warn('[FOTOS] Falha ao processar',file?.name||'imagem',e);
     }

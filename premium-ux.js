@@ -6,6 +6,7 @@ const STYLE_ID='tbm-premium-ux-style';
 const FIELD_MODE_KEY='tbm-sst-field-mode';
 const LAST_SYNC_KEY='tbm-sst-last-cloud-sync';
 let dashboardTimer=null;
+let progressTimer=null;
 let historyDecorating=false;
 let pdfWrapped=false;
 
@@ -126,6 +127,7 @@ function ensureProgress(){
   updateProgress();
 }
 function updateProgress(){const st=getState();const p=completionOf(st);const t=$('tbmProgressText'),b=$('tbmProgressBar');if(t)t.textContent=`${p}% preenchido`;if(b)b.style.width=p+'%'}
+function scheduleProgressUpdate(){clearTimeout(progressTimer);progressTimer=setTimeout(updateProgress,120)}
 
 function ensureFieldModeButtons(){
   const actions=document.querySelector('#form>.actions');if(actions&&!$('tbmFieldMode')){const b=document.createElement('button');b.id='tbmFieldMode';b.type='button';b.className='btn secondary';b.onclick=toggleFieldMode;actions.appendChild(b)}
@@ -195,11 +197,11 @@ function showPTPdfSummary(action){const checks=[...document.querySelectorAll('#p
 
 function observeCloud(){const el=$('cloudState');if(!el||el.dataset.tbmUxObserved)return;el.dataset.tbmUxObserved='1';let prev=el.textContent;new MutationObserver(()=>{const txt=el.textContent||'';if(/sincronizad/i.test(txt)&&txt!==prev){const now=new Date().toISOString();localStorage.setItem(LAST_SYNC_KEY,now);scheduleDashboard();if(/salvando|pendente|local/i.test(prev||''))toast('☁️ Nuvem sincronizada.')}prev=txt}).observe(el,{childList:true,subtree:true,characterData:true})}
 function observeMessages(){const m=$('msg');if(!m||m.dataset.tbmUxObserved)return;m.dataset.tbmUxObserved='1';let last='';new MutationObserver(()=>{const txt=(m.textContent||'').trim();if(txt&&txt!==last){if(/salv|sucesso/i.test(txt))toast('✓ '+txt.replace(/^✅\s*/,'').slice(0,110));if(/erro|não foi possível|falha/i.test(txt))toast(txt.slice(0,110),'err');last=txt}}).observe(m,{childList:true,subtree:true,characterData:true})}
-function wrapStorage(){if(window.idbPut&&!window.__tbmUxPutWrapped){window.__tbmUxPutWrapped=true;const old=window.idbPut;window.idbPut=async function(...a){const r=await old.apply(this,a);scheduleDashboard();return r}}if(window.idbDelete&&!window.__tbmUxDeleteWrapped){window.__tbmUxDeleteWrapped=true;const old=window.idbDelete;window.idbDelete=async function(...a){const r=await old.apply(this,a);scheduleDashboard();return r}}}
+function wrapStorage(){if(window.idbPut&&!window.__tbmUxPutWrapped){window.__tbmUxPutWrapped=true;const old=window.idbPut;window.idbPut=async function(...a){const r=await old.apply(this,a);if(!$('home')?.classList.contains('hidden'))scheduleDashboard();return r}}if(window.idbDelete&&!window.__tbmUxDeleteWrapped){window.__tbmUxDeleteWrapped=true;const old=window.idbDelete;window.idbDelete=async function(...a){const r=await old.apply(this,a);if(!$('home')?.classList.contains('hidden'))scheduleDashboard();return r}}}
 
 function globalEvents(){
-  document.addEventListener('input',()=>{if(!$('form')?.classList.contains('hidden'))setTimeout(updateProgress,80)},{passive:true});
-  document.addEventListener('change',()=>{if(!$('form')?.classList.contains('hidden'))setTimeout(updateProgress,80)},{passive:true});
+  document.addEventListener('input',()=>{if(!$('form')?.classList.contains('hidden'))scheduleProgressUpdate()},{passive:true});
+  document.addEventListener('change',()=>{if(!$('form')?.classList.contains('hidden'))scheduleProgressUpdate()},{passive:true});
   document.addEventListener('click',async e=>{
     const open=e.target.closest('[data-premium-open]');if(open){e.preventDefault();e.stopImmediatePropagation();return showDetail(open.dataset.premiumOpen)}
     const rep=e.target.closest('[data-premium-report]');if(rep){e.preventDefault();e.stopImmediatePropagation();const x=await getRecord(rep.dataset.premiumReport);if(!x)return;if(x.type==='pt-altura'&&window.openPTAltura){window.openPTAltura(x);setTimeout(()=>showPTPdfSummary('download'),120)}else{setState(clone(x));window.renderForm?.();window.show?.('form');setTimeout(()=>window.makePdf?.('download'),120)}return}
