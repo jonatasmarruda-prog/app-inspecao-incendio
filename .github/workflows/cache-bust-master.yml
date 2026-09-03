@@ -1,0 +1,40 @@
+name: Atualizar cache dos assets SST
+on:
+  push:
+    paths:
+      - 'premium.js'
+      - 'premium.css'
+      - 'abnt-relatorio.js'
+      - 'compartilhar-relatorio.js'
+permissions:
+  contents: write
+jobs:
+  cache-bust:
+    if: "!contains(github.event.head_commit.message, '[auto-cache]')"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Atualizar versão dos assets
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          p=Path('index.html')
+          s=p.read_text(encoding='utf-8')
+          version='20260903-30'
+          s=re.sub(r'(premium\.css\?v=)[^\"\']+', r'\g<1>'+version, s)
+          s=re.sub(r'(premium\.js\?v=)[^\"\']+', r'\g<1>'+version, s)
+          p.write_text(s,encoding='utf-8')
+          PY
+      - name: Validar arquivos
+        run: |
+          node --check premium.js
+          node --check abnt-relatorio.js
+          node --check compartilhar-relatorio.js
+      - name: Commit automático
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add index.html
+          git diff --cached --quiet || git commit -m 'Atualiza cache dos assets [auto-cache]'
+          git push
