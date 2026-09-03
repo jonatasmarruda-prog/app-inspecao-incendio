@@ -1,279 +1,78 @@
 (()=>{
 'use strict';
-/* PDF FINAL v5 — renderização visível e independente, estado preservado, ABNT e Web Share. */
-let busy=false;
-const $=id=>document.getElementById(id);
-const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 
-function getState(){
-  try{if(typeof state!=='undefined'&&state&&typeof state==='object')return state}catch(_){}
-  try{if(window.current&&typeof window.current==='object')return window.current}catch(_){}
-  return window.state||window.appState||window.inspectionState||window.currentInspection||window.inspection||{};
+/*
+  Ponte final e autoritativa do PDF.
+  O html2pdf/html2canvas foi aposentado definitivamente.
+  Este arquivo existe apenas para garantir que qualquer carregador legado
+  termine apontando para o gerador oficial baseado em pdfmake.
+*/
+
+const LAYOUT_SRC='./pdf-layout-fix.js?v=20260903-05';
+let loading=null;
+
+function loadPdfMakeLayout(){
+  if(window.__tbmPdfMakeLayoutReady && typeof window.makePdf==='function') return Promise.resolve();
+  if(loading) return loading;
+  loading=new Promise(resolve=>{
+    const old=document.querySelector('script[data-tbm-pdfmake-authoritative]');
+    if(old) old.remove();
+    const s=document.createElement('script');
+    s.src=LAYOUT_SRC;
+    s.async=false;
+    s.dataset.tbmPdfmakeAuthoritative='1';
+    s.onload=()=>{window.__tbmPdfMakeLayoutReady=true;bindButtons();resolve()};
+    s.onerror=()=>{console.error('[PDFMAKE] Falha ao carregar pdf-layout-fix.js');resolve()};
+    document.body.appendChild(s);
+  });
+  return loading;
 }
 
-function getId(st){
-  const candidates=[
-    st?.id,st?.inspectionId,st?.idInspecao,
-    typeof window.currentInspectionId==='string'?window.currentInspectionId:'',
-    window.inspectionId,window.idGerado,
-    document.querySelector('[data-inspection-id]')?.dataset?.inspectionId,
-    document.getElementById('inspectionId')?.value,
-    document.getElementById('inspectionID')?.value,
-    document.getElementById('idInspecao')?.value,
-    document.querySelector('.reportNo')?.textContent,
-    document.querySelector('.pdf-id')?.textContent
-  ];
-  for(const value of candidates){
-    const text=String(value??'').trim();
-    const match=text.match(/INS-[A-Z0-9]+(?:-[A-Z0-9]+)*/i);
-    if(match){
-      window.currentInspectionId=match[0];
-      try{if(st&&typeof st==='object'&&!st.id)st.id=match[0]}catch(_){}
-      return match[0];
-    }
-  }
-  const id='INS-'+Date.now().toString(36).toUpperCase()+'-'+Math.random().toString(36).slice(2,7).toUpperCase();
-  window.currentInspectionId=id;
-  try{if(st&&typeof st==='object'&&!st.id)st.id=id}catch(_){}
-  return id;
-}
-
-async function waitFonts(){try{if(document.fonts?.ready)await document.fonts.ready}catch(_) {}}
-
-async function waitImages(root){
-  const imgs=[...root.querySelectorAll('img')];
-  await Promise.all(imgs.map(img=>new Promise(resolve=>{
-    if(img.complete&&img.naturalWidth>0)return resolve();
-    let done=false;
-    const finish=()=>{if(done)return;done=true;img.removeEventListener('load',finish);img.removeEventListener('error',finish);resolve()};
-    img.addEventListener('load',finish,{once:true});
-    img.addEventListener('error',finish,{once:true});
-    setTimeout(finish,15000);
-  })));
-}
-
-async function inlineSameOriginImages(root){
-  for(const img of [...root.querySelectorAll('img[src]')]){
-    const src=img.getAttribute('src')||'';
-    if(!src||src.startsWith('data:')||src.startsWith('blob:'))continue;
-    try{
-      const url=new URL(src,location.href);
-      if(url.origin!==location.origin)continue;
-      const response=await fetch(url.href,{cache:'force-cache'});
-      if(!response.ok)continue;
-      const blob=await response.blob();
-      const reader=new FileReader();
-      const data=await new Promise((resolve,reject)=>{
-        reader.onload=()=>resolve(reader.result);
-        reader.onerror=reject;
-        reader.readAsDataURL(blob);
-      });
-      img.src=data;
-    }catch(e){console.warn('[PDF] imagem local mantida:',src,e)}
-  }
-}
-
-function transferFields(source,clone){
-  const original=source.querySelectorAll('input,textarea,select');
-  const copied=clone.querySelectorAll('input,textarea,select');
-  original.forEach((el,index)=>{
-    const target=copied[index];
-    if(!target)return;
-    target.value=el.value;
-    if(el.type==='checkbox'||el.type==='radio')target.checked=el.checked;
-  });
-  const originalCanvases=source.querySelectorAll('canvas');
-  const copiedCanvases=clone.querySelectorAll('canvas');
-  originalCanvases.forEach((canvas,index)=>{
-    const target=copiedCanvases[index];
-    if(!target)return;
-    target.width=canvas.width;target.height=canvas.height;
-    const ctx=target.getContext('2d');
-    if(ctx)ctx.drawImage(canvas,0,0);
-  });
-}
-
-function dedupePhotos(root){
-  const seen=new Set();
-  root.querySelectorAll('.photoCard,.pdf-photo,.pm-photo,.rphotos figure,.pdf-photo-grid figure').forEach(card=>{
-    const img=card.querySelector('img');
-    if(!img)return;
-    const key=img.getAttribute('src')||img.src||'';
-    if(!key)return;
-    if(seen.has(key))card.remove();else seen.add(key);
-  });
-}
-
-function buildReport(st){
-  const root=document.createElement('div');
-  root.id='tbmPdfFinalRender';
-  /* Preferimos a montagem oficial do laudo: não depende de cloneNode nem de inputs. */
-  if(typeof window.reportHTML==='function'){
-    try{root.innerHTML=window.reportHTML(st)||''}catch(e){console.warn('[PDF] reportHTML falhou; usando DOM atual.',e)}
-  }
-  if(!root.innerHTML.trim()){
-    const source=document.querySelector('#reportContent .pdf-enterprise,#reportContent .reportPage,#reportContent .reportShell,#reportContent .abnt-report,#reportContent .report,#report .reportShell,.reportPage,.pdf-enterprise');
-    if(source){root.innerHTML=source.outerHTML;transferFields(source,root)}
-  }
-  if(!root.textContent.trim()&&!root.querySelector('img,table,canvas'))throw new Error('O conteúdo do relatório está vazio. Abra ou gere o relatório antes de exportar.');
-  return root;
-}
-
-function styleRoot(root){
-  Object.assign(root.style,{
-    position:'fixed',left:'0',top:'0',width:'794px',maxWidth:'794px',minHeight:'1px',
-    margin:'0',padding:'0',background:'#fff',color:'#111',display:'block',
-    visibility:'visible',opacity:'1',pointerEvents:'none',zIndex:'2147483000',overflow:'visible',
-    fontFamily:'Arial,Helvetica,sans-serif',transform:'none'
-  });
-  root.querySelectorAll('*').forEach(el=>{
-    el.style.boxSizing='border-box';
-    el.style.visibility='visible';
-    el.style.opacity='1';
-    el.style.fontFamily='Arial,Helvetica,sans-serif';
-  });
-  root.querySelectorAll('.hidden,[hidden]').forEach(el=>{
-    el.classList.remove('hidden');el.removeAttribute('hidden');
-  });
-  root.querySelectorAll('.pdf-enterprise,.pdf-page,.reportPage,.reportShell,.abnt-report').forEach(el=>{
-    el.style.background='#fff';el.style.color='#111';el.style.margin='0';el.style.maxWidth='none';el.style.display='block';el.style.visibility='visible';
-  });
-  root.querySelectorAll('.no-print,button,input,textarea,select').forEach(el=>el.style.display='none');
-  root.querySelectorAll('table,.pdf-section,.rsection,.pdf-photo,.rphotos,.rsig,.pdf-signatures,.pdf-signature,.pdf-summary,.photoCard').forEach(el=>{
-    el.style.breakInside='avoid';el.style.pageBreakInside='avoid';
-  });
-  root.querySelectorAll('img').forEach(img=>{
-    img.style.maxWidth='100%';img.style.objectPosition='center';img.style.objectFit='contain';img.removeAttribute('loading');
-  });
-}
-
-function injectPrintCss(){
-  if($('tbmPdfFinalPrintCss'))return;
-  const style=document.createElement('style');style.id='tbmPdfFinalPrintCss';
-  style.textContent=`
-    .tbmPdfFinalExport{font-family:Arial,Helvetica,sans-serif!important;background:#fff!important;color:#111!important;font-size:12pt!important;line-height:1.5!important}
-    .tbmPdfFinalExport *{font-family:Arial,Helvetica,sans-serif!important;color:#111}
-    .tbmPdfFinalExport .pdf-section,.tbmPdfFinalExport .rsection,.tbmPdfFinalExport table,.tbmPdfFinalExport .pdf-photo,.tbmPdfFinalExport .rphotos,.tbmPdfFinalExport .rsig,.tbmPdfFinalExport .pdf-signatures,.tbmPdfFinalExport .pdf-signature,.tbmPdfFinalExport .pdf-summary{break-inside:avoid!important;page-break-inside:avoid!important}
-    .tbmPdfFinalExport .pdf-section-title,.tbmPdfFinalExport .rtitle{background:#f4f4f4!important;color:#111!important;font-size:14pt!important;font-weight:700!important;padding:8px!important}
-    .tbmPdfFinalExport .pdf-title{font-size:16pt!important;font-weight:700!important}
-    .tbmPdfFinalExport .pdf-table th,.tbmPdfFinalExport .pdf-table td{font-size:12pt!important;color:#111!important;border:1px solid #ddd!important}
-    .tbmPdfFinalExport .pdf-table th{background:#f2f2f2!important}
-    .tbmPdfFinalExport .pdf-photo img,.tbmPdfFinalExport .rphotos img{object-fit:contain!important;height:185px!important;width:100%!important}
-    .tbmPdfFinalExport .pdf-id,.tbmPdfFinalExport .reportNo{white-space:nowrap!important;overflow:visible!important;word-break:normal!important}
-    @page{size:A4 portrait;margin:30mm 20mm 20mm 30mm}
-  `;
-  document.head.appendChild(style);
-}
-
-async function makePdfFinal(forceShare=true){
-  if(busy)return;
-  busy=true;
-  let root=null;
-  try{
-    if(typeof window.html2pdf!=='function')throw new Error('Biblioteca html2pdf não carregada.');
-    injectPrintCss();
-    window.scrollTo(0,0);
-    const st=getState()||{};
-    const id=getId(st);
-    root=buildReport(st);
-    root.classList.add('tbmPdfFinalExport');
-    styleRoot(root);
-    document.body.appendChild(root);
-    await sleep(150);
-    await waitFonts();
-    await inlineSameOriginImages(root);
-    dedupePhotos(root);
-    await waitImages(root);
-    /* Delay explícito para eliminar captura antes do DOM estar pronto. */
-    await sleep(1000);
-    await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
-    window.scrollTo(0,0);
-    void root.offsetHeight;
-
-    const filename='Laudo_Inspecao_'+id+'.pdf';
-    const opt={
-      margin:[30,20,20,30],
-      filename,
-      image:{type:'jpeg',quality:0.86},
-      html2canvas:{
-        scale:1.25,
-        useCORS:true,
-        allowTaint:false,
-        backgroundColor:'#fff',
-        logging:false,
-        imageTimeout:30000,
-        removeContainer:true,
-        scrollX:0,
-        scrollY:0,
-        windowWidth:794,
-        width:794
-      },
-      jsPDF:{unit:'mm',format:'a4',orientation:'portrait',compress:true},
-      pagebreak:{mode:['avoid-all','css','legacy'],avoid:['.pdf-section','.rsection','.pdf-photo','.rphotos figure','.pdf-signature','.rsig','.pdf-summary','table','tr']}
-    };
-
-    const worker=window.html2pdf().set(opt).from(root).toContainer().toCanvas().toPdf();
-    const pdf=await worker.get('pdf');
-    if(!pdf)throw new Error('Não foi possível finalizar o documento PDF.');
-    const blob=pdf.output('blob');
-    if(!blob||blob.size<1500)throw new Error('O PDF foi gerado sem conteúdo.');
-
-    const file=new File([blob],filename,{type:'application/pdf'});
-    if(forceShare&&typeof navigator.share==='function'&&typeof navigator.canShare==='function'){
-      try{
-        if(navigator.canShare({files:[file]})){
-          await navigator.share({title:'Laudo de Inspeção SST',text:'Laudo de inspeção de segurança — '+id,files:[file]});
-          return;
-        }
-      }catch(e){if(e?.name==='AbortError')return;console.warn('[PDF] compartilhamento não concluído:',e)}
-    }
-
-    const url=URL.createObjectURL(blob);
-    const a=document.createElement('a');a.href=url;a.download=filename;a.rel='noopener';a.style.display='none';
-    document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);
-  }catch(e){
-    console.error('[PDF FINAL v5]',e);
+function callPdf(action){
+  return loadPdfMakeLayout().then(()=>{
+    if(typeof window.makePdf!=='function') throw new Error('Gerador pdfmake indisponível.');
+    return window.makePdf(action);
+  }).catch(e=>{
+    console.error('[PDFMAKE FINAL]',e);
     alert('Não foi possível gerar o PDF: '+(e?.message||e));
-  }finally{
-    if(root)root.remove();
-    busy=false;
-  }
+  });
 }
-
-window.makePdfFinal=makePdfFinal;
-window.makePdf=makePdfFinal;
-window.gerarPDF=makePdfFinal;
-window.gerarPDFMaster=makePdfFinal;
-window.compartilharPDF=()=>makePdfFinal(true);
-window.gerarRelatorioPDF=makePdfFinal;
 
 function bindButtons(){
-  const pdf=$('pdf');
-  if(pdf&&!pdf.dataset.tbmPdfFinal){
-    pdf.dataset.tbmPdfFinal='1';pdf.type='button';pdf.textContent='📄 GERAR E COMPARTILHAR PDF';
-    pdf.addEventListener('click',e=>{e.preventDefault();e.stopImmediatePropagation();makePdfFinal(true)},true);
+  const pdf=document.getElementById('pdf');
+  const reportPdf=document.getElementById('reportPdf');
+  const reportShare=document.getElementById('reportShare');
+
+  if(pdf&&!pdf.dataset.tbmPdfmakeFinal){
+    pdf.dataset.tbmPdfmakeFinal='1';
+    pdf.type='button';
+    pdf.textContent='📄 GERAR E COMPARTILHAR PDF';
+    pdf.addEventListener('click',e=>{e.preventDefault();e.stopImmediatePropagation();callPdf('share')},true);
   }
-  const reportPdf=$('reportPdf');
-  if(reportPdf&&!reportPdf.dataset.tbmPdfFinal){
-    reportPdf.dataset.tbmPdfFinal='1';reportPdf.type='button';reportPdf.textContent='⬇️ BAIXAR PDF';
-    reportPdf.addEventListener('click',e=>{e.preventDefault();e.stopImmediatePropagation();makePdfFinal(false)},true);
+  if(reportPdf&&!reportPdf.dataset.tbmPdfmakeFinal){
+    reportPdf.dataset.tbmPdfmakeFinal='1';
+    reportPdf.type='button';
+    reportPdf.textContent='📥 Baixar PDF';
+    reportPdf.addEventListener('click',e=>{e.preventDefault();e.stopImmediatePropagation();callPdf('download')},true);
   }
-  const reportShare=$('reportShare');
-  if(reportShare&&!reportShare.dataset.tbmPdfFinal){
-    reportShare.dataset.tbmPdfFinal='1';reportShare.type='button';reportShare.textContent='📤 COMPARTILHAR PDF';
-    reportShare.addEventListener('click',e=>{e.preventDefault();e.stopImmediatePropagation();makePdfFinal(true)},true);
-  }
-  /* Garante que a opção de compartilhar apareça também no formulário principal. */
-  const actions=document.querySelector('#form .actions');
-  if(actions&&!document.getElementById('tbmShareMain')){
-    const b=document.createElement('button');
-    b.id='tbmShareMain';b.type='button';b.className='btn blue no-print';
-    b.textContent='📄 GERAR E COMPARTILHAR PDF';
-    b.addEventListener('click',e=>{e.preventDefault();makePdfFinal(true)},true);
-    actions.appendChild(b);
+  if(reportShare&&!reportShare.dataset.tbmPdfmakeFinal){
+    reportShare.dataset.tbmPdfmakeFinal='1';
+    reportShare.type='button';
+    reportShare.textContent='📲 Compartilhar PDF';
+    reportShare.addEventListener('click',e=>{e.preventDefault();e.stopImmediatePropagation();callPdf('share')},true);
   }
 }
 
-if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bindButtons,{once:true});else bindButtons();
-[300,800,1500,3000,5000].forEach(t=>setTimeout(bindButtons,t));
+window.makePdfFinal=action=>callPdf(action===false?'download':'share');
+window.gerarPDF=()=>callPdf('download');
+window.gerarPDFMaster=()=>callPdf('download');
+window.compartilharPDF=()=>callPdf('share');
+window.gerarRelatorioPDF=()=>callPdf('download');
+
+if(document.readyState==='loading'){
+  document.addEventListener('DOMContentLoaded',()=>{loadPdfMakeLayout();bindButtons()},{once:true});
+}else{
+  loadPdfMakeLayout();bindButtons();
+}
+[400,1000,2000].forEach(t=>setTimeout(bindButtons,t));
 })();
