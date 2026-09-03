@@ -1,26 +1,22 @@
 (()=>{
 'use strict';
 
+const CNPJ='07.603.376/0003-00';
+const LOGO='Têxtil Bezerra de Menezes 2.jpeg';
+const TYPE_NAMES={fire:'Combate a Incêndio',safety:'Inspeção de Segurança',machine:'Máquinas e Equipamentos',epi:'Inspeção de EPI',accident:'Investigação de Acidente',report:'Relatório de Inspeção'};
+
 function $(id){return document.getElementById(id)}
 function value(id){const el=$(id);return el?String(el.value??'').trim():''}
-function safe(v,fallback='Não informado'){const s=String(v??'').trim();return s||fallback}
 function currentState(){try{return state||{}}catch(_){return window.state||window.appState||window.currentInspection||{}}}
 function currentTypes(){try{return TYPES||{}}catch(_){return window.TYPES||{}}}
-
-function formatDateBR(value){
-  const v=String(value||'').trim();
-  if(!v)return 'Não informado';
-  const m=v.match(/^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2}))?/);
-  if(m)return `${m[3]}/${m[2]}/${m[1]}${m[4]&&m[5]?` ${m[4]}:${m[5]}`:''}`;
-  const br=v.match(/^(\d{2})\/(\d{2})\/(\d{4})(?:\s+(\d{2}):(\d{2}))?/);
-  if(br)return `${br[1]}/${br[2]}/${br[3]}${br[4]&&br[5]?` ${br[4]}:${br[5]}`:''}`;
-  try{
-    const d=new Date(v);
-    if(Number.isNaN(d.getTime()))return v;
-    const p=n=>String(n).padStart(2,'0');
-    return `${p(d.getDate())}/${p(d.getMonth()+1)}/${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}`;
-  }catch{return v}
-}
+function val(o,...keys){for(const k of keys){if(o&&o[k]!=null&&String(o[k]).trim()!=='')return o[k]}return'—'}
+function company(x){const live=value('company');const c=live||x.company||'';return c==='Outro'?(value('otherCompany')||x.otherCompany||'—'):(c||'—')}
+function inspector(x){const live=value('inspector');const i=live||x.inspector||'';return i==='Outro'?(value('inspectorOther')||x.inspectorOther||'—'):(i||'—')}
+function typeName(x){return TYPE_NAMES[x?.type]||x?.title||'Inspeção de Segurança'}
+function checksFor(x){const types=currentTypes();return types?.[x.type]?.checks||[]}
+function fmtBR(v){if(!v)return'—';const d=new Date(v);return Number.isNaN(d.getTime())?String(v):d.toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})}
+function nowBR(){return fmtBR(new Date())}
+function inspectionId(st){const id=String(st.id||window.currentInspectionId||'').trim();if(id)return id;const n='INS-'+Date.now().toString(36).toUpperCase();st.id=n;window.currentInspectionId=n;return n}
 
 async function imageToDataUrl(src){
   if(!src)return null;
@@ -45,58 +41,63 @@ function canvasData(id,stateValue){
   return stateValue||null;
 }
 
-function inspectionId(st){
-  const existing=String(st.id||window.currentInspectionId||'').trim();
-  if(existing)return existing;
-  const id='INS-'+Date.now().toString(36).toUpperCase();
-  try{st.id=id}catch(_){ }
-  window.currentInspectionId=id;
-  return id;
-}
-function companyName(st){const c=value('company')||st.company||'';return c==='Outro'?(value('otherCompany')||st.otherCompany||'Outro'):(c||'Não informado')}
-function inspectorName(st){const i=value('inspector')||st.inspector||'';return i==='Outro'?(value('inspectorOther')||st.inspectorOther||'Outro'):(i||'Não informado')}
-
-const borderedLayout={
-  hLineWidth:()=>1,
-  vLineWidth:()=>1,
+const gridLayout={
+  hLineWidth:()=>0.7,
+  vLineWidth:()=>0.7,
   hLineColor:()=>'#dddddd',
   vLineColor:()=>'#dddddd',
-  paddingLeft:()=>8,
-  paddingRight:()=>8,
+  paddingLeft:()=>7,
+  paddingRight:()=>7,
   paddingTop:()=>5,
   paddingBottom:()=>5
 };
 
-function sectionTable(title,rows){
+const sectionHeaderLayout={
+  hLineWidth:()=>0.7,
+  vLineWidth:()=>0.7,
+  hLineColor:()=>'#dddddd',
+  vLineColor:()=>'#dddddd',
+  paddingLeft:()=>7,
+  paddingRight:()=>7,
+  paddingTop:()=>6,
+  paddingBottom:()=>6
+};
+
+function labelCell(text){return {text:String(text??''),bold:true,fillColor:'#f4f4f4',fontSize:9,color:'#111111'}}
+function valueCell(text){return {text:String(text==null||String(text).trim()===''?'—':text),fontSize:9,color:'#111111'}}
+function headerCell(text){return {text:String(text??''),bold:true,fillColor:'#f4f4f4',fontSize:8.5,color:'#111111'}}
+
+function sectionTitle(title){
+  return {table:{widths:['*'],body:[[{text:title,bold:true,fillColor:'#f4f4f4',fontSize:11,color:'#111111'}]]},layout:sectionHeaderLayout,margin:[0,10,0,0]};
+}
+
+function twoColSection(title,rows){
   return {
-    table:{
-      widths:['30%','70%'],
-      body:[
-        [{text:title,bold:true,fillColor:'#f4f4f4',colSpan:2},{}],
-        ...rows.map(([label,val])=>[
-          {text:safe(label,''),bold:true},
-          {text:safe(val)}
-        ])
-      ]
-    },
-    layout:borderedLayout,
-    margin:[0,8,0,10]
+    stack:[
+      sectionTitle(title),
+      {table:{widths:['50%','50%'],body:rows.map(([a,b])=>[labelCell(a),valueCell(b)])},layout:gridLayout}
+    ],
+    unbreakable:true
   };
 }
 
-function signatureBox(role,name,image){
-  return {
-    stack:[
-      image?{image,fit:[200,70],alignment:'center',margin:[8,4,8,12]}:{text:'',margin:[0,28,0,22]},
-      {
-        table:{widths:['*'],body:[[
-          {text:safe(name),bold:true,alignment:'center',border:[false,true,false,false],margin:[0,6,0,0]}
-        ]]},
-        layout:{hLineColor:()=>'#777777',vLineWidth:()=>0,paddingLeft:()=>8,paddingRight:()=>8,paddingTop:()=>2,paddingBottom:()=>2}
-      },
-      {text:role,alignment:'center',fontSize:8,color:'#555555',margin:[0,2,0,0]}
-    ]
-  };
+function uniquePhotos(list){
+  const seen=new Set();
+  return (Array.isArray(list)?list:[]).filter(p=>{
+    const key=String(p?.hash||p?.id||p?.data||'').trim();
+    if(!key||seen.has(key))return false;
+    seen.add(key);return true;
+  });
+}
+
+function signatureCell(name,role,image){
+  const stack=[];
+  if(image)stack.push({image,fit:[190,55],alignment:'center',margin:[0,0,0,5]});
+  else stack.push({text:'',margin:[0,0,0,48]});
+  stack.push({canvas:[{type:'line',x1:8,y1:0,x2:230,y2:0,lineWidth:0.8,lineColor:'#222222'}],margin:[0,0,0,6]});
+  stack.push({text:name||'Acompanhante',bold:true,alignment:'center',fontSize:9,color:'#111111'});
+  stack.push({text:role,alignment:'center',fontSize:9,color:'#111111',margin:[0,3,0,0]});
+  return {stack,margin:[5,8,5,6]};
 }
 
 window.makePdf=async function(action='download'){
@@ -107,138 +108,141 @@ window.makePdf=async function(action='download'){
     if(!window.pdfMake)throw new Error('Biblioteca pdfmake indisponível.');
 
     const st=currentState();
-    const types=currentTypes();
     const id=inspectionId(st);
-    const typeName=types?.[st.type]?.name||st.title||'Inspeção SST';
-    const dateRaw=value('date')||st.date||'';
-    const dateBR=formatDateBR(dateRaw);
-    const logoBase64=await imageToDataUrl('Têxtil Bezerra de Menezes 2.jpeg');
+    const logoBase64=await imageToDataUrl(LOGO);
+    const emitido=nowBR();
+    const ins=inspector(st);
+    const witness=value('witness')||st.witness||'Responsável / Acompanhante';
+    const role=value('role')||st.role||'Técnico de Segurança do Trabalho';
     const sig1=canvasData('sig1',st.signature1);
     const sig2=canvasData('sig2',st.signature2);
-    const witness=value('witness')||st.witness;
+    const checks=checksFor(st);
+    const equipment=Array.isArray(st.equipment)?st.equipment:[];
+    const statuses=[...equipment.map(e=>e.status||'PENDENTE'),...checks.map((q,i)=>st.checks?.[i]||'PENDENTE')];
+    const total=statuses.length;
+    const con=statuses.filter(v=>v==='CONFORME').length;
+    const nc=statuses.filter(v=>v==='NÃO CONFORME').length;
+    const pend=statuses.filter(v=>v==='PENDENTE').length;
 
     const content=[];
 
     content.push({
       table:{
-        widths:['20%','55%','25%'],
+        widths:[55,'*',150],
         body:[[ 
-          logoBase64?{image:logoBase64,fit:[80,80],alignment:'left',margin:[0,0,8,0]}:{text:'TBM TÊXTIL',bold:true,color:'#8b1018'},
+          logoBase64?{image:logoBase64,fit:[50,42],alignment:'left',margin:[0,4,5,0]}:{text:'TBM',bold:true,fontSize:14,color:'#111111'},
           {stack:[
-            {text:'RELATÓRIO DE INSPEÇÃO DE SEGURANÇA DO TRABALHO',bold:true,alignment:'center',fontSize:13},
-            {text:typeName,bold:true,alignment:'center',fontSize:9,margin:[0,5,0,0]},
-            {text:'TBM Têxtil • Sistema Profissional SST',alignment:'center',fontSize:8,color:'#555555',margin:[0,3,0,0]}
-          ],margin:[0,8,0,0]},
-          {text:`Nº ${id}\nEmissão: ${dateBR}`,alignment:'right',fontSize:10,margin:[0,8,0,0]}
+            {text:`RELATÓRIO DE INSPEÇÃO DE SEGURANÇA DO TRABALHO - ${typeName(st)}`.toUpperCase(),bold:true,fontSize:12.5,lineHeight:1.15,color:'#111111'},
+            {text:'Documento técnico • Sistema Profissional SST',fontSize:9.5,color:'#111111',margin:[0,5,0,0]}
+          ]},
+          {stack:[
+            {text:`Nº ${id}`,bold:true,alignment:'right',fontSize:9.5,color:'#111111',noWrap:true},
+            {text:`Emissão: ${emitido}`,alignment:'right',fontSize:8.5,color:'#111111',margin:[0,4,0,0],noWrap:true}
+          ],margin:[0,6,0,0]}
         ]]
       },
       layout:'noBorders',
-      margin:[0,0,0,6]
+      margin:[0,0,0,8]
+    });
+    content.push({canvas:[{type:'line',x1:0,y1:0,x2:515,y2:0,lineWidth:0.9,lineColor:'#222222'}],margin:[0,0,0,1]});
+
+    content.push(twoColSection('Dados da Empresa',[
+      ['Empresa / unidade',company(st)],
+      ['CNPJ',CNPJ],
+      ['Endereço',value('address')||val(st,'address')],
+      ['Setor / local',value('sector')||val(st,'sector')],
+      ['Inspetor',ins],
+      ['Função',role],
+      ['Acompanhante',witness],
+      ['Data e hora da inspeção',fmtBR(value('date')||st.date)],
+      ['Localização GPS',st.gps?`${st.gps.lat}, ${st.gps.lng} • precisão ${Math.round(st.gps.accuracy||0)} m`:'Não capturada']
+    ]));
+
+    content.push({
+      table:{widths:['25%','25%','25%','25%'],body:[[
+        {stack:[{text:String(total),bold:true,fontSize:13,alignment:'center'},{text:'Total',fontSize:8.5,alignment:'center'}]},
+        {stack:[{text:String(con),bold:true,fontSize:13,alignment:'center'},{text:'Conformes',fontSize:8.5,alignment:'center'}]},
+        {stack:[{text:String(nc),bold:true,fontSize:13,alignment:'center'},{text:'Não conformes',fontSize:8.5,alignment:'center'}]},
+        {stack:[{text:String(pend),bold:true,fontSize:13,alignment:'center'},{text:'Pendentes',fontSize:8.5,alignment:'center'}]}
+      ]]},
+      layout:gridLayout,
+      margin:[0,10,0,0]
     });
 
-    content.push({canvas:[{type:'line',x1:0,y1:0,x2:515,y2:0,lineWidth:1.5,lineColor:'#777777'}],margin:[0,0,0,8]});
-
-    content.push(sectionTable('DADOS DA EMPRESA',[
-      ['Empresa / unidade',companyName(st)],
-      ['CNPJ','07.603.776/0003-00'],
-      ['Endereço',value('address')||st.address]
-    ]));
-
-    content.push(sectionTable('DADOS DA INSPEÇÃO',[
-      ['Setor / local',value('sector')||st.sector],
-      ['Inspetor',inspectorName(st)],
-      ['Função',value('role')||st.role],
-      ['Acompanhante',witness],
-      ['Data da inspeção',dateBR],
-      ['Localização GPS',st.gps?`${st.gps.lat}, ${st.gps.lng}`:'Não capturada'],
-      ['Nº do relatório',id]
-    ]));
-
-    const equipment=Array.isArray(st.equipment)?st.equipment:[];
     if(equipment.length){
-      content.push(sectionTable('EQUIPAMENTOS / ITENS INSPECIONADOS',equipment.map((e,i)=>{
-        const name=e.kind==='ext'?`Extintor #${i+1}`:e.kind==='hid'?`Hidrante #${i+1}`:e.kind==='light'?`Iluminação de Emergência #${i+1}`:`Sirene / Alarme #${i+1}`;
-        const detail=e.kind==='ext'?[e.tipo,e.capacidade,e.ultima?`Última inspeção / recarga: ${formatDateBR(e.ultima)}`:''].filter(Boolean).join(' • '):(e.localizacao||'Não informado');
-        return [name,`${safe(e.status,'PENDENTE')}\nPatrimônio: ${safe(e.patrimonio)}\n${detail}${String(e.obs||'').trim()?`\nObservação: ${e.obs}`:''}`];
-      })));
+      content.push(sectionTitle('Equipamentos / Serviços Realizados'));
+      const rows=[[headerCell('#'),headerCell('Equipamento'),headerCell('Patrimônio'),headerCell('Dados / Localização'),headerCell('Situação'),headerCell('Observações')]];
+      equipment.forEach((e,i)=>{
+        const kind=e.kind==='ext'?'Extintor':e.kind==='hid'?'Hidrante':e.kind==='light'?'Iluminação de Emergência':e.kind==='alarm'?'Sirene / Alarme':(e.kind||'Equipamento');
+        const data=[e.tipo,e.capacidade,e.localizacao,e.ultima?`Última inspeção/recarga: ${e.ultima}`:''].filter(Boolean).join(' • ')||'Não informado';
+        rows.push([String(i+1),kind,e.patrimonio||'Não informado',data,e.status||'PENDENTE',e.obs||'']);
+      });
+      content.push({table:{headerRows:1,widths:[20,70,65,145,75,'*'],body:rows},layout:gridLayout,fontSize:7.5});
     }
 
-    const checklistQuestions=types?.[st.type]?.checks||[];
-    if(checklistQuestions.length){
-      content.push(sectionTable('CHECKLIST DE INSPEÇÃO',checklistQuestions.map((q,i)=>[
-        `${i+1}. ${q}`,
-        st.checks?.[i]||'PENDENTE'
-      ])));
+    if(checks.length){
+      content.push(sectionTitle('Diagnóstico / Checklist'));
+      const rows=[[headerCell('#'),headerCell('Item inspecionado'),headerCell('Status')]];
+      checks.forEach((q,i)=>rows.push([String(i+1),q,st.checks?.[i]||'PENDENTE']));
+      content.push({table:{headerRows:1,widths:[28,'*',115],body:rows},layout:gridLayout,fontSize:8});
     }
 
     if(st.type==='accident'&&st.accident){
       const a=st.accident;
-      content.push(sectionTable('INVESTIGAÇÃO DE ACIDENTE',[
-        ['Data do Acidente',formatDateBR(a.eventDate)],
-        ['Hora do Acidente',a.eventTime],
-        ['Local / Setor Exato da Ocorrência',a.eventLocation],
-        ['Supervisor Imediato do Setor',a.supervisor],
-        ['Tipo de Evento',a.eventType],
-        ['Gravidade',a.severity],
-        ['Classe',a.class],
-        ['Nome do Acidentado',a.victimName],
-        ['Cargo',a.victimRole],
-        ['Nº CAT',a.cat],
-        ['Tempo de Empresa',a.companyTime],
-        ['Tempo de Função',a.functionTime],
-        ['Data do ASO',formatDateBR(a.asoDate)],
-        ['Falhas identificadas',(a.causes||[]).join(', ')]
+      content.push(twoColSection('Investigação de acidente',[
+        ['Data do acidente',a.eventDate||'—'],['Hora',a.eventTime||'—'],['Local / setor',a.eventLocation||'—'],['Supervisor',a.supervisor||'—'],['Tipo de evento',a.eventType||'—'],['Gravidade',a.severity||'—'],['Classe',a.class||'—'],['Acidentado',a.victimName||'—'],['Cargo',a.victimRole||'—'],['CAT',a.cat||'—'],['Tempo de empresa',a.companyTime||'—'],['Tempo de função',a.functionTime||'—'],['Data do ASO',a.asoDate||'—'],['Falhas identificadas',Array.isArray(a.causes)&&a.causes.length?a.causes.join(', '):'Nenhuma falha classificada.']
       ]));
-      if((a.actions||[]).length){
-        content.push(sectionTable('PLANO DE AÇÃO',(a.actions||[]).map((x,i)=>[
-          `Ação #${i+1}`,
-          `${safe(x.action)}\nResponsável: ${safe(x.responsible)}\nPrazo: ${formatDateBR(x.deadline)}`
-        ])));
-      }
+      content.push(sectionTitle('Plano de ação'));
+      const ar=[[headerCell('#'),headerCell('Ação'),headerCell('Responsável'),headerCell('Prazo')]];
+      (a.actions||[]).forEach((z,i)=>ar.push([String(i+1),z.action||'',z.responsible||'',z.deadline||'']));
+      if(!(a.actions||[]).length)ar.push(['','','Nenhuma ação registrada.','']);
+      content.push({table:{headerRows:1,widths:[25,'*',130,80],body:ar},layout:gridLayout,fontSize:8});
     }
 
-    content.push(sectionTable('DIAGNÓSTICO E AÇÕES',[
-      ['Problemas / não conformidades',value('findings')||st.findings||'Nenhuma informação registrada.'],
-      ['Soluções / ações recomendadas',value('actions')||st.actions||'Nenhuma informação registrada.']
+    content.push(twoColSection('Diagnóstico e Recomendações',[
+      ['Não conformidades / achados',value('findings')||val(st,'findings')],
+      ['Ações / recomendações',value('actions')||val(st,'actions')]
     ]));
 
-    const photos=(st.photos||[]).filter(p=>/^data:image\//i.test(p?.data||''));
+    const photos=uniquePhotos(st.photos);
     if(photos.length){
+      content.push(sectionTitle('Registro Fotográfico'));
       const rows=[];
       for(let i=0;i<photos.length;i+=2){
         const row=[];
         for(let j=0;j<2;j++){
           const p=photos[i+j];
-          row.push(p?{stack:[{image:p.data,fit:[230,165],alignment:'center'},{text:p.caption||`Foto ${i+j+1}`,fontSize:8,alignment:'center',margin:[0,4,0,8]}]}:{text:''});
+          row.push(p?{stack:[
+            {image:p.data,fit:[230,155],alignment:'center',margin:[3,3,3,3]},
+            {text:`Foto ${i+j+1} — ${p.caption||'Registro fotográfico'}`,fontSize:8,alignment:'center',margin:[0,3,0,4]}
+          ]}:{text:''});
         }
         rows.push(row);
       }
-      content.push({
-        stack:[
-          {table:{widths:['*'],body:[[{text:'REGISTRO FOTOGRÁFICO',bold:true,fillColor:'#f4f4f4'}]]},layout:borderedLayout},
-          {table:{widths:['*','*'],body:rows},layout:'noBorders',margin:[0,6,0,8]}
-        ],
-        margin:[0,8,0,10]
-      });
+      content.push({table:{widths:['*','*'],body:rows},layout:{hLineWidth:()=>0,vLineWidth:()=>0,paddingLeft:()=>4,paddingRight:()=>4,paddingTop:()=>5,paddingBottom:()=>5},margin:[0,0,0,0]});
     }
 
+    content.push(sectionTitle('Assinaturas e Responsabilidades'));
     content.push({
-      stack:[
-        {table:{widths:['*'],body:[[{text:'ASSINATURAS E RESPONSABILIDADES',bold:true,fillColor:'#f4f4f4'}]]},layout:borderedLayout},
-        {table:{widths:['*','*'],body:[[
-          signatureBox('Inspetor',inspectorName(st),sig1),
-          signatureBox('Acompanhante',witness||'Assinatura não informada',sig2)
-        ]]},layout:'noBorders',margin:[0,12,0,4]}
-      ],
-      margin:[0,8,0,0]
+      table:{widths:['*','*'],body:[[
+        signatureCell(ins,role,sig1),
+        signatureCell(witness,'Responsável pela Área / Acompanhante',sig2)
+      ]]},
+      layout:'noBorders',
+      margin:[0,0,0,8]
     });
+
+    content.push({canvas:[{type:'line',x1:0,y1:0,x2:515,y2:0,lineWidth:0.7,lineColor:'#cccccc'}],margin:[0,2,0,8]});
+    content.push({text:`Documento eletrônico emitido pelo Sistema Profissional de Inspeção SST • ID ${id}`,alignment:'center',fontSize:7.8,color:'#222222',margin:[0,0,0,14]});
+    content.push({canvas:[{type:'line',x1:170,y1:0,x2:345,y2:0,lineWidth:0.7,lineColor:'#222222'}],margin:[0,0,0,5]});
+    content.push({text:'Técnico de Segurança do Trabalho',alignment:'center',fontSize:8,color:'#111111'});
+    content.push({text:`Relatório gerado em ${emitido}`,alignment:'center',fontSize:8,color:'#111111',margin:[0,3,0,0]});
 
     const docDefinition={
       pageSize:'A4',
-      pageMargins:[40,40,40,40],
-      defaultStyle:{font:'Roboto',fontSize:9,color:'#222222'},
-      content,
-      footer:(page,pages)=>({text:`Sistema Profissional de Inspeção SST • ${id} • Página ${page} de ${pages}`,alignment:'center',fontSize:7,color:'#777777',margin:[0,12,0,0]})
+      pageMargins:[42,42,42,42],
+      defaultStyle:{font:'Roboto',fontSize:9,color:'#111111',lineHeight:1.25},
+      content
     };
 
     const filename=`Laudo_Inspecao_${id}.pdf`;
@@ -250,7 +254,7 @@ window.makePdf=async function(action='download'){
         try{
           const file=new File([blob],filename,{type:'application/pdf'});
           if(navigator.share&&(!navigator.canShare||navigator.canShare({files:[file]}))){
-            await navigator.share({title:'Laudo de Inspeção SST',text:`Laudo ${id} • ${typeName}`,files:[file]});
+            await navigator.share({title:'Relatório de Inspeção SST',text:`Relatório ${id} • ${typeName(st)}`,files:[file]});
           }else window.pdfMake.createPdf(docDefinition).download(filename);
         }catch(e){if(e?.name!=='AbortError'){console.error(e);window.pdfMake.createPdf(docDefinition).download(filename)}}
         finally{modal?.classList.add('hidden')}
@@ -260,7 +264,7 @@ window.makePdf=async function(action='download'){
 
     window.pdfMake.createPdf(docDefinition).download(filename);
   }catch(e){
-    console.error('[PDFMAKE HTML MIRROR]',e);
+    console.error('[PDFMAKE HTML ESPELHO]',e);
     alert('Não foi possível gerar o PDF: '+(e?.message||e));
   }finally{
     if(action!=='share')modal?.classList.add('hidden');
