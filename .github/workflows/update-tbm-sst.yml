@@ -12,13 +12,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Ajustar CNPJ e dados da investigação
+      - name: Limpar contaminação e padronizar CNPJ
         shell: bash
         run: |
           python3 - <<'PY'
           from pathlib import Path
           p=Path('sst-modulos.js')
           s=p.read_text(encoding='utf-8')
+          marker='<script id="tbm-cnpj-reports">'
+          if marker in s:
+              s=s.split(marker,1)[0].rstrip()
           s=s.replace("const DB='SSTInspecoes',STORE='registros',NAME='Jonatas Marques de Arruda',ADDR='Rodovia BR-163, KM 109, S/N - Zona Rural, Rondonópolis - MT';","const DB='SSTInspecoes',STORE='registros',NAME='Jonatas Marques de Arruda',ADDR='Rodovia BR-163, KM 109, S/N - Zona Rural, Rondonópolis - MT',CNPJ='07.603.376/0003-00';")
           s=s.replace('<div class="field"><label>Endereço</label><input id="s-address" value="${ADDR}"></div></div>`','<div class="field"><label>Endereço</label><input id="s-address" value="${ADDR}"></div><div id="s-cnpj-line" class="small"><b>CNPJ:</b> ${CNPJ}</div></div>`')
           old="function open(type){const o=shell(),b=$('#sstBody');o.style.display='block';if(type==='history')return history();"
@@ -48,6 +51,5 @@ function open(type){const o=shell(),b=$('#sstBody');o.style.display='block';if(t
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add sst-modulos.js
-          git diff --cached --quiet || git commit -m 'Atualiza CNPJ TBM e dados SST [auto-tbm]'
+          git diff --cached --quiet || git commit -m 'Remove HTML do módulo SST e valida CNPJ [auto-tbm]'
           git push
-# trigger de validação da atualização TBM
