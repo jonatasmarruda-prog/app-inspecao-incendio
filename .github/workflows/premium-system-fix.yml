@@ -1,0 +1,87 @@
+name: Premium System Fix
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Apply premium interface and stability fixes
+        shell: bash
+        run: |
+          cat > premium.css <<'EOF'
+          :root{--premium-bg:#070b10;--premium-panel:#0d131a;--premium-panel2:#111922;--premium-line:#26313d;--premium-text:#f5f7fa;--premium-muted:#a8b2bd;--premium-red:#ff2d20}
+          body{background:radial-gradient(circle at 50% -10%,#18222d 0,#070b10 42%,#05080c 100%)!important;color:var(--premium-text)!important}
+          .top{background:rgba(5,9,13,.92)!important;border-bottom:1px solid #26313d!important;box-shadow:0 8px 35px #0008!important;backdrop-filter:blur(14px)}
+          .topin{max-width:1180px!important;padding:12px 22px!important;min-height:74px}
+          .logo{width:68px!important;height:68px!important;border-radius:12px!important;background:#fff!important;padding:4px!important}
+          .brand b{font-size:19px!important;letter-spacing:.3px}.brand span{color:#aeb8c3!important}
+          #cloudState{color:#45f06b!important;background:#111a16;padding:9px 13px;border-radius:999px;border:1px solid #24472d}
+          .wrap{max-width:1180px!important;padding:24px!important}
+          .hero{background:transparent!important;border:0!important;box-shadow:none!important;padding:8px 0 30px!important}
+          .badge{background:#131a22!important;color:#dbe4ec!important;border:1px solid #2b3743!important}
+          .hero h1{display:none}.hero>p{display:none}.today{background:transparent!important;border:0!important;margin:8px 0 28px!important;padding:0!important;text-align:center}.today small{color:#697784}.today strong{font-size:22px!important;color:#f7f9fb}.today span{color:#8e9ba7}
+          .title{color:#fff!important;text-align:left!important;font-size:18px!important;margin:0 0 14px!important}
+          .tiles{grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:18px!important}
+          .tile{min-height:190px!important;background:linear-gradient(145deg,#10171f,#0b1117)!important;border:1px solid #27323d!important;border-radius:20px!important;padding:24px!important;box-shadow:0 14px 38px #0007!important;position:relative;overflow:hidden;transition:transform .18s,box-shadow .18s,border-color .18s!important}
+          .tile:after{content:"";position:absolute;left:0;right:0;bottom:0;height:5px}.tile:hover{transform:translateY(-3px);border-color:#3b4754;box-shadow:0 20px 45px #000a}
+          .tile .ico{font-size:44px!important;text-align:center;margin-bottom:8px}.tile b{font-size:17px!important;text-align:center;display:block}.tile span{font-size:13px!important;text-align:center;color:#b5bec8;margin-top:8px!important;line-height:1.45}
+          .fire:after{background:#ff2d20}.safety:after{background:#49df35}.machine:after{background:#ffd21c}.epi:after{background:#1688ff}.accident:after{background:#b24cff}.general:after{background:#19d8e8}
+          .fire .ico{filter:drop-shadow(0 0 12px #ff2d2066)}.safety .ico{filter:drop-shadow(0 0 12px #49df3566)}.machine .ico{filter:drop-shadow(0 0 12px #ffd21c66)}.epi .ico{filter:drop-shadow(0 0 12px #1688ff66)}.accident .ico{filter:drop-shadow(0 0 12px #b24cff66)}.general .ico{filter:drop-shadow(0 0 12px #19d8e866)}
+          #openHistory{margin-top:20px!important;background:linear-gradient(145deg,#111821,#0c1218)!important;color:#f5f7fa!important;border:1px solid #27323d!important;min-height:82px;border-radius:18px!important;text-align:left!important;padding:20px!important;font-size:16px!important;box-shadow:0 12px 30px #0006!important}
+          .statusline{color:#8f9ba7!important;margin-top:18px!important}
+          .card{background:#0d131a!important;border-color:#26313d!important;color:#f4f6f8!important;box-shadow:0 14px 35px #0007!important}.field label,.sectionTitle,.equipment h3,.check b{color:#f4f6f8!important}.field input,.field select,.field textarea,.checkrow select{background:#101820!important;color:#f4f6f8!important;border-color:#2a3642!important}.secondary{background:#17212b!important;color:#f4f6f8!important}.counter div{background:#121b24!important;color:#fff!important}.equipment,.check,.photoCard,.sigwrap{background:#0b1219!important;border-color:#293641!important}
+          .reportShell,.reportPage{background:#fff!important;color:#17202b!important}.reportPage{border-radius:0}.reportHeader{border-bottom-color:#8b1018}.reportLogo{width:82px!important;height:82px!important}
+          @media(max-width:900px){.tiles{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
+          @media(max-width:560px){.wrap{padding:14px!important}.topin{padding:9px 14px!important}.logo{width:56px!important;height:56px!important}.brand b{font-size:16px!important}.tiles{grid-template-columns:1fr!important;gap:12px!important}.tile{min-height:155px!important;padding:20px!important}.tile .ico{font-size:38px!important}}
+          EOF
+
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('index.html')
+          s=p.read_text(encoding='utf-8')
+          # Fix the startup crash: the old timer referenced nonexistent premiumToday/premiumTime IDs.
+          s=s.replace("$('premiumToday').textContent=d.toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});$('premiumTime').textContent=d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',second:'2-digit'})", "$('todayDate').textContent=d.toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});$('todayTime').textContent=d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',second:'2-digit'})")
+          # Load premium layer exactly once.
+          if 'premium.css?v=20260903' not in s:
+              s=s.replace('</head>','<link rel="stylesheet" href="./premium.css?v=20260903"><script src="./premium.js?v=20260903" defer></script></head>')
+          p.write_text(s,encoding='utf-8')
+          PY
+
+          cat > premium.js <<'EOF'
+          (function(){
+            'use strict';
+            function ready(){
+              var title=document.querySelector('.brand b');
+              if(title) title.textContent='SISTEMA DE INSPEÇÃO SST';
+              var sub=document.querySelector('.brand span');
+              if(sub) sub.textContent='TBM Têxtil • Controle Profissional';
+              var badge=document.querySelector('.badge');
+              if(badge) badge.textContent='SISTEMA PROFISSIONAL DE INSPEÇÃO';
+              var status=document.getElementById('cloudState');
+              if(status){
+                var observer=new MutationObserver(function(){
+                  if(/Nuvem ativa/i.test(status.textContent)) status.innerHTML='● Online';
+                  else if(/Local/i.test(status.textContent)) status.innerHTML='● Local';
+                });
+                observer.observe(status,{childList:true,subtree:true,characterData:true});
+              }
+            }
+            if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',ready); else ready();
+          })();
+          EOF
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add index.html premium.css premium.js
+          if git diff --cached --quiet; then echo 'No changes needed'; exit 0; fi
+          git commit -m 'fix: premium interface and startup stability'
+          git push
