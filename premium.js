@@ -1,30 +1,13 @@
-(function(){
-  'use strict';
-  function setup(){
-    var title=document.querySelector('.brand b');
-    if(title) title.textContent='SISTEMA DE INSPEÇÃO SST';
-    var sub=document.querySelector('.brand span');
-    if(sub) sub.textContent='TBM Têxtil • Controle Profissional';
-    var badge=document.querySelector('.badge');
-    if(badge) badge.textContent='SISTEMA PROFISSIONAL DE INSPEÇÃO';
-    document.querySelectorAll('img.logo,img.reportLogo').forEach(function(img){img.src='./icon.svg?v=20260903-27';img.alt='TBM Têxtil';});
-    var input=document.getElementById('photoInput');
-    if(input&&!input.dataset.cameraReady){
-      input.dataset.cameraReady='1';
-      input.setAttribute('accept','image/*');
-      input.setAttribute('capture','environment');
-      var tools=document.createElement('div');tools.className='photoTools';
-      var cam=document.createElement('button');cam.type='button';cam.className='btn cameraBtn';cam.textContent='📷 TIRAR FOTO';cam.onclick=function(){input.click()};
-      var gal=document.createElement('button');gal.type='button';gal.className='btn galleryBtn';gal.textContent='🖼️ ESCOLHER DA GALERIA';gal.onclick=function(){input.removeAttribute('capture');input.click();setTimeout(function(){input.setAttribute('capture','environment')},500)};
-      tools.appendChild(cam);tools.appendChild(gal);input.insertAdjacentElement('afterend',tools);
-      var hint=document.createElement('div');hint.className='photoHint';hint.textContent='Tire a foto diretamente pela câmera ou escolha uma imagem da galeria.';tools.insertAdjacentElement('afterend',hint);
-    }
-    var status=document.getElementById('cloudState');
-    if(status&&!status.dataset.premiumObserver){
-      status.dataset.premiumObserver='1';
-      new MutationObserver(function(){if(/Nuvem ativa/i.test(status.textContent))status.textContent='● Online';else if(/Local/i.test(status.textContent))status.textContent='● Offline local';}).observe(status,{childList:true,subtree:true,characterData:true});
-    }
-  }
-  function ready(){setup();setTimeout(setup,700);setTimeout(setup,1800);}
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',ready);else ready();
+(()=>{'use strict';
+const VERSION='20260903-30';
+function logoSrc(){return './icon.svg?v='+VERSION}
+function fixBrand(){document.querySelectorAll('img.logo,img.reportLogo').forEach(img=>{img.src=logoSrc();img.alt='TBM Têxtil';img.removeAttribute('onerror')});document.querySelectorAll('.tbmLogo,.masterLogo').forEach(el=>{const img=document.createElement('img');img.className='reportLogo';img.src=logoSrc();img.alt='TBM Têxtil';el.replaceWith(img)})}
+function fixSignatures(){document.querySelectorAll('canvas').forEach(c=>{if(!/sig|sign/i.test(c.id||''))return;const ctx=c.getContext('2d');if(!ctx)return;c.style.background='#fff';c.style.cursor='crosshair';if(!c.dataset.whiteReady){const w=c.width,h=c.height;ctx.save();ctx.globalCompositeOperation='destination-over';ctx.fillStyle='#fff';ctx.fillRect(0,0,w,h);ctx.restore();c.dataset.whiteReady='1'}})}
+function setupCamera(){const input=document.getElementById('photoInput');if(!input||input.dataset.cameraReady)return;input.dataset.cameraReady='1';input.accept='image/*';input.multiple=true;const tools=document.createElement('div');tools.className='photoTools';const cam=document.createElement('button');cam.type='button';cam.className='btn cameraBtn';cam.textContent='📷 TIRAR FOTO';cam.onclick=()=>{input.setAttribute('capture','environment');input.click()};const gal=document.createElement('button');gal.type='button';gal.className='btn galleryBtn';gal.textContent='🖼️ ESCOLHER DA GALERIA';gal.onclick=()=>{input.removeAttribute('capture');input.click();setTimeout(()=>input.setAttribute('capture','environment'),800)};tools.append(cam,gal);input.insertAdjacentElement('afterend',tools);const hint=document.createElement('div');hint.className='photoHint';hint.textContent='Use a câmera para registrar no local ou escolha fotos da galeria.';tools.insertAdjacentElement('afterend',hint)}
+function addReportSummary(root){if(!root||root.querySelector('.reportSummary'))return;const rows=[...root.querySelectorAll('table tr')].slice(1);if(!rows.length)return;let ok=0,no=0,pend=0,total=0;rows.forEach(r=>{const t=(r.textContent||'').toUpperCase();if(/CONFORME|BOM/.test(t)){if(/NÃO CONFORME|NAO CONFORME/.test(t))no++;else ok++;total++}else if(/PENDENTE/.test(t)){pend++;total++}});if(!total)return;const box=document.createElement('div');box.className='reportSummary';box.innerHTML=`<div><strong>${total}</strong><span>ITENS AVALIADOS</span></div><div><strong>${ok}</strong><span>CONFORMES</span></div><div><strong>${no}</strong><span>NÃO CONFORMES</span></div><div><strong>${pend}</strong><span>PENDENTES</span></div>`;const header=root.querySelector('.reportHeader');if(header)header.insertAdjacentElement('afterend',box);else root.prepend(box)}
+function enhanceReports(){document.querySelectorAll('.report,#reportContent,.reportShell').forEach(root=>{root.classList.add('abnt-report');fixBrand();addReportSummary(root);if(!root.querySelector('.reportMasterTag')){const f=document.createElement('div');f.className='reportMasterTag';f.textContent='DOCUMENTO OFICIAL • SISTEMA PROFISSIONAL DE INSPEÇÃO SST';const footer=root.querySelector('.footerReport,.footer');(footer||root.lastElementChild)?.insertAdjacentElement('beforebegin',f)}})}
+function css(){if(document.getElementById('premium30'))return;const s=document.createElement('style');s.id='premium30';s.textContent=`.photoTools{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:9px}.cameraBtn{background:#8b1018;color:#fff}.galleryBtn{background:#17202b;color:#fff}.photoHint{font-size:11px;color:#64748b;margin:7px 2px 0}.sigwrap,.sig{background:#fff!important;border-color:#b9c2ce!important}.sigwrap canvas,.sig canvas{background:#fff!important}.reportMasterTag{margin:12pt 0 4pt;text-align:center;font:700 7pt Arial,sans-serif;letter-spacing:.7pt;color:#7b8794}.abnt-report .reportHeader .reportLogo{display:block!important;width:72pt!important;height:62pt!important;object-fit:contain!important;margin:0 auto 5pt!important;background:#fff!important;border:0!important}.abnt-report .reportSummary span{font-size:7.5pt!important;font-weight:700!important}.abnt-report .reportSummary{box-shadow:none!important}.abnt-report .nonconformity,.abnt-report .naoConformidades,.abnt-report .nonconformities{border:1pt solid #b5121b!important}.abnt-report .priority-high,.abnt-report .critica,.abnt-report .alta{color:#b5121b!important;font-weight:800!important}@media(max-width:650px){.photoTools{grid-template-columns:1fr}.abnt-report .reportHeader .reportLogo{width:58pt!important;height:52pt!important}}`;document.head.appendChild(s)}
+function setup(){css();fixBrand();fixSignatures();setupCamera();enhanceReports();const status=document.getElementById('cloudState');if(status&&!status.dataset.premiumObserver){status.dataset.premiumObserver='1';new MutationObserver(()=>{if(/Nuvem ativa|CLOUD ATIVO/i.test(status.textContent))status.textContent='● Online';else if(/Local|OFFLINE/i.test(status.textContent))status.textContent='● Offline local'}).observe(status,{childList:true,subtree:true,characterData:true})}}
+function ready(){setup();[300,800,1600,3000].forEach(t=>setTimeout(setup,t))}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',ready);else ready();new MutationObserver(setup).observe(document.documentElement,{childList:true,subtree:true});
 })();
