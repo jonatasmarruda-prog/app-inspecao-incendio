@@ -2,66 +2,171 @@
 'use strict';
 
 const CNPJ='07.603.376/0003-00';
-const LOGO='./icon.svg?v=20260903-32';
+const LOGO='Têxtil Bezerra de Menezes 2.jpeg';
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const fmtBR=v=>{if(!v)return'—';const d=new Date(v);return Number.isNaN(d.getTime())?String(v):d.toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})};
-const nowBR=()=>new Date().toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+const nowBR=()=>fmtBR(new Date());
+const val=(o,...keys)=>{for(const k of keys){if(o&&o[k]!=null&&String(o[k]).trim()!=='')return o[k]}return'—'};
+const company=x=>x.company==='Outro'?(x.otherCompany||'—'):(x.company||'—');
+const inspector=x=>x.inspector==='Outro'?(x.inspectorOther||'—'):(x.inspector||'—');
+const typeName=x=>({fire:'Combate a Incêndio',safety:'Inspeção de Segurança',machine:'Máquinas e Equipamentos',epi:'Inspeção de EPI',accident:'Investigação de Acidente',report:'Relatório de Inspeção'})[x?.type]||x?.title||'Inspeção de Segurança';
+const checksFor=x=>(window.TYPES&&window.TYPES[x.type]&&Array.isArray(window.TYPES[x.type].checks))?window.TYPES[x.type].checks:[];
+const row=(label,value)=>`<tr><th>${esc(label)}</th><td>${esc(value)}</td></tr>`;
 
 const css=`
-.abnt-master{width:100%;box-sizing:border-box;background:#fff;color:#111;font-family:Arial,Helvetica,sans-serif;font-size:12pt;line-height:1.5}
-.abnt-master *{box-sizing:border-box;font-family:Arial,Helvetica,sans-serif}
-.abnt-master .master-page{background:#fff;width:100%;padding:0;margin:0}
-.abnt-master .master-header{display:grid;grid-template-columns:70pt 1fr 145pt;gap:12pt;align-items:center;border-bottom:1.5pt solid #222;padding:0 0 10pt;margin-bottom:15pt}
-.abnt-master .master-logo{width:58pt;height:48pt;object-fit:contain}
-.abnt-master .master-title{font-size:16pt!important;font-weight:700!important;line-height:1.25!important;margin:0!important;text-align:left!important;text-transform:uppercase;color:#111}
-.abnt-master .master-subtitle{font-size:12pt!important;margin:3pt 0 0!important;line-height:1.5!important;color:#111}
-.abnt-master .master-id{text-align:right;font-size:12pt;line-height:1.5;font-weight:700;white-space:nowrap;overflow:visible}
-.abnt-master .master-id small{font-size:10pt;font-weight:400;display:block;white-space:nowrap}
-.abnt-master .section-title{font-size:14pt!important;font-weight:700!important;line-height:1.5!important;text-transform:uppercase;margin:16pt 0 8pt!important;padding:5pt 7pt!important;background:#f2f2f2!important;border:1px solid #ccc!important;border-left:4pt solid #333!important;color:#111!important;break-after:avoid;page-break-after:avoid}
-.abnt-master .ident-table,.abnt-master .data-table{width:100%;border-collapse:collapse;border-spacing:0;margin:0 0 12pt;table-layout:fixed;break-inside:avoid;page-break-inside:avoid}
-.abnt-master th,.abnt-master td{border:1px solid #ccc;padding:7pt 8pt;font-size:12pt;line-height:1.5;vertical-align:top;text-align:left;color:#111;word-wrap:break-word}
-.abnt-master th{background:#f2f2f2!important;font-weight:700}
-.abnt-master .label{font-weight:700;background:#f2f2f2!important;width:18%}
-.abnt-master .desc{text-align:justify;font-size:12pt;line-height:1.5;margin:0 0 10pt;white-space:pre-wrap;word-break:break-word}
-.abnt-master .summary{display:grid;grid-template-columns:repeat(4,1fr);border:1px solid #ccc;margin:0 0 14pt;break-inside:avoid;page-break-inside:avoid}
-.abnt-master .summary-item{text-align:center;padding:8pt;border-right:1px solid #ccc}.abnt-master .summary-item:last-child{border-right:0}.abnt-master .summary-item b{display:block;font-size:16pt}.abnt-master .summary-item span{font-size:11pt}
-.abnt-master .photo-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10pt;margin-top:5pt;break-inside:avoid;page-break-inside:avoid}.abnt-master .photo{border:1px solid #ccc;padding:5pt;break-inside:avoid;page-break-inside:avoid}.abnt-master .photo img{display:block;width:100%;height:145pt;object-fit:contain;background:#fff}.abnt-master .photo figcaption{font-size:10pt;text-align:center;margin-top:5pt;line-height:1.35}
-.abnt-master .sign-area{margin-top:24pt;display:grid;grid-template-columns:1fr 1fr;gap:28pt;break-inside:avoid;page-break-inside:avoid}.abnt-master .sign-box{min-height:105pt;border-top:1px solid #222;text-align:center;padding-top:7pt;font-size:12pt;line-height:1.5;break-inside:avoid;page-break-inside:avoid}.abnt-master .sign-box img{display:block;max-width:90%;height:58pt;object-fit:contain;margin:0 auto 4pt}.abnt-master .signature-line{height:58pt}
-.abnt-master .tech-footer{margin-top:22pt;border-top:1px solid #ccc;padding-top:7pt;font-size:10pt;line-height:1.4;text-align:center;color:#333;break-inside:avoid;page-break-inside:avoid}
-.abnt-master .rsection,.abnt-master .avoid,.abnt-master figure,.abnt-master .sign-area,.abnt-master .tech-footer{break-inside:avoid;page-break-inside:avoid}
-.abnt-master tr{break-inside:avoid;page-break-inside:avoid}.abnt-master h1,.abnt-master h2,.abnt-master h3{break-after:avoid;page-break-after:avoid}
-@media print{@page{size:A4 portrait;margin:3cm 2cm 2cm 3cm}.abnt-master{font-size:12pt}.abnt-master .section-title{font-size:14pt!important}.abnt-master .master-title{font-size:16pt!important}}
+.pdf-enterprise{width:100%;background:#fff;color:#111;font-family:Arial,Helvetica,sans-serif;font-size:12pt;line-height:1.5;box-sizing:border-box}
+.pdf-enterprise *{box-sizing:border-box;font-family:Arial,Helvetica,sans-serif}
+.pdf-page{width:100%;background:#fff;color:#111;margin:0;padding:0}
+.pdf-header{display:grid;grid-template-columns:82px minmax(0,1fr) 175px;gap:12px;align-items:center;border-bottom:1.5px solid #222;padding:0 0 12px;margin:0 0 14px;break-inside:avoid;page-break-inside:avoid}
+.pdf-logo{width:76px;height:58px;object-fit:contain;background:#fff;padding:2px;border-radius:4px}
+.pdf-title{font-size:16pt!important;font-weight:700!important;line-height:1.25!important;margin:0!important;color:#111!important;text-transform:uppercase}
+.pdf-module{font-size:12pt!important;line-height:1.5!important;margin:3px 0 0!important;color:#111!important}
+.pdf-id{text-align:right;font-size:12pt;font-weight:700;line-height:1.4;white-space:nowrap;overflow:visible;word-break:normal}
+.pdf-id small{display:block;font-size:10pt;font-weight:400;white-space:nowrap;margin-top:2px}
+.pdf-section{margin:14px 0 0;border:1px solid #ddd;break-inside:avoid;page-break-inside:avoid}
+.pdf-section-title{background:#f4f4f4;color:#111;font-size:14pt;font-weight:700;padding:8px;border-bottom:1px solid #ddd;line-height:1.35;break-after:avoid;page-break-after:avoid}
+.pdf-table{width:100%;border-collapse:collapse;border-spacing:0;table-layout:fixed;break-inside:avoid;page-break-inside:avoid}
+.pdf-table th,.pdf-table td{border:1px solid #ddd;padding:7px 8px;color:#111;font-size:12pt;line-height:1.5;text-align:left;vertical-align:top;word-wrap:break-word;overflow-wrap:anywhere}
+.pdf-table th{background:#f4f4f4;font-weight:700}
+.pdf-table tbody tr:nth-child(even) td{background:#fafafa}
+.pdf-table tr{break-inside:avoid;page-break-inside:avoid}
+.pdf-label{width:25%;font-weight:700;background:#f4f4f4!important}
+.pdf-summary{display:grid;grid-template-columns:repeat(4,1fr);border:1px solid #ddd;margin:14px 0 0;break-inside:avoid;page-break-inside:avoid}
+.pdf-summary>div{text-align:center;padding:8px;border-right:1px solid #ddd}.pdf-summary>div:last-child{border-right:0}.pdf-summary b{display:block;font-size:16pt}.pdf-summary span{font-size:11pt}
+.pdf-check-item{display:grid;grid-template-columns:minmax(0,1fr) 150px}.pdf-check-item>div{padding:7px 8px;border-right:1px solid #ddd}.pdf-check-item>div:last-child{border-right:0;text-align:center;font-weight:700}
+.pdf-photo-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding:10px;break-inside:avoid;page-break-inside:avoid}
+.pdf-photo{border:1px solid #ddd;padding:6px;margin:0;break-inside:avoid;page-break-inside:avoid;background:#fff}
+.pdf-photo img{display:block;width:100%;height:185px;object-fit:contain;background:#fff;border:1px solid #eee}
+.pdf-photo figcaption{text-align:center;font-size:10pt;line-height:1.35;padding:5px 2px 1px}
+.pdf-signatures{display:grid;grid-template-columns:1fr 1fr;gap:24px;padding:12px;break-inside:avoid;page-break-inside:avoid}
+.pdf-signature{min-height:115px;border-top:1px solid #222;text-align:center;padding-top:6px;break-inside:avoid;page-break-inside:avoid}
+.pdf-signature img{display:block;width:100%;max-width:220px;height:62px;object-fit:contain;margin:0 auto 5px}.pdf-signature-empty{height:62px}
+.pdf-footer{margin-top:18px;border-top:1px solid #ccc;padding-top:8px;text-align:center;font-size:10pt;color:#333;line-height:1.4;break-inside:avoid;page-break-inside:avoid}
+.pdf-footer .signature-line{margin:18px auto 4px;border-top:1px solid #222;width:280px;padding-top:5px;color:#111}
+.pdf-pagebreak-avoid,.pdf-section,.pdf-table,.pdf-photo,.pdf-signatures,.pdf-signature,.pdf-summary{break-inside:avoid;page-break-inside:avoid}
+@media print{
+ @page{size:A4 portrait;margin:3cm 2cm 2cm 3cm}
+ body{background:#fff!important;margin:0!important}
+ .pdf-enterprise{margin:0!important;padding:0!important;background:#fff!important}
+ .pdf-page{margin:0!important;padding:0!important}
+ .pdf-section,.pdf-table,.pdf-photo,.pdf-signatures,.pdf-signature,.pdf-summary{break-inside:avoid;page-break-inside:avoid}
+}
+@media(max-width:650px){.pdf-header{grid-template-columns:72px minmax(0,1fr);}.pdf-id{grid-column:2;text-align:left}.pdf-photo-grid{grid-template-columns:1fr 1fr}.pdf-signatures{grid-template-columns:1fr}.pdf-check-item{grid-template-columns:1fr}}
 `;
-if(!document.getElementById('abnt-master-style')){const s=document.createElement('style');s.id='abnt-master-style';s.textContent=css;document.head.appendChild(s)}
+if(!document.getElementById('abnt-enterprise-style')){const s=document.createElement('style');s.id='abnt-enterprise-style';s.textContent=css;document.head.appendChild(s)}
 
-function val(x,k){return x&&x[k]!=null&&String(x[k]).trim()!==''?x[k]:'—'}
-function company(x){return x.company==='Outro'?(x.otherCompany||'—'):(x.company||'—')}
-function inspector(x){return x.inspector==='Outro'?(x.inspectorOther||'—'):(x.inspector||'—')}
-function row(label,value){return `<tr><th class="label">${esc(label)}</th><td>${esc(value)}</td></tr>`}
-function equipmentRows(x){return (x.equipment||[]).map((e,i)=>{const tipo=e.kind==='ext'?'Extintor':'Hidrante';const dados=e.kind==='ext'?[e.tipo,e.capacidade,e.ultima?`Última inspeção/recarga: ${e.ultima}`:''].filter(Boolean).join(' • '):(e.localizacao||'Não informado');return `<tr><td>${i+1}</td><td>${tipo}</td><td>${esc(e.patrimonio||'Não informado')}</td><td>${esc(dados||'Não informado')}</td><td>${esc(e.status||'PENDENTE')}</td><td>${esc(e.obs||'')}</td></tr>`}).join('')}
-function checklistRows(x){const checks=(window.TYPES&&window.TYPES[x.type]?.checks)||[];return checks.map((q,i)=>`<tr><td>${i+1}</td><td>${esc(q)}</td><td>${esc(x.checks?.[i]||'PENDENTE')}</td></tr>`).join('')}
-function accidentSection(x){if(x.type!=='accident'||!x.accident)return '';const a=x.accident||{};const causes=(a.causes||[]).join(', ')||'Nenhuma falha classificada.';const actions=(a.actions||[]).map((z,i)=>`<tr><td>${i+1}</td><td>${esc(z.action||'')}</td><td>${esc(z.responsible||'')}</td><td>${esc(z.deadline||'')}</td></tr>`).join('');return `<h2 class="section-title">Investigação de acidente</h2><table class="ident-table"><tbody>${row('Data do acidente',a.eventDate||'—')}${row('Hora',a.eventTime||'—')}${row('Local / setor',a.eventLocation||'—')}${row('Supervisor',a.supervisor||'—')}${row('Tipo de evento',a.eventType||'—')}${row('Gravidade',a.severity||'—')}${row('Classe',a.class||'—')}${row('Acidentado',a.victimName||'—')}${row('Cargo',a.victimRole||'—')}${row('CAT',a.cat||'—')}${row('Tempo de empresa',a.companyTime||'—')}${row('Tempo de função',a.functionTime||'—')}${row('Data do ASO',a.asoDate||'—')}${row('Falhas identificadas',causes)}</tbody></table><h3 class="section-title">Plano de ação</h3><table class="data-table"><thead><tr><th>#</th><th>Ação</th><th>Responsável</th><th>Prazo</th></tr></thead><tbody>${actions||'<tr><td colspan="4">Nenhuma ação registrada.</td></tr>'}</tbody></table>`}
+function uniquePhotos(list){
+ const seen=new Set();
+ return (Array.isArray(list)?list:[]).filter(p=>{
+   const key=String(p?.hash||p?.id||p?.data||'').trim();
+   if(!key||seen.has(key))return false;
+   seen.add(key);return true;
+ });
+}
+function equipmentRows(x){
+ return (x.equipment||[]).map((e,i)=>{
+   const kind=e.kind==='ext'?'Extintor':e.kind==='hid'?'Hidrante':e.kind==='light'?'Iluminação de Emergência':e.kind==='alarm'?'Sirene / Alarme':(e.kind||'Equipamento');
+   const data=[e.tipo,e.capacidade,e.localizacao,e.ultima?`Última inspeção/recarga: ${e.ultima}`:''].filter(Boolean).join(' • ')||'Não informado';
+   return `<tr><td>${i+1}</td><td>${esc(kind)}</td><td>${esc(e.patrimonio||'Não informado')}</td><td>${esc(data)}</td><td>${esc(e.status||'PENDENTE')}</td><td>${esc(e.obs||'')}</td></tr>`;
+ }).join('');
+}
+function checklistRows(x){
+ const checks=checksFor(x);
+ const extra=(x.equipment||[]).filter(e=>e.kind==='light'||e.kind==='alarm').flatMap(e=>Array.isArray(e.premiumChecks||e.checks)?(e.premiumChecks||e.checks):[]).map(v=>({q:'Equipamento adicional',v}));
+ const rows=checks.map((q,i)=>`<tr><td>${i+1}</td><td>${esc(q)}</td><td>${esc(x.checks?.[i]||'PENDENTE')}</td></tr>`).join('');
+ return rows+extra.map((z,i)=>`<tr><td>${checks.length+i+1}</td><td>${esc(z.q)}</td><td>${esc(z.v||'PENDENTE')}</td></tr>`).join('');
+}
+function accident(x){
+ if(x.type!=='accident'||!x.accident)return '';
+ const a=x.accident||{};
+ const causes=Array.isArray(a.causes)?a.causes.join(', '):'Nenhuma falha classificada.';
+ const actions=(a.actions||[]).map((z,i)=>`<tr><td>${i+1}</td><td>${esc(z.action||'')}</td><td>${esc(z.responsible||'')}</td><td>${esc(z.deadline||'')}</td></tr>`).join('');
+ return `<div class="pdf-section"><div class="pdf-section-title">Investigação de acidente</div><table class="pdf-table"><tbody>${row('Data do acidente',a.eventDate)}${row('Hora',a.eventTime)}${row('Local / setor',a.eventLocation)}${row('Supervisor',a.supervisor)}${row('Tipo de evento',a.eventType)}${row('Gravidade',a.severity)}${row('Classe',a.class)}${row('Acidentado',a.victimName)}${row('Cargo',a.victimRole)}${row('CAT',a.cat)}${row('Tempo de empresa',a.companyTime)}${row('Tempo de função',a.functionTime)}${row('Data do ASO',a.asoDate)}${row('Falhas identificadas',causes)}</tbody></table></div><div class="pdf-section"><div class="pdf-section-title">Plano de ação</div><table class="pdf-table"><thead><tr><th>#</th><th>Ação</th><th>Responsável</th><th>Prazo</th></tr></thead><tbody>${actions||'<tr><td colspan="4">Nenhuma ação registrada.</td></tr>'}</tbody></table></div>`;
+}
+function moduleTitle(x){return `RELATÓRIO DE INSPEÇÃO DE SEGURANÇA DO TRABALHO - ${typeName(x)}`}
 
-window.reportHTML=function(x){const t=(window.TYPES&&window.TYPES[x.type])||{name:x.title||'Inspeção de Segurança',checks:[]};const checks=t.checks||[];const items=x.type==='fire'?[...(x.equipment||[]).map(e=>({v:e.status})),...checks.map((q,i)=>({v:x.checks?.[i]||'PENDENTE'}))]:checks.map((q,i)=>({v:x.checks?.[i]||'PENDENTE'}));const total=items.length,con=items.filter(a=>a.v==='CONFORME').length,nc=items.filter(a=>a.v==='NÃO CONFORME').length,pend=items.filter(a=>a.v==='PENDENTE').length;const photos=(x.photos||[]).map((p,i)=>`<figure class="photo"><img src="${p.data}" alt="Foto ${i+1}"><figcaption>Foto ${i+1} — ${esc(p.caption||'Registro fotográfico')}</figcaption></figure>`).join('');return `<div class="abnt-master"><div class="master-page">
-<header class="master-header"><img class="master-logo" src="${LOGO}" alt="TBM Têxtil"><div><h1 class="master-title">RELATÓRIO DE INSPEÇÃO DE SEGURANÇA DO TRABALHO</h1><p class="master-subtitle">Combate a Incêndio • Sistema Profissional SST</p></div><div class="master-id">Nº ${esc(x.id||'INS-SEM-ID')}<small>Emissão: ${esc(fmtBR(new Date()))}</small></div></header>
-<h2 class="section-title">Identificação da inspeção</h2><table class="ident-table"><tbody>${row('Empresa / unidade',company(x))}${row('CNPJ',CNPJ)}${row('Endereço',x.address||'—')}${row('Setor / local',x.sector||'Não informado')}${row('Inspetor',inspector(x))}${row('Função',x.role||'—')}${row('Acompanhante',x.witness||'Não informado')}${row('Data e hora da inspeção',fmtBR(x.date))}${row('Localização GPS',x.gps?`${x.gps.lat}, ${x.gps.lng} (precisão ${Math.round(x.gps.accuracy||0)} m)`:'Não capturada')}</tbody></table>
-<div class="summary"><div class="summary-item"><b>${total}</b><span>Total</span></div><div class="summary-item"><b>${con}</b><span>Conformes</span></div><div class="summary-item"><b>${nc}</b><span>Não conformes</span></div><div class="summary-item"><b>${pend}</b><span>Pendentes</span></div></div>
-${x.type==='fire'&&x.equipment?.length?`<h2 class="section-title">Equipamentos de combate a incêndio</h2><table class="data-table"><thead><tr><th>#</th><th>Equipamento</th><th>Patrimônio</th><th>Dados</th><th>Situação</th><th>Observações</th></tr></thead><tbody>${equipmentRows(x)}</tbody></table>`:''}
-<h2 class="section-title">Checklist de inspeção</h2><table class="data-table"><thead><tr><th style="width:7%">#</th><th>Critério verificado</th><th style="width:25%">Situação</th></tr></thead><tbody>${checklistRows(x)||'<tr><td colspan="3">Nenhum item de checklist registrado.</td></tr>'}</tbody></table>
-${accidentSection(x)}
-<h2 class="section-title">Diagnóstico e ações</h2><table class="ident-table"><tbody>${row('Problemas / não conformidades',x.findings||'Nenhuma informação registrada.')}${row('Soluções / ações recomendadas',x.actions||'Nenhuma informação registrada.')}</tbody></table>
-${photos?`<h2 class="section-title">Registro fotográfico</h2><div class="photo-grid">${photos}</div>`:''}
-<h2 class="section-title">Assinaturas</h2><div class="sign-area"><div class="sign-box">${x.signature1?`<img src="${x.signature1}" alt="Assinatura do inspetor">`:'<div class="signature-line"></div>'}<b>${esc(inspector(x))}</b><br>${esc(x.role||'Técnico de Segurança do Trabalho')}</div><div class="sign-box">${x.signature2?`<img src="${x.signature2}" alt="Assinatura do acompanhante">`:'<div class="signature-line"></div>'}<b>${esc(x.witness||'Acompanhante')}</b><br>Assinatura</div></div>
-<div class="tech-footer">Técnico de Segurança do Trabalho • Relatório gerado em ${esc(nowBR())}<br>Documento eletrônico emitido pelo Sistema Profissional de Inspeção SST • ID ${esc(x.id||'INS-SEM-ID')}</div>
-</div></div>`};
+window.reportHTML=function(x){
+ x=x||{};
+ const checks=checksFor(x);
+ const equipment=x.equipment||[];
+ const statuses=[...equipment.map(e=>e.status||'PENDENTE'),...checks.map((q,i)=>x.checks?.[i]||'PENDENTE')];
+ const total=statuses.length,con=statuses.filter(v=>v==='CONFORME').length,nc=statuses.filter(v=>v==='NÃO CONFORME').length,pend=statuses.filter(v=>v==='PENDENTE').length;
+ const photos=uniquePhotos(x.photos);
+ const photoHtml=photos.map((p,i)=>`<figure class="pdf-photo"><img src="${esc(p.data)}" alt="Evidência ${i+1}"><figcaption>Foto ${i+1} — ${esc(p.caption||'Registro fotográfico')}</figcaption></figure>`).join('');
+ const signatures=`<div class="pdf-signatures"><div class="pdf-signature">${x.signature1?`<img src="${esc(x.signature1)}" alt="Assinatura do inspetor">`:'<div class="pdf-signature-empty"></div>'}<b>${esc(inspector(x))}</b><br>${esc(x.role||'Técnico de Segurança do Trabalho')}</div><div class="pdf-signature">${x.signature2?`<img src="${esc(x.signature2)}" alt="Assinatura do acompanhante">`:'<div class="pdf-signature-empty"></div>'}<b>${esc(x.witness||'Responsável / Acompanhante')}</b><br>Responsável pela Área / Acompanhante</div></div>`;
+ return `<div class="pdf-enterprise"><div class="pdf-page">
+ <header class="pdf-header"><img class="pdf-logo" src="${LOGO}" alt="Têxtil Bezerra de Menezes"><div><h1 class="pdf-title">${esc(moduleTitle(x))}</h1><p class="pdf-module">Documento técnico • Sistema Profissional SST</p></div><div class="pdf-id">Nº ${esc(x.id||'INS-SEM-ID')}<small>Emissão: ${esc(nowBR())}</small></div></header>
+ <div class="pdf-section"><div class="pdf-section-title">Dados da Empresa</div><table class="pdf-table"><tbody>${row('Empresa / unidade',company(x))}${row('CNPJ',CNPJ)}${row('Endereço',val(x,'address'))}${row('Setor / local',val(x,'sector'))}${row('Inspetor',inspector(x))}${row('Função',val(x,'role'))}${row('Acompanhante',val(x,'witness'))}${row('Data e hora da inspeção',fmtBR(x.date))}${row('Localização GPS',x.gps?`${x.gps.lat}, ${x.gps.lng} • precisão ${Math.round(x.gps.accuracy||0)} m`:'Não capturada')}</tbody></table></div>
+ <div class="pdf-summary"><div><b>${total}</b><span>Total</span></div><div><b>${con}</b><span>Conformes</span></div><div><b>${nc}</b><span>Não conformes</span></div><div><b>${pend}</b><span>Pendentes</span></div></div>
+ ${equipment.length?`<div class="pdf-section"><div class="pdf-section-title">Equipamentos / Serviços Realizados</div><table class="pdf-table"><thead><tr><th style="width:6%">#</th><th>Equipamento</th><th>Patrimônio</th><th>Dados / Localização</th><th style="width:18%">Situação</th><th>Observações</th></tr></thead><tbody>${equipmentRows(x)}</tbody></table></div>`:''}
+ ${checks.length?`<div class="pdf-section"><div class="pdf-section-title">Diagnóstico / Checklist</div><table class="pdf-table"><thead><tr><th style="width:7%">#</th><th>Item inspecionado</th><th style="width:23%">Status</th></tr></thead><tbody>${checklistRows(x)}</tbody></table></div>`:''}
+ ${accident(x)}
+ <div class="pdf-section"><div class="pdf-section-title">Diagnóstico e Recomendações</div><table class="pdf-table"><tbody>${row('Não conformidades / achados',val(x,'findings'))}${row('Ações / recomendações',val(x,'actions'))}</tbody></table></div>
+ ${photoHtml?`<div class="pdf-section"><div class="pdf-section-title">Registro Fotográfico</div><div class="pdf-photo-grid">${photoHtml}</div></div>`:''}
+ <div class="pdf-section"><div class="pdf-section-title">Assinaturas e Responsabilidades</div>${signatures}</div>
+ <footer class="pdf-footer">Documento eletrônico emitido pelo Sistema Profissional de Inspeção SST • ID ${esc(x.id||'INS-SEM-ID')}<div class="signature-line">Técnico de Segurança do Trabalho</div><span>Relatório gerado em ${esc(nowBR())}</span></footer>
+ </div></div>`;
+};
 
-function optimizeImages(root){const imgs=[...root.querySelectorAll('img')];return Promise.all(imgs.map(img=>new Promise(resolve=>{if(!img.src){resolve();return}const done=()=>resolve();if(img.complete&&img.naturalWidth){try{if(img.naturalWidth>1400){const max=1200,scale=Math.min(1,max/img.naturalWidth),w=Math.max(1,Math.round(img.naturalWidth*scale)),h=Math.max(1,Math.round(img.naturalHeight*scale));const c=document.createElement('canvas');c.width=w;c.height=h;const ctx=c.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,w,h);ctx.drawImage(img,0,0,w,h);img.src=c.toDataURL('image/jpeg',.82)}}catch(e){console.warn('Otimização de imagem:',e)}done();return}img.onload=done;img.onerror=done})))}
+async function waitImages(root){
+ const imgs=[...root.querySelectorAll('img')];
+ await Promise.all(imgs.map(img=>new Promise(resolve=>{if(img.complete&&img.naturalWidth){resolve();return}img.onload=resolve;img.onerror=resolve})));
+}
+async function waitFonts(){try{if(document.fonts?.ready)await document.fonts.ready}catch(_){}
+}
+function currentId(root){
+ const candidates=[root?.dataset?.inspectionId,root?.querySelector?.('.pdf-id')?.textContent];
+ for(const c of candidates){const m=String(c||'').match(/INS-[A-Z0-9-]+/i);if(m)return m[0]}
+ for(const k of ['inspectionId','inspection_id','currentInspectionId','idInspecao']){try{const v=localStorage.getItem(k);if(v)return v}catch(_){}
+ }
+ return null;
+}
+function showModal(text){const m=document.getElementById('modal'),t=document.getElementById('modalText');if(m){if(t)t.textContent=text;m.classList.remove('hidden')}}
+function hideModal(){document.getElementById('modal')?.classList.add('hidden')}
 
-async function waitFonts(){try{if(document.fonts?.ready)await document.fonts.ready}catch(_){}}
-function getReportId(root){const text=root.querySelector('.master-id')?.textContent||'';const m=text.match(/Nº\s*([^\s]+)/i);if(m&&m[1]&&m[1]!=='—')return m[1];const dataId=root.dataset.inspectionId||root.getAttribute('data-inspection-id');if(dataId)return dataId;return null}
+window.makePdf=async function(){
+ let clone=null;
+ try{
+   if(!window.html2pdf)throw new Error('Gerador PDF indisponível.');
+   window.scrollTo(0,0);
+   const source=document.getElementById('reportContent');
+   if(!source)throw new Error('Área do relatório não encontrada.');
+   if(!source.innerHTML.trim())throw new Error('O relatório ainda não foi montado.');
+   showModal('Preparando laudo profissional…');
+   await new Promise(r=>setTimeout(r,1000));
+   await waitFonts();
+   clone=source.cloneNode(true);
+   clone.id='pdfEnterpriseRender';
+   clone.style.position='absolute';clone.style.left='-100000px';clone.style.top='0';clone.style.width='210mm';clone.style.maxWidth='210mm';clone.style.margin='0';clone.style.padding='0';clone.style.visibility='visible';clone.style.display='block';clone.style.background='#fff';
+   document.body.appendChild(clone);
+   const id=currentId(clone);
+   if(!id)throw new Error('Não foi possível localizar o ID da inspeção.');
+   const imgs=[...clone.querySelectorAll('img')];
+   const seen=new Set();
+   imgs.forEach(img=>{if(img.src){if(seen.has(img.src)){img.remove()}else seen.add(img.src)}});
+   await waitImages(clone);
+   await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
+   const filename='Laudo_Inspecao_'+id+'.pdf';
+   const opt={margin:[30,20,20,30],filename,image:{type:'jpeg',quality:0.82},html2canvas:{scale:1.35,useCORS:true,allowTaint:false,backgroundColor:'#fff',logging:false,letterRendering:true},jsPDF:{unit:'mm',format:'a4',orientation:'portrait',compress:true},pagebreak:{mode:['avoid-all','css','legacy']}};
+   const worker=html2pdf().set(opt).from(clone).toPdf();
+   const pdfBlob=await worker.outputPdf('blob');
+   const file=new File([pdfBlob],filename,{type:'application/pdf'});
+   if(navigator.share&&navigator.canShare&&navigator.canShare({files:[file]})){
+     await navigator.share({title:'Laudo de Inspeção',text:'Laudo de inspeção de segurança — '+id,files:[file]});
+   }else{
+     await html2pdf().set(opt).from(clone).save();
+   }
+   hideModal();
+ }catch(e){
+   console.error('PDF Enterprise:',e);
+   hideModal();
+   alert('Não foi possível gerar o PDF: '+(e?.message||e));
+ }finally{
+   if(clone)clone.remove();
+ }
+};
 
-window.makePdf=async function(share){const modal=document.getElementById('modal'),mt=document.getElementById('modalText');let clone=null;try{if(modal){if(mt)mt.textContent='Preparando relatório profissional…';modal.classList.remove('hidden')}if(!window.html2pdf)throw new Error('Gerador PDF indisponível');window.scrollTo(0,0);const root=document.getElementById('reportContent');if(!root)throw new Error('Área do relatório não encontrada');if(!root.querySelector('.abnt-master'))throw new Error('Relatório ainda não foi renderizado');await new Promise(r=>setTimeout(r,250));await waitFonts();clone=root.cloneNode(true);clone.style.position='absolute';clone.style.left='-100000px';clone.style.top='0';clone.style.width='210mm';clone.style.maxWidth='210mm';clone.style.margin='0';clone.style.padding='0';clone.style.background='#fff';clone.style.visibility='visible';clone.style.display='block';document.body.appendChild(clone);const id=getReportId(clone);if(!id)throw new Error('ID da inspeção não encontrado no relatório. Salve a inspeção antes de gerar o PDF.');const filename='Relatorio_fire_'+id+'.pdf';clone.querySelectorAll('.master-id').forEach(el=>{el.style.whiteSpace='nowrap';el.style.overflow='visible';el.style.width='145pt'});await optimizeImages(clone);await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));const opt={margin:[30,20,20,30],filename:filename,image:{type:'jpeg',quality:.88},html2canvas:{scale:1.65,useCORS:true,allowTaint:false,backgroundColor:'#fff',logging:false,imageTimeout:12000,letterRendering:true,windowWidth:794,scrollX:0,scrollY:0},jsPDF:{unit:'mm',format:'a4',orientation:'portrait',compress:true},pagebreak:{mode:['avoid-all','css','legacy'],avoid:['.abnt-master','.rsection','.ident-table','.data-table','.summary','.photo-grid','.photo','.sign-area','.sign-box','.tech-footer']}};const worker=html2pdf().set(opt).from(clone).toPdf();const pdf=await worker.get('pdf');const total=pdf.internal.getNumberOfPages();for(let i=1;i<=total;i++){pdf.setPage(i);pdf.setFont('helvetica','normal');pdf.setFontSize(9);pdf.setTextColor(40,40,40);pdf.text(`Página ${i} de ${total}`,pdf.internal.pageSize.getWidth()-20,pdf.internal.pageSize.getHeight()-10,{align:'right'})}const blob=await worker.outputPdf('blob');const file=new File([blob],filename,{type:'application/pdf'});if(share&&navigator.share&&(!navigator.canShare||navigator.canShare({files:[file]}))){await navigator.share({title:'Relatório de Inspeção SST',text:filename,files:[file]})}else{const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=filename;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),2000);if(share)alert('Compartilhamento direto não disponível. O PDF foi baixado.')}}catch(e){console.error('PDF Master ABNT:',e);alert('Não foi possível gerar o PDF: '+(e?.message||'erro desconhecido'));}finally{if(clone)clone.remove();if(modal)modal.classList.add('hidden')}};
+window.gerarPDF=window.makePdf;
+window.compartilharPDF=window.makePdf;
 
-function ready(){if(typeof window.reportHTML==='function'&&typeof window.makePdf==='function')window.__abntMasterReady=true}
-ready();
 })();
