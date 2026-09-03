@@ -23,3 +23,17 @@ body{background:radial-gradient(circle at 50% -10%,#18222d 0,#070b10 42%,#05080c
 .photoTools{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}.cameraBtn,.galleryBtn{min-height:52px!important;border-radius:14px!important;font-weight:900!important;border:1px solid #334155!important;box-shadow:0 10px 24px #0004!important}.cameraBtn{background:linear-gradient(145deg,#b91c1c,#ef4444)!important;color:#fff!important}.galleryBtn{background:#17212b!important;color:#f8fafc!important}#photoInput{display:none!important}.photoHint{margin-top:9px;font-size:11px;color:#94a3b8;line-height:1.45}.photoCard img{background:#f8fafc!important;object-fit:cover!important}
 @media(max-width:900px){.tiles{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
 @media(max-width:560px){.wrap{padding:14px!important}.topin{padding:8px 14px!important}.logo{width:64px!important;height:64px!important}.brand b{font-size:16px!important}.tiles{grid-template-columns:1fr!important;gap:12px!important}.tile{min-height:155px!important;padding:20px!important}.tile .ico{font-size:38px!important}.reportLogo{width:76px!important;height:76px!important}.photoTools{grid-template-columns:1fr!important}}
+
+/* TBM — contraste isolado dos cards dinamicos de Iluminacao e Sirene */
+.premium-extra{background:#fff!important;color:#222!important;border:1px solid #cbd5e1!important;border-left:4px solid #8b1018!important;border-radius:12px!important;box-shadow:0 8px 22px #0002!important}
+.premium-extra,.premium-extra *,.premium-extra h1,.premium-extra h2,.premium-extra h3,.premium-extra h4,.premium-extra h5,.premium-extra h6,.premium-extra label,.premium-extra b,.premium-extra strong,.premium-extra span,.premium-extra .title{color:#222!important}
+.premium-extra h3{color:#111!important;font-weight:900!important}
+.premium-extra label{color:#333!important;font-weight:800!important}
+.premium-extra .title{color:#111!important;font-weight:900!important}
+.premium-extra .check,.premium-extra .checkrow{background:#fff!important;color:#222!important}
+.premium-extra .checkrow b{color:#222!important}
+.premium-extra input,.premium-extra textarea,.premium-extra select{background:#fff!important;color:#111!important;border:1px solid #c7cdd3!important}
+.premium-extra input::placeholder,.premium-extra textarea::placeholder{color:#777!important;opacity:1!important}
+.premium-extra select option{background:#fff!important;color:#111!important}
+.premium-extra .danger{color:#fff!important}
+@media(max-width:560px){.premium-extra{padding:14px!important}.premium-extra .checkrow{grid-template-columns:1fr!important}.premium-extra select{width:100%!important}}
