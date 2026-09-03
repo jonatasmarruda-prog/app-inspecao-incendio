@@ -34,7 +34,7 @@ jobs:
           python3 -m http.server 4173 --directory . >/tmp/server.log 2>&1 &
           sleep 2
           cat >/tmp/e2e.cjs <<'EOF'
-          const {chromium}=require('playwright');
+          const {chromium}=require(process.cwd()+'/node_modules/playwright');
           const assert=(v,m)=>{if(!v)throw new Error(m)};
           (async()=>{
             const browser=await chromium.launch({headless:true});
