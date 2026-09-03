@@ -21,13 +21,14 @@ function loadChecklistConditional(){
   const s=document.createElement('script');s.id='tbm-checklist-conditional';s.src='./checklist-conditional.js?v=20260903-01';s.defer=true;document.head.appendChild(s);return new Promise(resolve=>{s.onload=resolve;s.onerror=resolve});
 }
 function loadAbntMaster(){
-  if(document.getElementById('tbm-abnt-master'))return Promise.resolve();
-  return new Promise(resolve=>{const s=document.createElement('script');s.id='tbm-abnt-master';s.src='./abnt-master.js?v=20260903-35';s.async=false;document.body.appendChild(s);s.onload=resolve;s.onerror=resolve});
+  const old=document.getElementById('tbm-abnt-master');
+  if(old)old.remove();
+  return new Promise(resolve=>{const s=document.createElement('script');s.id='tbm-abnt-master';s.src='./abnt-master.js?v=20260903-36';s.async=false;document.body.appendChild(s);s.onload=resolve;s.onerror=resolve});
 }
 function loadFinalPdfFix(){
   const old=document.getElementById('tbm-final-pdf-fix');
   if(old)old.remove();
-  return new Promise(resolve=>{const s=document.createElement('script');s.id='tbm-final-pdf-fix';s.src='./pdf-final-fix.js?v=20260903-02';s.async=false;document.body.appendChild(s);s.onload=resolve;s.onerror=resolve});
+  return new Promise(resolve=>{const s=document.createElement('script');s.id='tbm-final-pdf-fix';s.src='./pdf-final-fix.js?v=20260903-07';s.async=false;document.body.appendChild(s);s.onload=resolve;s.onerror=resolve});
 }
 async function loadRepairs(){await loadChecklistConditional();await loadAbntMaster();await loadFinalPdfFix()}
 if(document.readyState==='loading')window.addEventListener('DOMContentLoaded',loadRepairs,{once:true});else loadRepairs();
