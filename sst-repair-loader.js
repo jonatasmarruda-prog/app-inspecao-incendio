@@ -27,7 +27,7 @@ function loadAbntMaster(){
 function loadFinalPdfFix(){
   const old=document.getElementById('tbm-final-pdf-fix');
   if(old)old.remove();
-  return new Promise(resolve=>{const s=document.createElement('script');s.id='tbm-final-pdf-fix';s.src='./pdf-final-fix.js?v=20260903-05';s.async=false;document.body.appendChild(s);s.onload=resolve;s.onerror=resolve});
+  return new Promise(resolve=>{const s=document.createElement('script');s.id='tbm-final-pdf-fix';s.src='./pdf-final-fix.js?v=20260903-02';s.async=false;document.body.appendChild(s);s.onload=resolve;s.onerror=resolve});
 }
 async function loadRepairs(){await loadChecklistConditional();await loadAbntMaster();await loadFinalPdfFix()}
 if(document.readyState==='loading')window.addEventListener('DOMContentLoaded',loadRepairs,{once:true});else loadRepairs();
