@@ -85,7 +85,7 @@ function toast(text,type='ok',ms=2600){
 }
 window.tbmToast=toast;
 
-async function allRecords(){try{return typeof window.idbAll==='function'?(await window.idbAll()||[]):[]}catch(e){console.warn('[PREMIUM UX] histórico',e);return[]}}
+async function allRecords(){try{if(typeof window.tbmDashboardRecords==='function')return await window.tbmDashboardRecords();return typeof window.idbAll==='function'?(await window.idbAll()||[]):[]}catch(e){console.warn('[PREMIUM UX] histórico',e);return[]}}
 function scheduleDashboard(){clearTimeout(dashboardTimer);dashboardTimer=setTimeout(()=>renderDashboard().catch(()=>{}),180)}
 
 async function renderDashboard(){
