@@ -6,6 +6,7 @@ on:
       - 'premium.css'
       - 'abnt-relatorio.js'
       - 'compartilhar-relatorio.js'
+      - '.github/workflows/cache-bust-master.yml'
 permissions:
   contents: write
 jobs:
