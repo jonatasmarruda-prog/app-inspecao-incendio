@@ -3,6 +3,7 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+# Auditoria final obrigatória antes de considerar o sistema estável.
 jobs:
   test:
     runs-on: ubuntu-latest
