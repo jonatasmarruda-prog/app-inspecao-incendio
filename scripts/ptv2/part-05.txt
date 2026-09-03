@@ -1,0 +1,46 @@
+;
+  checklistTable('escadas','Checklist - Escadas').forEach(x=>content.push(x));
+  checklistTable('andaimes','Checklist - Andaimes').forEach(x=>content.push(x));
+  checklistTable('pta','Checklist - Plataforma Elevatória (PTA)').forEach(x=>content.push(x));
+  checklistTable('final','Checklist - Liberação e Encerramento').forEach(x=>content.push(x));
+
+  content.push(pdfSection('Trabalhadores Autorizados / Executantes'));
+  content.push({text:'Os colaboradores abaixo receberam treinamento e estão autorizados a executar as atividades.',fontSize:8,margin:[0,6,0,4]});
+  const wr=[];for(let i=0;i<ptState.workers.length;i+=2)wr.push([workerSignatureCell(ptState.workers[i],i),ptState.workers[i+1]?workerSignatureCell(ptState.workers[i+1],i+1):{text:''}]);
+  content.push({table:{widths:['*','*'],body:wr},layout:'noBorders'});
+  content.push(pdfSection('Responsável pela Liberação'));
+  content.push({table:{widths:['50%','50%'],body:[[pdfHeader('Emissor / TST'),pdfHeader('Cargo')],[{text:EMISSOR_NOME,bold:true},{text:EMISSOR_CARGO,bold:true}]]},layout:pdfGrid,fontSize:9});
+  content.push({canvas:[{type:'line',x1:0,y1:0,x2:515,y2:0,lineWidth:.7,lineColor:'#ccc'}],margin:[0,14,0,7]});
+  content.push({text:`Documento eletrônico • Permissão de Trabalho em Altura • ID ${ptState.id}`,alignment:'center',fontSize:7.5});
+  content.push({text:`Relatório gerado em ${emitido}`,alignment:'center',fontSize:7.5,margin:[0,3,0,0]});
+  const doc={pageSize:'A4',pageMargins:[42,42,42,42],defaultStyle:{font:'Roboto',fontSize:9,color:'#111',lineHeight:1.2},content};
+  const filename=`PT_Trabalho_Altura_${ptState.id}.pdf`;
+  if(action==='share'){
+    window.pdfMake.createPdf(doc).getBlob(async blob=>{
+      try{const file=new File([blob],filename,{type:'application/pdf'});if(navigator.share&&(!navigator.canShare||navigator.canShare({files:[file]})))await navigator.share({title:'PT - Trabalho em Altura',text:`Permissão de Trabalho ${ptState.id}`,files:[file]});else window.pdfMake.createPdf(doc).download(filename)}catch(e){if(e?.name!=='AbortError')window.pdfMake.createPdf(doc).download(filename)}
+    });
+  }else window.pdfMake.createPdf(doc).download(filename);
+}
+
+function installHistoryInterceptor(){
+  document.addEventListener('click',async e=>{
+    const open=e.target.closest?.('[data-open-h]');
+    const report=e.target.closest?.('[data-report-h]');
+    const t=open||report;if(!t)return;
+    const id=open?open.dataset.openH:report.dataset.reportH;
+    let x=null;try{x=typeof window.idbGet==='function'?await window.idbGet(id):null}catch(_){ }
+    if(!x||x.type!==PT_TYPE)return;
+    e.preventDefault();e.stopImmediatePropagation();
+    openPTAltura(x);
+    if(report)setTimeout(()=>makePTPdf('download'),120);
+  },true);
+}
+
+function install(){injectStyle();addTile();ensureOverlay();installHistoryInterceptor();setTimeout(addTile,700);setTimeout(addTile,1800)}
+window.openPTAltura=openPTAltura;
+window.openPTAlturaFromState=openPTAltura;
+window.makePTAlturaPdf=makePTPdf;
+window.savePTAltura=savePT;
+window.PT_ALTURA_EMISSOR={name:EMISSOR_NOME,role:EMISSOR_CARGO};
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});else install();
+})();
