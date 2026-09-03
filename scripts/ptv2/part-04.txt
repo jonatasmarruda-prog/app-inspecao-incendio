@@ -1,0 +1,91 @@
+0,0,c.width,c.height);ctx.drawImage(img,0,0,c.width,c.height)};img.src=data}
+  let down=false,last=null;
+  const point=e=>{const r=c.getBoundingClientRect();return{x:(e.clientX-r.left)*(c.width/r.width),y:(e.clientY-r.top)*(c.height/r.height)}};
+  c.onpointerdown=e=>{down=true;last=point(e);c.setPointerCapture?.(e.pointerId);e.preventDefault()};
+  c.onpointermove=e=>{if(!down)return;const p=point(e);ctx.beginPath();ctx.moveTo(last.x,last.y);ctx.lineTo(p.x,p.y);ctx.stroke();last=p;e.preventDefault()};
+  const end=e=>{if(!down)return;down=false;ptState.workers[i].signature=c.toDataURL('image/png');scheduleSavePT();e?.preventDefault?.()};
+  c.onpointerup=end;c.onpointercancel=end;c.onpointerleave=e=>{if(down)end(e)};
+}
+
+function showMsg(text,type='successbox'){
+  const m=$('ptMsg');if(!m)return;m.className='notice '+type;m.textContent=text;setTimeout(()=>{if(m.textContent===text)m.textContent=''},2500)
+}
+function scheduleSavePT(){clearTimeout(saveTimerPT);saveTimerPT=setTimeout(()=>savePT(false),900);clearTimeout(cloudTimerPT);cloudTimerPT=setTimeout(()=>pushPTCloud().catch(()=>{}),1800)}
+
+async function savePT(feedback=false){
+  if(!ptState)return false;
+  ptState.updatedAt=nowISO();ptState.issuer={name:EMISSOR_NOME,role:EMISSOR_CARGO};
+  try{
+    if(typeof window.idbPut==='function')await window.idbPut(JSON.parse(JSON.stringify(ptState)));
+    pushPTCloud().catch(()=>{});
+    if(feedback)showMsg('✅ PT salva com sucesso.');
+    return true;
+  }catch(e){console.error('[PT SAVE]',e);if(feedback)showMsg('❌ Não foi possível salvar a PT.','errorbox');return false}
+}
+
+async function pushPTCloud(){
+  if(!ptState?.id||!window.SST?.fs)return false;
+  const payload=JSON.parse(JSON.stringify(ptState));
+  payload.workspaceKey=WORKSPACE_KEY;payload.cloudDeviceId=(localStorage.getItem('tbm-sst-device-id')||'PT');payload.cloudClientUpdatedAt=nowISO();payload.ownerUid=window.SST?.uid||'';payload.appVersion='2026.09.03.pt-altura.2';
+  if(window.firebase?.firestore?.FieldValue?.serverTimestamp)payload.cloudSyncedAt=window.firebase.firestore.FieldValue.serverTimestamp();
+  try{await window.SST.fs.collection('inspections').doc(String(payload.id)).set(payload,{merge:true});return true}catch(e){console.warn('[PT CLOUD]',e);return false}
+}
+
+function openPTAltura(data){
+  injectStyle();ensureOverlay();ptState=normalizeState(data||freshState());
+  $('ptAlturaOverlay').classList.remove('hidden');document.body.style.overflow='hidden';renderPT();
+}
+function closePTAltura(){
+  savePT(false).catch(()=>{});$('ptAlturaOverlay')?.classList.add('hidden');document.body.style.overflow='';
+}
+
+async function imageToDataUrl(src){
+  try{const r=await fetch(src,{cache:'no-store'});if(!r.ok)return null;const b=await r.blob();return await new Promise((ok,no)=>{const f=new FileReader();f.onload=()=>ok(f.result);f.onerror=no;f.readAsDataURL(b)})}catch(_){return null}
+}
+function fmtDate(v){if(!v)return'—';const [y,m,d]=String(v).split('-');return y&&m&&d?`${d}/${m}/${y}`:v}
+const pdfGrid={hLineWidth:()=>0.7,vLineWidth:()=>0.7,hLineColor:()=>'#dddddd',vLineColor:()=>'#dddddd',paddingLeft:()=>7,paddingRight:()=>7,paddingTop:()=>5,paddingBottom:()=>5};
+function pdfHeader(text){return {text,bold:true,fillColor:'#f4f4f4',fontSize:9,color:'#111'}}
+function pdfSection(title){return {table:{widths:['*'],body:[[{text:title,bold:true,fillColor:'#f4f4f4',fontSize:11,color:'#111'}]]},layout:pdfGrid,margin:[0,10,0,0]}}
+function checklistTable(group,title){
+  const rows=[[pdfHeader('#'),pdfHeader('Item verificado'),pdfHeader('Status')]];
+  ptState.checklistPT.filter(x=>x.grupo===group).forEach(x=>rows.push([String(x.n),x.item,x.status]));
+  return [pdfSection(title),{table:{headerRows:1,widths:[28,'*',100],body:rows},layout:pdfGrid,fontSize:7.7}];
+}
+function selectedLabels(options,obj,otherText){
+  const arr=options.filter(([k])=>obj?.[k]).map(([,label])=>label);
+  if(obj?.outro&&otherText)arr[arr.length-1]=`Outro: ${otherText}`;
+  return arr.length?arr.join(' • '):'Nenhum selecionado';
+}
+function workerSignatureCell(w,i){
+  const stack=[];
+  if(w.signature)stack.push({image:w.signature,fit:[210,60],alignment:'center',margin:[0,0,0,5]});else stack.push({text:'',margin:[0,0,0,55]});
+  stack.push({canvas:[{type:'line',x1:10,y1:0,x2:220,y2:0,lineWidth:.8,lineColor:'#222'}],margin:[0,0,0,5]});
+  stack.push({text:w.nome||`Executante ${i+1}`,bold:true,alignment:'center',fontSize:8.5});
+  stack.push({text:'Trabalhador Autorizado / Executante',alignment:'center',fontSize:7.5,margin:[0,2,0,0]});
+  return {stack,margin:[5,7,5,5]};
+}
+
+async function makePTPdf(action='download'){
+  if(!window.pdfMake){alert('Biblioteca pdfmake indisponível.');return}
+  const logo=await imageToDataUrl(LOGO);const emitido=new Date().toLocaleString('pt-BR');
+  const content=[];
+  content.push({table:{widths:[55,'*',145],body:[[
+    logo?{image:logo,fit:[50,42]}:{text:'TBM',bold:true},
+    {stack:[{text:'PERMISSÃO DE TRABALHO – TRABALHO EM ALTURA (NR 35)',bold:true,fontSize:13},{text:'Escadas • Andaimes • Plataforma Elevatória (PTA)',fontSize:9,margin:[0,4,0,0]}]},
+    {stack:[{text:`Nº ${ptState.id}`,bold:true,alignment:'right',fontSize:8.5},{text:`Emissão: ${emitido}`,alignment:'right',fontSize:7.5,margin:[0,4,0,0]}]}
+  ]]},layout:'noBorders',margin:[0,0,0,8]});
+  content.push({canvas:[{type:'line',x1:0,y1:0,x2:515,y2:0,lineWidth:.9,lineColor:'#222'}],margin:[0,0,0,8]});
+  content.push({table:{widths:['32%','68%'],body:[
+    [pdfHeader('Descrição do Trabalho'),{text:ptState.description||'—'}],
+    [pdfHeader('Local do Trabalho'),{text:ptState.workLocation||'—'}],
+    [pdfHeader('Setor'),{text:ptState.sector||'—'}],
+    [pdfHeader('Data'),{text:fmtDate(ptState.date)}],
+    [pdfHeader('Horário'),{text:`Inicial: ${ptState.startTime||'—'}   •   Final: ${ptState.endTime||'—'}`}],
+    [pdfHeader('Meio de acesso / equipamento'),{text:selectedLabels(ACCESS_OPTIONS,ptState.meiosAcesso,ptState.meioAcessoOutro)}],
+    [pdfHeader('EPIs previstos'),{text:selectedLabels(EPI_OPTIONS,ptState.episSelecionados,ptState.epiOutro)}]
+  ]},layout:pdfGrid,fontSize:8.7});
+
+  checklistTable('qualificacao','Checklist - Qualificação e Autorização').forEach(x=>content.push(x));
+  checklistTable('epis','Checklist - EPIs e Proteção contra Quedas').forEach(x=>content.push(x));
+  checklistTable('gerais','Checklist - Condições Gerais e Área').forEach(x=>content.push(x));
+  checklistTable('energia','Checklist - Energia e Bloqueio').forEach(x=>content.push(x))
