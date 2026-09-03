@@ -22,11 +22,11 @@ function loadChecklistConditional(){
 }
 function loadAbntMaster(){
   if(document.getElementById('tbm-abnt-master'))return Promise.resolve();
-  return new Promise(resolve=>{const s=document.createElement('script');s.id='tbm-abnt-master';s.src='./abnt-master.js?v=20260903-34';s.async=false;document.body.appendChild(s);s.onload=resolve;s.onerror=resolve});
+  return new Promise(resolve=>{const s=document.createElement('script');s.id='tbm-abnt-master';s.src='./abnt-master.js?v=20260903-35';s.async=false;document.body.appendChild(s);s.onload=resolve;s.onerror=resolve});
 }
 function loadFinalPdfFix(){
   if(document.getElementById('tbm-final-pdf-fix'))return Promise.resolve();
-  return new Promise(resolve=>{const s=document.createElement('script');s.id='tbm-final-pdf-fix';s.src='./pdf-final-fix.js?v=20260903-02';s.async=false;document.body.appendChild(s);s.onload=resolve;s.onerror=resolve});
+  return new Promise(resolve=>{const s=document.createElement('script');s.id='tbm-final-pdf-fix';s.src='./pdf-final-fix.js?v=20260903-03';s.async=false;document.body.appendChild(s);s.onload=resolve;s.onerror=resolve});
 }
 async function loadRepairs(){await loadChecklistConditional();await loadAbntMaster();await loadFinalPdfFix()}
 if(document.readyState==='loading')window.addEventListener('DOMContentLoaded',loadRepairs,{once:true});else loadRepairs();
