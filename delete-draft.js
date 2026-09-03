@@ -2,10 +2,17 @@
 'use strict';
 
 function currentInspectionId(){
-  const selectors=['#inspectionId','#inspectionID','#idInspecao','#reportId','#numeroInspecao','[data-inspection-id]'];
-  for(const sel of selectors){const el=document.querySelector(sel);if(el){const v=(el.value||el.textContent||el.dataset.inspectionId||'').trim();if(v)return v;}}
-  for(const k of ['inspectionId','inspection_id','currentInspectionId','idInspecao','inspection']){
-    try{const v=localStorage.getItem(k);if(v&&v.trim())return v.trim()}catch(_){ }
+  try { if (typeof state !== 'undefined' && state && state.id) { return String(state.id).trim(); } } catch (_) {}
+  const selectors = ['#inspectionId', '#inspectionID', '#idInspecao', '#reportId', '#numeroInspecao', '[data-inspection-id]'];
+  for (const sel of selectors) {
+    const el = document.querySelector(sel);
+    if (el) {
+      const v = (el.value || el.textContent || el.dataset.inspectionId || '').trim();
+      if (v) return v;
+    }
+  }
+  for (const k of ['inspectionId', 'inspection_id', 'currentInspectionId', 'idInspecao', 'inspection']) {
+    try { const v = localStorage.getItem(k); if (v && v.trim()) { return v.trim(); } } catch (_) {}
   }
   return '';
 }
@@ -50,47 +57,36 @@ async function removeCurrentFromIndexedDB(id){
 }
 
 async function limparInspecao(){
-  const ok=confirm('Tem certeza que deseja excluir esta inspeção? Todos os dados não salvos, fotos e assinaturas serão perdidos.');
-  if(!ok)return;
-
-  const id=currentInspectionId();
-
-  // Exclusão definitiva: não chama nenhuma rotina de salvamento.
-  // Remove o rascunho/estado da inspeção atual.
-  const draftKeys=['inspectionId','inspection_id','currentInspectionId','idInspecao','inspection','draftInspection','inspectionDraft','currentInspection'];
-  for(const key of draftKeys){
-    try{localStorage.removeItem(key)}catch(_){ }
-  }
-
-  // Se a inspeção já tiver sido inserida temporariamente no histórico,
-  // remove SOMENTE o registro correspondente ao ID cancelado.
-  if(id){
-    const historyKeys=['historico','historicoInspecoes','inspectionHistory','inspection_history','inspections','savedInspections'];
-    for(const key of historyKeys){
-      try{
-        const raw=localStorage.getItem(key);
-        if(!raw)continue;
-        const data=JSON.parse(raw);
-        if(!Array.isArray(data))continue;
-        const filtered=data.filter(item=>{
-          const itemId=item?.id??item?.inspectionId??item?.idInspecao??item?.numeroInspecao??'';
-          return String(itemId).trim()!==String(id).trim();
+  const ok = confirm('Tem certeza que deseja excluir esta inspeção? Todos os dados não salvos, fotos e assinaturas serão perdidos.');
+  if (!ok) return;
+  try { if (typeof saveTimer !== 'undefined' && saveTimer) { clearTimeout(saveTimer); saveTimer = null; } } catch (_) {}
+  const id = currentInspectionId();
+  window.__tbmDeletingInspection = true;
+  const draftKeys = ['inspectionId', 'inspection_id', 'currentInspectionId', 'idInspecao', 'inspection', 'draftInspection', 'inspectionDraft', 'currentInspection'];
+  for (const key of draftKeys) { try { localStorage.removeItem(key); } catch (_) {} }
+  if (id) {
+    const historyKeys = ['historico', 'historicoInspecoes', 'inspectionHistory', 'inspection_history', 'inspections', 'savedInspections'];
+    for (const key of historyKeys) {
+      try {
+        const raw = localStorage.getItem(key);
+        if (!raw) continue;
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed)) continue;
+        const filtered = parsed.filter(item => {
+          const itemId = item?.id ?? item?.inspectionId ?? item?.idInspecao ?? item?.numeroInspecao ?? '';
+          return String(itemId).trim() !== String(id).trim();
         });
-        localStorage.setItem(key,JSON.stringify(filtered));
-      }catch(_){ }
+        localStorage.setItem(key, JSON.stringify(filtered));
+      } catch (_) {}
     }
   }
-
-  // Limpa apenas caches temporários da inspeção.
-  try{if(Array.isArray(window.photos))window.photos.length=0}catch(_){ }
-  try{window.__tbmExtra=[]}catch(_){ }
-  try{sessionStorage.clear()}catch(_){ }
-
-  // Remove eventual cópia persistida no IndexedDB.
-  await removeCurrentFromIndexedDB(id);
-
-  // NÃO chamar salvarNoHistorico(), salvarInspecao(), scheduleSave()
-  // ou qualquer outra rotina de persistência após a exclusão.
+  try { if (Array.isArray(window.photos)) { window.photos.length = 0; } } catch (_) {}
+  try { window.__tbmExtra = []; } catch (_) {}
+  try { sessionStorage.clear(); } catch (_) {}
+  if (id) {
+    try { if (typeof window.idbDelete === 'function') { await window.idbDelete(id); } } catch (e) { console.warn('Falha idbDelete:', e); }
+    try { if (window.SST?.fs) { await window.SST.fs.collection('inspections').doc(String(id)).delete(); } } catch (e) { console.warn('Falha nuvem:', e); }
+  }
   window.location.reload();
 }
 
