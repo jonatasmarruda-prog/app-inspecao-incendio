@@ -1,49 +1,7 @@
 (()=>{
 'use strict';
-
-/* PDF ENGINE V2 — pdfmake. Não usa html2pdf nem html2canvas. */
-let busy=false;
-const CDN='https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/';
-
-function loadScript(src){return new Promise((resolve,reject)=>{if(document.querySelector('script[src="'+src+'"]'))return resolve();const s=document.createElement('script');s.src=src;s.onload=resolve;s.onerror=()=>reject(new Error('Não foi possível carregar '+src));document.head.appendChild(s)})}
-async function ensurePdfMake(){
-  if(window.pdfMake)return;
-  await loadScript(CDN+'pdfmake.min.js');
-  await loadScript(CDN+'vfs_fonts.js');
-  if(!window.pdfMake)throw new Error('pdfMake não foi carregado.');
-}
-function esc(v){return String(v??'').trim()}
-function stateObject(){try{if(typeof state!=='undefined'&&state&&typeof state==='object')return state}catch(_){}return window.state||window.appState||window.inspectionState||window.currentInspection||{}}
-function val(ids){for(const id of ids){const e=document.getElementById(id);if(e){if(e.type==='checkbox'||e.type==='radio')return e.checked?'Sim':'Não';return esc(e.value)}}return ''}
-function textByLabel(words){const labels=[...document.querySelectorAll('label')];for(const l of labels){const t=l.textContent.toLowerCase();if(words.some(w=>t.includes(w))){const p=l.parentElement;const e=p?.querySelector('input,textarea,select');if(e)return esc(e.value)}}return ''}
-function idOf(st){const candidates=[st?.id,window.currentInspectionId,window.inspectionId,window.idGerado,document.querySelector('[data-inspection-id]')?.getAttribute('data-inspection-id'),document.getElementById('inspectionId')?.value];for(const v of candidates){const x=esc(v);if(x)return x}return 'INS-'+Date.now().toString(36).toUpperCase()}
-function dataUrlFromImage(img){if(!img)return Promise.resolve('');if(img.src?.startsWith('data:'))return Promise.resolve(img.src);return new Promise(resolve=>{const done=()=>{try{const c=document.createElement('canvas');const w=img.naturalWidth||img.width,h=img.naturalHeight||img.height;if(!w||!h)return resolve('');c.width=w;c.height=h;const x=c.getContext('2d');x.drawImage(img,0,0);resolve(c.toDataURL('image/jpeg',.82))}catch(_){resolve('')}};if(img.complete&&img.naturalWidth)done();else{img.addEventListener('load',done,{once:true});img.addEventListener('error',()=>resolve(''),{once:true});setTimeout(()=>resolve(''),5000)}})}
-async function logoData(){const img=[...document.images].find(i=>/logo|icon|têxtil|textil/i.test((i.className||'')+' '+(i.alt||'')+' '+(i.src||'')))||document.querySelector('.reportLogo,.logo');return dataUrlFromImage(img)}
-async function photos(){const out=[];const seen=new Set();const imgs=[...document.querySelectorAll('.photoCard img,.rphotos img,[data-photo] img,.photoGrid img')];for(const img of imgs){const src=await dataUrlFromImage(img);if(src&&!seen.has(src)){seen.add(src);const card=img.closest('.photoCard,figure,[data-photo]');const caption=card?.querySelector('input,textarea,figcaption')?.value||card?.querySelector('figcaption')?.textContent||'Registro fotográfico';out.push({src,caption:esc(caption)||'Registro fotográfico'})}}return out}
-function canvasData(){return [...document.querySelectorAll('.sigwrap canvas,.rsig canvas,canvas[data-signature]')].map((c,i)=>{try{return {src:c.toDataURL('image/png'),label:['Responsável pela inspeção','Responsável da empresa'][i]||'Assinatura'}}catch(_){return null}}).filter(Boolean)}
-function equipmentRows(st){const eq=Array.isArray(st?.equipment)?st.equipment:[];const dom=[...document.querySelectorAll('#equipmentList .equipment')];const rows=[];eq.forEach((e,i)=>{const checks=e.premiumChecks||e.checks||[];rows.push([esc(e.name||e.kind||('Equipamento '+(i+1))),esc(e.patrimonio||'Não informado'),esc(e.localizacao||'Não informado'),esc(e.status||'PENDENTE'),checks.map(x=>esc(x)).join(' • ')||esc(e.obs||'')])});dom.forEach((c,i)=>{if(rows[i])return;const title=esc(c.querySelector('h3')?.textContent)||('Equipamento '+(i+1));const inputs=[...c.querySelectorAll('input,select,textarea')];rows.push([title,esc(inputs.find(x=>/patrimônio|patrimonio/i.test(x.parentElement?.textContent||''))?.value||'Não informado'),esc(inputs.find(x=>/localiza/i.test(x.parentElement?.textContent||''))?.value||'Não informado'),esc(inputs.find(x=>/situa|status/i.test(x.parentElement?.textContent||''))?.value||'PENDENTE'),inputs.map(x=>esc(x.value)).filter(Boolean).join(' • ')])});return rows}
-function checklistRows(st){const arr=st?.checklist||st?.checks||st?.items; if(Array.isArray(arr)&&arr.length)return arr.map((x,i)=>[esc(x.question||x.name||('Item '+(i+1))),esc(x.status||x.value||x.answer||''),esc(x.observation||x.obs||'')]);const rows=[];document.querySelectorAll('#equipmentList .check,.checklist .check').forEach((c,i)=>{const q=esc(c.querySelector('b')?.textContent||c.textContent.split('CONFORME')[0]);const s=esc(c.querySelector('select')?.value);if(q)rows.push([q,s,''])});return rows}
-function fieldRows(st){const company=esc(st?.company||st?.empresa)||val(['company','empresa'])||textByLabel(['empresa / unidade','empresa']);const address=esc(st?.address||st?.endereco)||val(['address','endereco'])||textByLabel(['endereço','endereco']);const inspector=esc(st?.inspector||st?.inspetor)||val(['inspector','inspetor'])||textByLabel(['inspetor']);const date=esc(st?.date||st?.data)||val(['inspectionDate','date','data'])||textByLabel(['data da inspeção','data']);return [['Empresa / Unidade',company],['Endereço',address],['Inspetor',inspector],['Data da inspeção',date]]}
-function observationText(st){const candidates=[st?.observation,st?.observations,st?.obs,st?.diagnostico,st?.diagnosis];for(const x of candidates)if(esc(x))return esc(x);const ta=[...document.querySelectorAll('textarea')].map(x=>esc(x.value)).filter(Boolean);return ta.join('\n\n')}
-async function buildDoc(){
-  const st=stateObject()||{};const id=idOf(st);window.currentInspectionId=id;
-  const [logo,photoList]=await Promise.all([logoData(),photos()]);
-  const signatures=canvasData();const eq=equipmentRows(st);const checklist=checklistRows(st);const obs=observationText(st);const fields=fieldRows(st);
-  const body=[];
-  body.push({columns:[logo?{image:logo,width:72,height:48,fit:'contain'}:{text:'TBM',bold:true,fontSize:18}, {stack:[{text:'LAUDO DE INSPEÇÃO SST',style:'title'},{text:'Têxtil Bezerra de Menezes',style:'sub'}]}, {text:id,alignment:'right',fontSize:8,color:'#64748b'}],columnGap:10,margin:[0,0,0,12]});
-  body.push({text:'DADOS DA INSPEÇÃO',style:'section'});
-  body.push({table:{widths:['28%','72%'],body:fields.map(r=>[{text:r[0],style:'label'},r[1]||'Não informado'])},layout:'lightHorizontalLines',margin:[0,0,0,10]});
-  body.push({text:'DIAGNÓSTICO / OBSERVAÇÕES',style:'section'});
-  body.push({text:obs||'Nenhuma observação registrada.',style:'body',margin:[8,5,8,10]});
-  if(eq.length){body.push({text:'EQUIPAMENTOS / CHECKLIST',style:'section'});body.push({table:{headerRows:1,widths:['23%','17%','18%','14%','28%'],body:[[{text:'Equipamento',style:'th'},{text:'Patrimônio',style:'th'},{text:'Localização',style:'th'},{text:'Situação',style:'th'},{text:'Checklist / Observação',style:'th'}],...eq]},layout:'lightHorizontalLines',fontSize:7,margin:[0,0,0,10]})}
-  if(checklist.length){body.push({text:'CHECKLIST DE INSPEÇÃO',style:'section'});body.push({table:{headerRows:1,widths:['55%','20%','25%'],body:[[{text:'Item',style:'th'},{text:'Situação',style:'th'},{text:'Observação',style:'th'}],...checklist]},layout:'lightHorizontalLines',fontSize:8,margin:[0,0,0,10]})}
-  if(photoList.length){body.push({text:'REGISTRO FOTOGRÁFICO',style:'section'});for(let i=0;i<photoList.length;i+=2){const a=photoList[i],b=photoList[i+1];body.push({columns:[{stack:[{image:a.src,width:235,height:155,fit:'contain'}, {text:a.caption,alignment:'center',fontSize:7,color:'#64748b'}]},b?{stack:[{image:b.src,width:235,height:155,fit:'contain'}, {text:b.caption,alignment:'center',fontSize:7,color:'#64748b'}]}:{text:''}],columnGap:12,margin:[0,0,0,10]})}}
-  if(signatures.length){body.push({text:'ASSINATURAS',style:'section'});body.push({columns:signatures.map(s=>({stack:[{image:s.src,width:220,height:75,fit:'contain'}, {text:s.label,alignment:'center',fontSize:8,bold:true}],margin:[5,5,5,5]})),columnGap:10})}
-  body.push({text:'Documento gerado pelo Sistema de Inspeção SST • TBM Têxtil',fontSize:7,color:'#64748b',alignment:'center',margin:[0,18,0,0]});
-  return {pageSize:'A4',pageMargins:[28,30,28,30],content:body,styles:{title:{fontSize:16,bold:true,color:'#8b1018'},sub:{fontSize:9,color:'#475569',margin:[0,3,0,0]},section:{fontSize:10,bold:true,color:'#8b1018',margin:[0,8,0,5]},label:{bold:true,fontSize:8,color:'#475569'},body:{fontSize:9,lineHeight:1.25},th:{bold:true,fontSize:7,color:'#111',fillColor:'#eef1f4'}},defaultStyle:{font:'Roboto',fontSize:8,color:'#111827'},footer:(p,n)=>({text:'Página '+p+' de '+n,alignment:'center',fontSize:7,color:'#64748b',margin:[0,8,0,0]})};
-}
-async function makePdf(action='download'){
-  if(busy)return;busy=true;try{await ensurePdfMake();const doc=await buildDoc();const filename='Laudo_Inspecao_'+idOf(stateObject()||{})+'.pdf';const pdf=window.pdfMake.createPdf(doc);if(action==='share'){pdf.getBlob(async blob=>{try{const file=new File([blob],filename,{type:'application/pdf'});if(navigator.share&&navigator.canShare&&navigator.canShare({files:[file]})){await navigator.share({title:'Laudo de Inspeção SST',text:'Laudo de inspeção',files:[file]});return}}catch(e){if(e?.name==='AbortError')return}pdf.download(filename)})}else pdf.download(filename)}catch(e){console.error('[PDFMAKE]',e);alert('Não foi possível gerar o PDF: '+(e?.message||e))}finally{busy=false}}
-window.makePdf=makePdf;window.gerarPDFMaster=()=>makePdf('download');window.exportarPDFMaster=()=>makePdf('download');window.gerarRelatorioPDF=()=>makePdf('download');
-document.addEventListener('click',e=>{const b=e.target.closest('button,a');if(!b)return;const t=(b.innerText||b.textContent||'').toLowerCase();if(/baixar.*pdf|📥.*pdf/.test(t)){e.preventDefault();e.stopImmediatePropagation();makePdf('download')}else if(/compartilhar.*pdf|📲.*pdf/.test(t)){e.preventDefault();e.stopImmediatePropagation();makePdf('share')}},true);
+// Compatibilidade: o gerador oficial agora é window.makePdf, implementado com pdfmake.
+window.gerarPDFMaster=(action='download')=>window.makePdf?.(action);
+window.exportarPDFMaster=(action='download')=>window.makePdf?.(action);
+window.gerarRelatorioPDF=(action='download')=>window.makePdf?.(action);
 })();
