@@ -42,7 +42,7 @@ function loadFinalPdfFix(){
   return new Promise(resolve=>{
     const s=document.createElement('script');
     s.id='tbm-final-pdf-fix';
-    s.src='./pdf-final-fix.js?v=20260903-01';
+    s.src='./pdf-final-fix.js?v=20260903-02';
     s.async=false;
     document.body.appendChild(s);
     s.onload=resolve;s.onerror=resolve;
