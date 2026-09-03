@@ -136,8 +136,36 @@ window.makePdf=async function(){
    await new Promise(r=>setTimeout(r,1000));
    await waitFonts();
    clone=source.cloneNode(true);
+
+   // 1. Transferir valores dos Inputs e Textareas
+   const originalInputs = source.querySelectorAll('input, textarea, select');
+   const clonedInputs = clone.querySelectorAll('input, textarea, select');
+   originalInputs.forEach((input, index) => {
+     if (clonedInputs[index]) {
+       clonedInputs[index].value = input.value;
+       if (input.type === 'checkbox' || input.type === 'radio') {
+         clonedInputs[index].checked = input.checked;
+       }
+     }
+   });
+
+   // 2. Transferir desenhos das Assinaturas (Canvas)
+   const originalCanvases = source.querySelectorAll('canvas');
+   const clonedCanvases = clone.querySelectorAll('canvas');
+   originalCanvases.forEach((canvas, index) => {
+     if (clonedCanvases[index]) {
+       const ctx = clonedCanvases[index].getContext('2d');
+       ctx.drawImage(canvas, 0, 0);
+     }
+   });
+
+   // 3. Garantir que o clone não quebre no mobile
+   clone.style.position = 'absolute';
+   clone.style.top = '0';
+   clone.style.left = '0';
+   clone.style.zIndex = '-9999';
    clone.id='pdfEnterpriseRender';
-   clone.style.position='absolute';clone.style.left='-100000px';clone.style.top='0';clone.style.width='210mm';clone.style.maxWidth='210mm';clone.style.margin='0';clone.style.padding='0';clone.style.visibility='visible';clone.style.display='block';clone.style.background='#fff';
+   clone.style.width='210mm';clone.style.maxWidth='210mm';clone.style.margin='0';clone.style.padding='0';clone.style.visibility='visible';clone.style.display='block';clone.style.background='#fff';
    document.body.appendChild(clone);
    const id=currentId(clone);
    if(!id)throw new Error('Não foi possível localizar o ID da inspeção.');
