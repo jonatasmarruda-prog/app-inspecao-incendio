@@ -1,0 +1,99 @@
+name: Hotfix travamento celular
+
+on:
+  push:
+    paths:
+      - '.github/workflows/mobile-freeze-hotfix.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  hotfix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Aplicar otimizações móveis
+        shell: python
+        run: |
+          from pathlib import Path
+
+          def replace_required(path, old, new):
+              p = Path(path)
+              s = p.read_text(encoding='utf-8')
+              if old not in s:
+                  raise SystemExit(f'Trecho não encontrado em {path}: {old[:120]}')
+              p.write_text(s.replace(old, new, 1), encoding='utf-8')
+
+          # 1) Não fazer pull/push completo de todo o histórico durante a abertura do app.
+          replace_required(
+              'index.html',
+              "$('cloudState').textContent='● Nuvem ativa';await cloudPull();await cloudPush()",
+              "$('cloudState').textContent='● Nuvem ativa'"
+          )
+
+          # 2) IndexedDB já faz structured clone; evitar JSON.stringify gigante das fotos.
+          replace_required(
+              'index.html',
+              "objectStore(STORE).put(JSON.parse(JSON.stringify(x)))",
+              "objectStore(STORE).put(x)"
+          )
+
+          # 3) Autosave local primeiro. Firebase fica em segundo plano pelo sincronizador otimizado.
+          replace_required(
+              'index.html',
+              "await idbPut(state);if(window.SST)await window.SST.fs.collection('inspections').doc(state.id).set(cloudSafe(state),{merge:true});if(!silent)notice('Inspeção salva com sucesso.','success')",
+              "await idbPut(state);if(window.tbmPushCloud)window.tbmPushCloud('main-save').catch(()=>{});if(!silent)notice('Inspeção salva com sucesso.','success')"
+          )
+
+          # 4) O botão principal não cria uma prévia HTML completa antes do PDF.
+          replace_required(
+              'index.html',
+              "$('pdf').onclick=async()=>{await saveInspection(true);showReport(state);setTimeout(()=>makePdf('share'),150)}",
+              "$('pdf').onclick=async()=>{await saveInspection(true);setTimeout(()=>makePdf('share'),50)}"
+          )
+
+          # 5) Abrir relatório sem duplicar todo o state/fotos na memória.
+          replace_required(
+              'index.html',
+              "function showReport(x){state=JSON.parse(JSON.stringify(x));$('reportContent').innerHTML=reportHTML(state);show('report')}",
+              "function showReport(x){state=x;$('reportContent').innerHTML=reportHTML(state);show('report')}"
+          )
+
+          # 6) Garantir carregamento do loader novo no navegador móvel.
+          replace_required(
+              'index.html',
+              "./sst-repair-loader.js?v=20260903-23",
+              "./sst-repair-loader.js?v=20260903-25"
+          )
+
+          # 7) Sincronização completa no celular somente em segundo plano; salvamento atual continua imediato.
+          p = Path('cloud-cross-device.js')
+          s = p.read_text(encoding='utf-8')
+          marker = "const SYNC_INTERVAL=120000; // 2 minutos"
+          if marker not in s:
+              raise SystemExit('Marcador de intervalo cloud não encontrado')
+          s = s.replace(marker, marker + "\nconst MOBILE_DEVICE=(()=>{try{return matchMedia('(max-width: 900px)').matches||matchMedia('(pointer: coarse)').matches||/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent||'')}catch(_){return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent||'')}})();", 1)
+          old = "periodicTimer=setInterval(()=>{if(navigator.onLine!==false)syncAll({silent:true}).catch(()=>{})},SYNC_INTERVAL);\n  window.addEventListener('online',()=>syncAll({silent:true}).catch(()=>{}));\n  document.addEventListener('visibilitychange',()=>{if(!document.hidden&&navigator.onLine!==false)syncAll({silent:true}).catch(()=>{})});"
+          new = "periodicTimer=setInterval(()=>{if(navigator.onLine!==false&&(!MOBILE_DEVICE||document.hidden))syncAll({silent:true}).catch(()=>{})},MOBILE_DEVICE?600000:SYNC_INTERVAL);\n  window.addEventListener('online',()=>{if(!MOBILE_DEVICE)syncAll({silent:true}).catch(()=>{});else pushCloud('online-mobile').catch(()=>{})});\n  document.addEventListener('visibilitychange',()=>{if(!MOBILE_DEVICE&&!document.hidden&&navigator.onLine!==false)syncAll({silent:true}).catch(()=>{})});"
+          if old not in s:
+              raise SystemExit('Bloco startPeriodicSync não encontrado')
+          s = s.replace(old, new, 1)
+          old = "const st=getState();if(st?.id)attachRealtime(String(st.id));\n      setTimeout(()=>syncAll({silent:true}).catch(()=>{}),700);"
+          new = "const st=getState();if(st?.id)attachRealtime(String(st.id));\n      if(MOBILE_DEVICE){if(st?.id)pushCloud('startup-mobile').catch(()=>{})}else setTimeout(()=>syncAll({silent:true}).catch(()=>{}),700);"
+          if old not in s:
+              raise SystemExit('Bloco startCloudProbe não encontrado')
+          s = s.replace(old, new, 1)
+          p.write_text(s, encoding='utf-8')
+
+      - name: Commit do hotfix
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html cloud-cross-device.js
+          git diff --cached --quiet && exit 0
+          git commit -m "Corrige travamentos no celular e reduz uso de memória"
+          git push
