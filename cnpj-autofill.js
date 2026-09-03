@@ -15,11 +15,16 @@ function getState(){
   try{return state||null}catch(_){return window.state||window.appState||window.currentInspection||null}
 }
 
+function isVisible(el){
+  return !!el&&!el.classList.contains('hidden')&&getComputedStyle(el).display!=='none';
+}
+
 function currentCompanyValue(){
   const field=document.getElementById('company');
-  if(field)return field.value||'';
+  const form=document.getElementById('form');
   const st=getState();
-  return st?.company||'';
+  if(field&&(!form||isVisible(form)))return field.value||'';
+  return st?.company||field?.value||'';
 }
 
 function findCnpjField(){
@@ -56,21 +61,27 @@ function setStateCnpj(value){
   if(window.currentInspection&&window.currentInspection!==st)window.currentInspection.cnpj=value;
 }
 
+function patchRenderedReportCnpj(){
+  const next=desiredCnpj(currentCompanyValue());
+  document.querySelectorAll('#report tr,.pdf-enterprise tr').forEach(tr=>{
+    const cells=[...tr.querySelectorAll('th,td')];
+    if(cells.length>=2&&normalizeText(cells[0].textContent)==='cnpj')cells[1].textContent=next;
+  });
+}
+
 function applyCnpj(){
-  const company=document.getElementById('company');
-  const companyValue=company?company.value:currentCompanyValue();
+  const companyValue=currentCompanyValue();
   const normalized=normalizeText(companyValue);
   const cnpjInput=findCnpjField();
 
-  // Regra estrita: somente TBM Têxtil recebe o CNPJ fixo.
   if(normalized==='tbm textil'){
     setStateCnpj(CNPJ_TBM_TEXTIL);
     if(cnpjInput){
       cnpjInput.value=CNPJ_TBM_TEXTIL;
-      dispatchAutosave(cnpjInput);
+      cnpjInput.dispatchEvent(new Event('input',{bubbles:true}));
+      cnpjInput.dispatchEvent(new Event('change',{bubbles:true}));
     }else if(typeof window.scheduleSave==='function')window.scheduleSave();
   }else{
-    // TBM Log, Outro ou qualquer valor diferente: limpeza absoluta.
     setStateCnpj('');
     if(cnpjInput){
       cnpjInput.value='';
@@ -79,6 +90,7 @@ function applyCnpj(){
     }else if(typeof window.scheduleSave==='function')window.scheduleSave();
   }
 
+  patchRenderedReportCnpj();
   lastCompanyNormalized=normalized;
 }
 
@@ -94,6 +106,7 @@ function patchReset(){
     const result=original.apply(this,args);
     const st=getState();
     if(st)st.cnpj='';
+    lastCompanyNormalized=null;
     return result;
   };
   wrapped.__tbmCnpjInitialState=true;
@@ -125,12 +138,12 @@ function patchPdfMake(){
 function bind(){
   const company=document.getElementById('company');
   if(!company)return false;
-  if(company.dataset.tbmCnpjAutofill!=='2'){
-    company.dataset.tbmCnpjAutofill='2';
+  if(company.dataset.tbmCnpjAutofill!=='3'){
+    company.dataset.tbmCnpjAutofill='3';
     company.addEventListener('change',applyCnpj);
     company.addEventListener('input',applyCnpj);
   }
-  const normalized=normalizeText(company.value);
+  const normalized=normalizeText(currentCompanyValue());
   if(normalized!==lastCompanyNormalized)applyCnpj();
   return true;
 }
@@ -143,15 +156,19 @@ function install(){
   bind();
   patchPdfMake();
 
-  const observer=new MutationObserver(()=>{bind();patchReset();patchPdfMake()});
+  const observer=new MutationObserver(()=>{
+    bind();
+    patchReset();
+    patchPdfMake();
+    patchRenderedReportCnpj();
+  });
   observer.observe(document.body,{childList:true,subtree:true});
 
-  // Também cobre preenchimentos programáticos ao reabrir registros salvos.
   setInterval(()=>{
-    const company=document.getElementById('company');
-    const normalized=normalizeText(company?.value||currentCompanyValue());
+    const normalized=normalizeText(currentCompanyValue());
     if(normalized!==lastCompanyNormalized)applyCnpj();
     patchPdfMake();
+    patchRenderedReportCnpj();
   },500);
 
   document.addEventListener('click',e=>{
