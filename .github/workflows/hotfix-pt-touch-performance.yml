@@ -1,4 +1,4 @@
-name: Hotfix PT touch performance
+name: Hotfix PT mobile performance
 
 on:
   push:
@@ -16,102 +16,18 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Aplicar hotfix de desempenho da PT
-        shell: bash
+      - name: Aplicar patch da PT
+        run: python3 .github/scripts/patch_pt_mobile_performance.py
+
+      - name: Publicar correção
         run: |
-          set -e
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git pull --rebase origin main
-          python - <<'PY'
-          from pathlib import Path
-
-          p = Path('pt-altura.js')
-          s = p.read_text(encoding='utf-8')
-
-          old_click = """if(check){const q=ptState.checklistPT.find(x=>x.id===check.dataset.ptCheck);if(q){q.status=check.dataset.ptStatus;const details=check.closest('details');const open=details?.open;renderPT();if(open){const d=[...document.querySelectorAll('#ptAlturaBody details')].find(x=>x.querySelector(`[data-pt-check=\"${check.dataset.ptCheck}\"]`));if(d)d.open=true}scheduleSavePT()}return}"""
-          new_click = """if(check){
-      const q=ptState.checklistPT.find(x=>x.id===check.dataset.ptCheck);
-      if(q){
-        q.status=check.dataset.ptStatus;
-        const item=check.closest('.pt-check-item');
-        if(item){
-          item.querySelectorAll('[data-pt-check]').forEach(btn=>{
-            btn.classList.remove('ok','no','na');
-            if(btn.dataset.ptStatus===q.status)btn.classList.add(statusClass(q.status));
-          });
-        }
-        const details=check.closest('details');
-        const count=details?.querySelector('.pt-count');
-        if(count){
-          const items=ptState.checklistPT.filter(x=>x.grupo===q.grupo);
-          const conformes=items.filter(x=>x.status==='CONFORME').length;
-          const nc=items.filter(x=>x.status==='NÃO CONFORME').length;
-          count.textContent=`${conformes} C • ${nc} NC • ${items.length} itens`;
-        }
-        scheduleSavePT();
-      }
-      return;
-    }"""
-          if old_click not in s:
-              raise SystemExit('Bloco de clique da PT não encontrado; abortando para não alterar código incorreto.')
-          s = s.replace(old_click, new_click, 1)
-
-          old_schedule = """function scheduleSavePT(){clearTimeout(saveTimerPT);saveTimerPT=setTimeout(()=>savePT(false),900);clearTimeout(cloudTimerPT);cloudTimerPT=setTimeout(()=>pushPTCloud().catch(()=>{}),1800)}"""
-          new_schedule = """function scheduleSavePT(){
-  clearTimeout(saveTimerPT);
-  saveTimerPT=setTimeout(()=>savePT(false,false),900);
-  clearTimeout(cloudTimerPT);
-  cloudTimerPT=setTimeout(()=>{
-    const sync=()=>pushPTCloud().catch(()=>{});
-    if(typeof requestIdleCallback==='function')requestIdleCallback(sync,{timeout:5000});
-    else setTimeout(sync,0);
-  },5000);
-}"""
-          if old_schedule not in s:
-              raise SystemExit('Bloco scheduleSavePT não encontrado; abortando.')
-          s = s.replace(old_schedule, new_schedule, 1)
-
-          old_save = """async function savePT(feedback=false){
-  if(!ptState)return false;
-  ptState.updatedAt=nowISO();ptState.issuer={name:EMISSOR_NOME,role:EMISSOR_CARGO};
-  try{
-    if(typeof window.idbPut==='function')await window.idbPut(JSON.parse(JSON.stringify(ptState)));
-    pushPTCloud().catch(()=>{});
-    if(feedback)showMsg('✅ PT salva com sucesso.');
-    return true;
-  }catch(e){console.error('[PT SAVE]',e);if(feedback)showMsg('❌ Não foi possível salvar a PT.','errorbox');return false}
-}"""
-          new_save = """async function savePT(feedback=false,syncCloud=feedback){
-  if(!ptState)return false;
-  ptState.updatedAt=nowISO();ptState.issuer={name:EMISSOR_NOME,role:EMISSOR_CARGO};
-  try{
-    if(typeof window.idbPut==='function'){
-      const previousExtra=window.__tbmExtra;
-      try{
-        window.__tbmExtra=[];
-        await window.idbPut(ptState);
-      }finally{
-        window.__tbmExtra=previousExtra;
-      }
-    }
-    if(syncCloud)pushPTCloud().catch(()=>{});
-    if(feedback)showMsg('✅ PT salva com sucesso.');
-    return true;
-  }catch(e){console.error('[PT SAVE]',e);if(feedback)showMsg('❌ Não foi possível salvar a PT.','errorbox');return false}
-}"""
-          if old_save not in s:
-              raise SystemExit('Bloco savePT não encontrado; abortando.')
-          s = s.replace(old_save, new_save, 1)
-
-          s = s.replace("payload.appVersion='2026.09.03.pt-altura.2';", "payload.appVersion='2026.09.03.pt-altura.3';", 1)
-          p.write_text(s, encoding='utf-8')
-          PY
-
-          git add pt-altura.js
+          git add pt-altura.js sst-repair-loader.js
           if git diff --cached --quiet; then
-            echo "Nenhuma alteração necessária."
+            echo "Sem alterações pendentes"
             exit 0
           fi
           git commit -m "Corrige travamento da PT ao tocar no checklist"
+          git pull --rebase origin main
           git push origin HEAD:main
