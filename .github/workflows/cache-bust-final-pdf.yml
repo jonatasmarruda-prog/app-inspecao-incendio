@@ -1,0 +1,40 @@
+name: Atualizar cache do PDF final
+on:
+  push:
+    paths:
+      - 'pdf-final-fix.js'
+      - 'sst-repair-loader.js'
+      - '.github/workflows/cache-bust-final-pdf.yml'
+permissions:
+  contents: write
+jobs:
+  cache-bust:
+    if: "!contains(github.event.head_commit.message, '[auto-cache-pdf]')"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Atualizar versões dos assets PDF
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          p=Path('index.html')
+          s=p.read_text(encoding='utf-8')
+          s=re.sub(r'(sst-repair-loader\.js\?v=)[^\"\']+', r'\g<1>20260903-22', s)
+          p.write_text(s,encoding='utf-8')
+          p=Path('sst-repair-loader.js')
+          s=p.read_text(encoding='utf-8')
+          s=re.sub(r'(pdf-final-fix\.js\?v=)[^\"\']+', r'\g<1>20260903-02', s)
+          p.write_text(s,encoding='utf-8')
+          PY
+      - name: Validar JavaScript
+        run: |
+          node --check pdf-final-fix.js
+          node --check sst-repair-loader.js
+      - name: Commit automático
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@github.com'
+          git add index.html sst-repair-loader.js
+          git diff --cached --quiet || git commit -m 'Atualiza cache do PDF final [auto-cache-pdf]'
+          git push
