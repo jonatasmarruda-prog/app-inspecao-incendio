@@ -1,0 +1,53 @@
+name: Ajuste PDF do Relatório SST
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  patch-pdf:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Baixar código
+        uses: actions/checkout@v4
+
+      - name: Corrigir ID e nome do PDF
+        shell: python
+        run: |
+          from pathlib import Path
+          p = Path('index.html')
+          s = p.read_text(encoding='utf-8')
+
+          old_css = '.reportNo{text-align:right;font-size:10px;color:#475569}'
+          new_css = '.reportNo{text-align:right;font-size:10px;color:#475569;width:260px;min-width:260px;white-space:nowrap;overflow:visible}'
+          if old_css in s and new_css not in s:
+              s = s.replace(old_css, new_css, 1)
+
+          old_grid = '.reportHeader{display:grid;grid-template-columns:70px 1fr 120px;'
+          new_grid = '.reportHeader{display:grid;grid-template-columns:105px minmax(0,1fr) 260px;'
+          if old_grid in s:
+              s = s.replace(old_grid, new_grid, 1)
+
+          old_mobile = '.reportHeader{grid-template-columns:55px 1fr}.reportNo{grid-column:2;text-align:left}'
+          new_mobile = '.reportHeader{grid-template-columns:70px minmax(0,1fr)}.reportNo{grid-column:2;text-align:left;width:auto;min-width:0;white-space:nowrap;overflow:visible}'
+          if old_mobile in s:
+              s = s.replace(old_mobile, new_mobile, 1)
+
+          old_pdf = "const filename=`Relatorio_${state.type}_${state.id}.pdf`,opt={margin:0,filename,image:{type:'jpeg',quality:.96},html2canvas:{scale:2,useCORS:true,backgroundColor:'#fff'},jsPDF:{unit:'mm',format:'a4',orientation:'portrait'},pagebreak:{mode:['css','legacy']}};"
+          new_pdf = "const idGerado=state.id;const opt={margin:0,filename: 'Relatorio_fire_' + idGerado + '.pdf',image:{type:'jpeg',quality:.96},html2canvas:{scale:2,useCORS:true,backgroundColor:'#fff'},jsPDF:{unit:'mm',format:'a4',orientation:'portrait'},pagebreak:{mode:['css','legacy']}};const filename=opt.filename;"
+          if old_pdf in s:
+              s = s.replace(old_pdf, new_pdf, 1)
+
+          p.write_text(s, encoding='utf-8')
+
+      - name: Salvar alterações
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git diff --cached --quiet && exit 0
+          git commit -m "fix: ajustar ID e nome do PDF"
+          git push
