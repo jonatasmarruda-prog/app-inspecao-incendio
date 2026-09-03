@@ -29,14 +29,27 @@ function loadAbntMaster(){
   if(document.getElementById('tbm-abnt-master'))return;
   const s=document.createElement('script');
   s.id='tbm-abnt-master';
-  s.src='./abnt-master.js?v=20260903-32';
+  s.src='./abnt-master.js?v=20260903-33';
+  s.defer=false;
+  document.body.appendChild(s);
+}
+function loadFinalPdfFix(){
+  if(document.getElementById('tbm-final-pdf-fix'))return;
+  const s=document.createElement('script');
+  s.id='tbm-final-pdf-fix';
+  s.src='./pdf-final-fix.js?v=20260903-01';
   s.defer=false;
   document.body.appendChild(s);
 }
 if(document.readyState==='loading'){
-  window.addEventListener('DOMContentLoaded',()=>{loadChecklistConditional();loadAbntMaster()},{once:true});
+  window.addEventListener('DOMContentLoaded',()=>{
+    loadChecklistConditional();
+    loadAbntMaster();
+    setTimeout(loadFinalPdfFix,150);
+  },{once:true});
 }else{
   loadChecklistConditional();
   loadAbntMaster();
+  setTimeout(loadFinalPdfFix,150);
 }
 })();
