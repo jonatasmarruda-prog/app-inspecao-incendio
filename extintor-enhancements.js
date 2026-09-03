@@ -145,7 +145,7 @@ function scan(){
 function loadPdfLayoutFix(){
   if(document.querySelector('script[data-tbm-pdf-layout-fix]')) return;
   const s=document.createElement('script');
-  s.src='./pdf-layout-fix.js?v=20260903-02';
+  s.src='./pdf-layout-fix.js?v=20260903-03';
   s.defer=true;
   s.dataset.tbmPdfLayoutFix='1';
   document.head.appendChild(s);
