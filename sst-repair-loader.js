@@ -17,8 +17,6 @@ window.repairSSTModule=repairSSTModule;
 window.addEventListener('sst-modules-loaded',()=>repairSSTModule());
 repairSSTModule();
 
-// Correção complementar carregada após os módulos existentes, sem substituir
-// nenhuma lógica do aplicativo.
 function loadChecklistConditional(){
   if(document.getElementById('tbm-checklist-conditional'))return;
   const s=document.createElement('script');
@@ -27,9 +25,18 @@ function loadChecklistConditional(){
   s.defer=true;
   document.head.appendChild(s);
 }
+function loadAbntMaster(){
+  if(document.getElementById('tbm-abnt-master'))return;
+  const s=document.createElement('script');
+  s.id='tbm-abnt-master';
+  s.src='./abnt-master.js?v=20260903-32';
+  s.defer=false;
+  document.body.appendChild(s);
+}
 if(document.readyState==='loading'){
-  window.addEventListener('DOMContentLoaded',loadChecklistConditional,{once:true});
+  window.addEventListener('DOMContentLoaded',()=>{loadChecklistConditional();loadAbntMaster()},{once:true});
 }else{
   loadChecklistConditional();
+  loadAbntMaster();
 }
 })();
