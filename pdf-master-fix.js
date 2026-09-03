@@ -61,7 +61,16 @@ async function gerarPDFMaster(){
 }
 window.gerarPDFMaster=gerarPDFMaster;window.exportarPDFMaster=gerarPDFMaster;window.gerarRelatorioPDF=gerarPDFMaster;
 function isPdfButton(el){if(!el)return false;const text=(el.innerText||el.textContent||'').replace(/\s+/g,' ').trim().toLowerCase();const attr=((el.getAttribute('onclick')||'')+' '+(el.getAttribute('aria-label')||'')).toLowerCase();return /pdf|gerar relatório|gerar relatorio|exportar relatório|exportar relatorio|baixar relatório|baixar relatorio/.test(text+' '+attr)}
-document.addEventListener('click',e=>{const btn=e.target.closest('button,a');if(!isPdfButton(btn))return;e.preventDefault();e.stopImmediatePropagation();gerarPDFMaster()},true);
+document.addEventListener('click', e => {
+  const btn = e.target.closest('button,a');
+  if (!btn) return;
+  if (btn.id === 'pdf' || btn.id === 'reportPdf' || btn.id === 'reportShare') return;
+  if (!isPdfButton(btn)) return;
+  e.preventDefault();
+  e.stopImmediatePropagation();
+  if (typeof window.makePdf === 'function') { window.makePdf(true); } 
+  else if (typeof window.gerarPDFMaster === 'function') { window.gerarPDFMaster(); }
+}, true);
 installPhotoReset();
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',injectStyle,{once:true});else injectStyle();
 })();
