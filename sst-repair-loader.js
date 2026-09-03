@@ -21,8 +21,9 @@ function loadChecklistConditional(){
   const s=document.createElement('script');s.id='tbm-checklist-conditional';s.src='./checklist-conditional.js?v=20260903-01';s.defer=true;document.head.appendChild(s);return new Promise(resolve=>{s.onload=resolve;s.onerror=resolve});
 }
 function loadPhotoMultiFix(){
-  if(document.getElementById('tbm-photo-multi-fix'))return Promise.resolve();
-  const s=document.createElement('script');s.id='tbm-photo-multi-fix';s.src='./photo-multi-fix.js?v=20260903-01';s.async=false;document.body.appendChild(s);return new Promise(resolve=>{s.onload=resolve;s.onerror=resolve});
+  const old=document.getElementById('tbm-photo-multi-fix');
+  if(old)old.remove();
+  const s=document.createElement('script');s.id='tbm-photo-multi-fix';s.src='./photo-multi-fix.js?v=20260903-02&cb='+Date.now();s.async=false;document.body.appendChild(s);return new Promise(resolve=>{s.onload=resolve;s.onerror=resolve});
 }
 function loadPdfPhotoFitFix(){
   if(document.getElementById('tbm-pdf-photo-fit-fix'))return Promise.resolve();
