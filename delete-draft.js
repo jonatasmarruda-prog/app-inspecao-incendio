@@ -55,20 +55,17 @@ async function limparInspecao(){
 
   const id=currentInspectionId();
 
-  try{window.__tbmExtra=[]}catch(_){ }
-  try{if(Array.isArray(window.photos))window.photos.length=0}catch(_){ }
-
-  // Remove somente o rascunho/estado da inspeção atual.
-  // Não chama nenhuma rotina de salvamento ou criação de histórico.
+  // Exclusão definitiva: não chama nenhuma rotina de salvamento.
+  // Remove o rascunho/estado da inspeção atual.
   const draftKeys=['inspectionId','inspection_id','currentInspectionId','idInspecao','inspection','draftInspection','inspectionDraft','currentInspection'];
   for(const key of draftKeys){
     try{localStorage.removeItem(key)}catch(_){ }
   }
 
   // Se a inspeção já tiver sido inserida temporariamente no histórico,
-  // remove somente o registro correspondente ao ID cancelado.
-  const historyKeys=['historico','historicoInspecoes','inspectionHistory','inspection_history','inspections','savedInspections'];
+  // remove SOMENTE o registro correspondente ao ID cancelado.
   if(id){
+    const historyKeys=['historico','historicoInspecoes','inspectionHistory','inspection_history','inspections','savedInspections'];
     for(const key of historyKeys){
       try{
         const raw=localStorage.getItem(key);
@@ -84,10 +81,16 @@ async function limparInspecao(){
     }
   }
 
+  // Limpa apenas caches temporários da inspeção.
+  try{if(Array.isArray(window.photos))window.photos.length=0}catch(_){ }
+  try{window.__tbmExtra=[]}catch(_){ }
   try{sessionStorage.clear()}catch(_){ }
+
+  // Remove eventual cópia persistida no IndexedDB.
   await removeCurrentFromIndexedDB(id);
 
-  // Não chamar salvarNoHistorico(), salvarInspecao() ou qualquer persistência.
+  // NÃO chamar salvarNoHistorico(), salvarInspecao(), scheduleSave()
+  // ou qualquer outra rotina de persistência após a exclusão.
   window.location.reload();
 }
 
