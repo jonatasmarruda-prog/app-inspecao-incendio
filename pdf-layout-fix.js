@@ -199,10 +199,22 @@ window.makePdf=async function(action='download'){
       content.push({table:{headerRows:1,widths:[25,'*',130,80],body:ar},layout:gridLayout,fontSize:8});
     }
 
-    content.push(twoColSection('Diagnóstico e Recomendações',[
-      ['Não conformidades / achados',value('findings')||val(st,'findings')],
-      ['Ações / recomendações',value('actions')||val(st,'actions')]
-    ]));
+    const valorNaoConformidades=value('findings')||val(st,'findings');
+    const valorAcoes=value('actions')||val(st,'actions');
+    content.push({
+      table:{
+        widths:['100%'],
+        body:[
+          [{text:'Diagnóstico e Recomendações',bold:true,fillColor:'#f4f4f4',margin:[0,5,0,5],fontSize:11,color:'#111111'}],
+          [{text:'Não conformidades / achados',bold:true,fillColor:'#f4f4f4',margin:[0,5,0,5],fontSize:9,color:'#111111'}],
+          [{text:valorNaoConformidades||'—',margin:[0,5,0,10],fontSize:9,color:'#111111'}],
+          [{text:'Ações / recomendações',bold:true,fillColor:'#f4f4f4',margin:[0,5,0,5],fontSize:9,color:'#111111'}],
+          [{text:valorAcoes||'—',margin:[0,5,0,10],fontSize:9,color:'#111111'}]
+        ]
+      },
+      layout:gridLayout,
+      margin:[0,10,0,0]
+    });
 
     const photos=uniquePhotos(st.photos);
     if(photos.length){
