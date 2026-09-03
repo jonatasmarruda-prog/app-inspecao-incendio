@@ -1,7 +1,7 @@
 name: Limpeza do módulo SST
 on:
   push:
-    paths: ['sst-modulos.js','.github/workflows/cleanup-sst.yml']
+    branches: [main]
   workflow_dispatch:
 permissions:
   contents: write
