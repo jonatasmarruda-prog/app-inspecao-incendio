@@ -1,9 +1,10 @@
 (()=>{
 'use strict';
 
-const FLAG='__tbmGlobalPdfStandardV1';
+const FLAG='__tbmGlobalPdfStandardV2';
 const COLORS={conforme:'#15803d',naoConforme:'#b91c1c',pendente:'#b45309'};
 const processed=new WeakSet();
+const MAX_STATUS_TEXT=48;
 const LONG_RE=/(observa[cç][aã]o|observa[cç][oõ]es|descri[cç][aã]o|descri[cç][oõ]es|n[aã]o\s*conform|nao\s*conform|achad|a[cç][aã]o|a[cç][oõ]es|acoes|recomenda|riscos?|perigos?|medidas?\s+de\s+controle|falhas?|causas?|relato|detalhamento|atividade|servi[cç]o\s+executado|ocorr[eê]ncia|conclus[aã]o|epis?\s+previstos?|meio\s+de\s+acesso)/i;
 
 function norm(s){return String(s??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toUpperCase()}
@@ -18,7 +19,9 @@ function cellText(cell){
   return'';
 }
 function statusKind(v){
-  const s=norm(cellText(v));
+  const raw=cellText(v).trim();
+  if(!raw||raw.length>MAX_STATUS_TEXT)return'';
+  const s=norm(raw);
   if(s==='CONFORME'||s==='BOM'||s==='OK')return'conforme';
   if(s==='NAO CONFORME'||s==='NÃO CONFORME')return'naoConforme';
   if(s==='PENDENTE'||s==='N/A'||s==='NA'||s==='N.A.'||s==='N.A')return'pendente';
@@ -160,7 +163,8 @@ function decorate(node){
     node.bold=true;node.color=statusColor(node.text);
   }
   if(Array.isArray(node.stack)&&node.stack.length>=2){
-    const label=norm(cellText(node.stack[1]));
+    const labelText=cellText(node.stack[1]);
+    const label=labelText.length<=120?norm(labelText):'';
     let color='';
     if(label.includes('NAO CONFORM'))color=COLORS.naoConforme;
     else if(label.includes('CONFORM'))color=COLORS.conforme;
@@ -171,6 +175,7 @@ function decorate(node){
   }
   Object.keys(node).forEach(k=>{
     if(typeof node[k]==='function')return;
+    if(k==='image'||k==='svg'||k==='qr'||k==='canvas')return;
     node[k]=decorate(node[k]);
   });
   return node;
