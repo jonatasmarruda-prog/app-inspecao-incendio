@@ -28,6 +28,7 @@ function loadPdfPhotoFitFix(){if(document.getElementById('tbm-pdf-photo-fit-fix'
 function loadAbntMaster(){const old=document.getElementById('tbm-abnt-master');if(old)old.remove();return new Promise(resolve=>{const s=document.createElement('script');s.id='tbm-abnt-master';s.src='./abnt-master.js?v=20260903-36';s.async=false;document.body.appendChild(s);s.onload=resolve;s.onerror=resolve})}
 function loadFinalPdfFix(){const old=document.getElementById('tbm-final-pdf-fix');if(old)old.remove();return new Promise(resolve=>{const s=document.createElement('script');s.id='tbm-final-pdf-fix';s.src='./pdf-final-fix.js?v=20260903-02'+Date.now();s.async=false;document.body.appendChild(s);s.onload=resolve;s.onerror=resolve})}
 function loadEquipmentVerticalFix(){const old=document.getElementById('tbm-pdf-equipment-vertical-fix');if(old)old.remove();const s=document.createElement('script');s.id='tbm-pdf-equipment-vertical-fix';s.src='./pdf-equipment-vertical-fix.js?v=20260903-01&cb='+Date.now();s.async=false;document.body.appendChild(s);return new Promise(resolve=>{s.onload=resolve;s.onerror=resolve})}
+function loadGlobalPdfStandard(){const old=document.getElementById('tbm-pdf-global-standard');if(old)old.remove();const s=document.createElement('script');s.id='tbm-pdf-global-standard';s.src='./pdf-global-standard.js?v=20260903-01&cb='+Date.now();s.async=false;document.body.appendChild(s);return new Promise(resolve=>{s.onload=resolve;s.onerror=resolve})}
 function loadPremiumUX(){const old=document.getElementById('tbm-premium-ux');if(old)old.remove();const s=document.createElement('script');s.id='tbm-premium-ux';s.src='./premium-ux.js?v=20260903-01&cb='+Date.now();s.async=false;document.body.appendChild(s);return new Promise(resolve=>{s.onload=resolve;s.onerror=resolve})}
 async function loadRepairs(){
   await loadFireChecklistSplit();
@@ -41,6 +42,7 @@ async function loadRepairs(){
   await loadAbntMaster();
   await loadFinalPdfFix();
   await loadEquipmentVerticalFix();
+  await loadGlobalPdfStandard();
   await loadPremiumUX();
   setTimeout(loadCloudCrossDevice,0);
 }
