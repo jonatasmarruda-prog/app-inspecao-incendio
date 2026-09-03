@@ -1,0 +1,40 @@
+name: Master Fix SST
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Repair index wiring
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('index.html')
+          s=p.read_text(encoding='utf-8')
+          replacements={
+            "$('todayDate')":"$('premiumToday')",
+            "$('todayTime')":"$('premiumTime')",
+            "$('startFire')":"$('start')",
+            "$('historyBtn')":"$('hist')",
+          }
+          for a,b in replacements.items(): s=s.replace(a,b)
+          if './master-fix.js?v=20260903-master' not in s:
+              marker='<script>if(\'serviceWorker\' in navigator)'
+              add='<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>\n<script src="./master-fix.js?v=20260903-master"></script>\n'
+              s=s.replace(marker,add+marker,1)
+          p.write_text(s,encoding='utf-8')
+          PY
+      - name: Commit repair
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          if git diff --cached --quiet; then echo "No changes needed"; exit 0; fi
+          git commit -m "fix: stabilize SST app wiring and PDF"
+          git push
