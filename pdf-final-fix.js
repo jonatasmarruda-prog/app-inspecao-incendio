@@ -2,7 +2,7 @@
 'use strict';
 
 /* Ponte final e autoritativa: toda exportação usa o gerador oficial baseado em pdfmake. */
-const LAYOUT_SRC='./pdf-layout-fix.js?v=20260903-07';
+const LAYOUT_SRC='./pdf-layout-fix.js?v=20260903-08';
 let loading=null;
 
 function loadPdfMakeLayout(){
