@@ -1,0 +1,33 @@
+name: Limpeza do módulo SST
+on:
+  push:
+    paths: ['sst-modulos.js']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  clean:
+    if: "!contains(github.event.head_commit.message, '[sst-clean]')"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Remover HTML acidental do módulo
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('sst-modulos.js')
+          s=p.read_text(encoding='utf-8')
+          marker='<script id="tbm-cnpj-reports">'
+          if marker in s:
+              s=s.split(marker,1)[0].rstrip()+"\n"
+          p.write_text(s,encoding='utf-8')
+          PY
+      - name: Validar módulo limpo
+        run: node --check sst-modulos.js
+      - name: Salvar correção
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add sst-modulos.js
+          git diff --cached --quiet || git commit -m 'Limpa módulo SST e restaura sintaxe [sst-clean]'
+          git push
