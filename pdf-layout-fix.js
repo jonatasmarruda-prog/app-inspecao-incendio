@@ -4,6 +4,21 @@
 const CNPJ='07.603.376/0003-00';
 const LOGO='Têxtil Bezerra de Menezes 2.jpeg';
 const TYPE_NAMES={fire:'Combate a Incêndio',safety:'Inspeção de Segurança',machine:'Máquinas e Equipamentos',epi:'Inspeção de EPI',accident:'Investigação de Acidente',report:'Relatório de Inspeção'};
+const FIRE_EXT_QUESTIONS=[
+  'Acesso e sinalização desobstruídos',
+  'Pino de segurança e lacre íntegros',
+  'Manômetro na faixa verde (quando pressurizado)',
+  'Cilindro e pintura em bom estado',
+  'Mangueira e difusor sem danos',
+  'Etiqueta de validade legível'
+];
+const FIRE_HID_QUESTIONS=[
+  'Acesso e sinalização desobstruídos',
+  'Abrigo em bom estado e porta abrindo facilmente',
+  'Mangueiras enroladas corretamente (aduchadas) e secas',
+  'Esguicho e Chave Storz presentes',
+  'Registros e engates sem vazamento ou corrosão'
+];
 
 function $(id){return document.getElementById(id)}
 function value(id){const el=$(id);return el?String(el.value??'').trim():''}
@@ -13,10 +28,11 @@ function val(o,...keys){for(const k of keys){if(o&&o[k]!=null&&String(o[k]).trim
 function company(x){const live=value('company');const c=live||x.company||'';return c==='Outro'?(value('otherCompany')||x.otherCompany||'—'):(c||'—')}
 function inspector(x){const live=value('inspector');const i=live||x.inspector||'';return i==='Outro'?(value('inspectorOther')||x.inspectorOther||'—'):(i||'—')}
 function typeName(x){return TYPE_NAMES[x?.type]||x?.title||'Inspeção de Segurança'}
-function checksFor(x){const types=currentTypes();return types?.[x.type]?.checks||[]}
+function checksFor(x){if(x?.type==='fire')return[];const types=currentTypes();return types?.[x.type]?.checks||[]}
 function fmtBR(v){if(!v)return'—';const d=new Date(v);return Number.isNaN(d.getTime())?String(v):d.toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})}
 function nowBR(){return fmtBR(new Date())}
 function inspectionId(st){const id=String(st.id||window.currentInspectionId||'').trim();if(id)return id;const n='INS-'+Date.now().toString(36).toUpperCase();st.id=n;window.currentInspectionId=n;return n}
+function checklistAnswers(list,len){const a=Array.isArray(list)?[...list]:[];while(a.length<len)a.push('PENDENTE');return a.slice(0,len)}
 
 async function imageToDataUrl(src){
   if(!src)return null;
@@ -100,6 +116,13 @@ function signatureCell(name,role,image){
   return {stack,margin:[5,8,5,6]};
 }
 
+function addChecklistTable(content,title,questions,answers){
+  content.push(sectionTitle(title));
+  const rows=[[headerCell('#'),headerCell('Item inspecionado'),headerCell('Status')]];
+  questions.forEach((q,i)=>rows.push([String(i+1),q,answers[i]||'PENDENTE']));
+  content.push({table:{headerRows:1,widths:[28,'*',115],body:rows},layout:gridLayout,fontSize:8});
+}
+
 window.makePdf=async function(action='download'){
   const modal=$('modal'),modalText=$('modalText');
   try{
@@ -117,8 +140,13 @@ window.makePdf=async function(action='download'){
     const sig1=canvasData('sig1',st.signature1);
     const sig2=canvasData('sig2',st.signature2);
     const checks=checksFor(st);
+    const perguntasExtintor=Array.isArray(window.perguntasExtintor)?window.perguntasExtintor:FIRE_EXT_QUESTIONS;
+    const perguntasHidrante=Array.isArray(window.perguntasHidrante)?window.perguntasHidrante:FIRE_HID_QUESTIONS;
+    const respostasExtintor=checklistAnswers(st.checklistExtintores,perguntasExtintor.length);
+    const respostasHidrante=checklistAnswers(st.checklistHidrantes,perguntasHidrante.length);
     const equipment=Array.isArray(st.equipment)?st.equipment:[];
-    const statuses=[...equipment.map(e=>e.status||'PENDENTE'),...checks.map((q,i)=>st.checks?.[i]||'PENDENTE')];
+    const checklistStatuses=st.type==='fire'?[...respostasExtintor,...respostasHidrante]:checks.map((q,i)=>st.checks?.[i]||'PENDENTE');
+    const statuses=[...equipment.map(e=>e.status||'PENDENTE'),...checklistStatuses];
     const total=statuses.length;
     const con=statuses.filter(v=>v==='CONFORME').length;
     const nc=statuses.filter(v=>v==='NÃO CONFORME').length;
@@ -180,7 +208,10 @@ window.makePdf=async function(action='download'){
       content.push({table:{headerRows:1,widths:[20,70,65,145,75,'*'],body:rows},layout:gridLayout,fontSize:7.5});
     }
 
-    if(checks.length){
+    if(st.type==='fire'){
+      addChecklistTable(content,'Checklist de Inspeção - Extintores',perguntasExtintor,respostasExtintor);
+      addChecklistTable(content,'Checklist de Inspeção - Hidrantes',perguntasHidrante,respostasHidrante);
+    }else if(checks.length){
       content.push(sectionTitle('Diagnóstico / Checklist'));
       const rows=[[headerCell('#'),headerCell('Item inspecionado'),headerCell('Status')]];
       checks.forEach((q,i)=>rows.push([String(i+1),q,st.checks?.[i]||'PENDENTE']));
