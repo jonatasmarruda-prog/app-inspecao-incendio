@@ -24,6 +24,16 @@ function restoreButtons(delay=1000){
   setTimeout(()=>IDS.forEach(id=>{const b=document.getElementById(id);if(!b)return;b.disabled=false;b.textContent=ORIGINAL[id]}),delay);
 }
 
+function sendEmailInBackground(){
+  if(typeof window.tbmAutoEmailSavedReport!=='function')return;
+  setTimeout(()=>{
+    try{
+      const p=window.tbmAutoEmailSavedReport({mode:'main'});
+      if(p&&typeof p.catch==='function')p.catch(e=>console.warn('[SALVAR EMAIL]',e));
+    }catch(e){console.warn('[SALVAR EMAIL]',e)}
+  },0);
+}
+
 async function manualSave(){
   if(busy)return;busy=true;setButtons('⏳ Salvando...',true);
   try{
@@ -31,6 +41,7 @@ async function manualSave(){
     await window.saveInspection(false);
     setButtons('✅ Salvo',false);
     toast('✅ Inspeção salva no dispositivo.','ok');
+    sendEmailInBackground();
   }catch(e){
     console.error('[SALVAR]',e);setButtons('❌ Erro ao salvar',false);toast('❌ Erro ao salvar: '+(e?.message||e),'error');
   }finally{busy=false;restoreButtons()}
@@ -38,8 +49,8 @@ async function manualSave(){
 
 function bind(){
   IDS.forEach(id=>{
-    const b=document.getElementById(id);if(!b||b.dataset.tbmSaveFix==='2')return;
-    b.dataset.tbmSaveFix='2';b.type='button';b.onclick=null;
+    const b=document.getElementById(id);if(!b||b.dataset.tbmSaveFix==='3')return;
+    b.dataset.tbmSaveFix='3';b.type='button';b.onclick=null;
     b.addEventListener('click',e=>{e.preventDefault();e.stopImmediatePropagation();manualSave()},true);
   });
 }
