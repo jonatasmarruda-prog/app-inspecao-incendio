@@ -36,6 +36,7 @@ function loadMobilePerformanceFix(){const old=document.getElementById('tbm-mobil
 function loadHistoryLightFix(){const old=document.getElementById('tbm-history-light-fix');if(old)old.remove();const s=document.createElement('script');s.id='tbm-history-light-fix';s.src='./history-light-fix.js?v=20260904-04&cb='+Date.now();s.async=false;document.body.appendChild(s);return new Promise(resolve=>{s.onload=resolve;s.onerror=resolve})}
 function loadMobileInteractionFix(){const old=document.getElementById('tbm-mobile-interaction-fix');if(old)old.remove();const s=document.createElement('script');s.id='tbm-mobile-interaction-fix';s.src='./mobile-interaction-fix.js?v=20260904-02&cb='+Date.now();s.async=false;document.body.appendChild(s);return new Promise(resolve=>{s.onload=resolve;s.onerror=resolve})}
 function loadNR24Module(){const old=document.getElementById('tbm-nr24-module');if(old)old.remove();const s=document.createElement('script');s.id='tbm-nr24-module';s.src='./nr24-module.js?v=20260904-01&cb='+Date.now();s.async=false;document.body.appendChild(s);return new Promise(resolve=>{s.onload=resolve;s.onerror=resolve})}
+function loadTrainingAttendanceModule(){const old=document.getElementById('tbm-training-attendance-module');if(old)old.remove();const s=document.createElement('script');s.id='tbm-training-attendance-module';s.src='./training-attendance-module.js?v=20260904-01&cb='+Date.now();s.async=false;document.body.appendChild(s);return new Promise(resolve=>{s.onload=resolve;s.onerror=resolve})}
 async function loadRepairs(){
   await loadFireChecklistSplit();
   await loadChecklistConditional();
@@ -62,6 +63,8 @@ async function loadRepairs(){
   try{window.tbmInstallMobilePdfPerformance?.()}catch(_){ }
   // NR 24 entra por último para interceptar somente o tipo nr24 sem alterar PDFs/formulários existentes.
   await loadNR24Module();
+  // Lista de presença é carregada como módulo isolado após os demais, sem reescrever fluxos existentes.
+  await loadTrainingAttendanceModule();
   setTimeout(loadCloudCrossDevice,0);
 }
 if(document.readyState==='loading')window.addEventListener('DOMContentLoaded',loadRepairs,{once:true});else loadRepairs();
