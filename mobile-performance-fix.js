@@ -1,7 +1,7 @@
 (()=>{
 'use strict';
 
-const FLAG='__tbmMobilePdfPerformanceV3';
+const FLAG='__tbmMobilePdfPerformanceV4';
 const META_KEY='tbm-sst-mobile-dashboard-v2';
 let migrationRunning=false;
 let migrationScheduled=false;
@@ -107,6 +107,8 @@ function getOne(db,key){
   });
 }
 
+// Migração antiga permanece disponível apenas sob comando explícito.
+// Ela NÃO roda na inicialização e NÃO roda ao abrir o histórico.
 async function migrateMetaIncrementally(){
   if(!isMobile()||migrationRunning)return;
   migrationScheduled=false;
@@ -131,17 +133,16 @@ async function migrateMetaIncrementally(){
         if(record)upsertMeta(record);
         window.dispatchEvent(new CustomEvent('tbm-history-index-updated',{detail:{id:String(key)}}));
       }catch(e){console.warn('[HISTÓRICO] migração de um registro',e)}
-      // Um registro por vez, com grande intervalo: nunca varrer todos no clique.
-      idle(step,1600);
+      idle(step,2200);
     };
-    idle(step,1200);
+    idle(step,600);
   }catch(e){
     migrationRunning=false;
     try{db?.close()}catch(_){ }
     console.warn('[HISTÓRICO] migração incremental',e);
   }
 }
-function scheduleMigration(delay=7000){
+function scheduleMigration(delay=0){
   if(migrationRunning||migrationScheduled)return;
   migrationScheduled=true;
   idle(()=>migrateMetaIncrementally(),delay);
@@ -149,33 +150,30 @@ function scheduleMigration(delay=7000){
 
 function installDashboardIndex(){
   if(!isMobile())return;
-  // O dashboard e o histórico recebem SOMENTE metadados leves.
-  // Não existe mais fallback para idbAll/openCursor de registros completos.
   window.tbmDashboardRecords=async()=>readMeta();
 
-  if(typeof window.idbPut==='function'&&!window.idbPut.__tbmMobileMetaV3){
+  if(typeof window.idbPut==='function'&&!window.idbPut.__tbmMobileMetaV4){
     const old=window.idbPut;
     const wrapped=async function(x,...args){
       const r=await old.call(this,x,...args);
       upsertMeta(x);
       return r;
     };
-    wrapped.__tbmMobileMetaV3=true;wrapped.__tbmOriginal=old;window.idbPut=wrapped;
+    wrapped.__tbmMobileMetaV4=true;wrapped.__tbmOriginal=old;window.idbPut=wrapped;
   }
-  if(typeof window.idbDelete==='function'&&!window.idbDelete.__tbmMobileMetaV3){
+  if(typeof window.idbDelete==='function'&&!window.idbDelete.__tbmMobileMetaV4){
     const old=window.idbDelete;
     const wrapped=async function(id,...args){
       const r=await old.call(this,id,...args);
       deleteMeta(id);
       return r;
     };
-    wrapped.__tbmMobileMetaV3=true;wrapped.__tbmOriginal=old;window.idbDelete=wrapped;
+    wrapped.__tbmMobileMetaV4=true;wrapped.__tbmOriginal=old;window.idbDelete=wrapped;
   }
   try{
     const st=(typeof state!=='undefined'&&state)?state:(window.state||null);
     if(st?.id)upsertMeta(st);
   }catch(_){ }
-  scheduleMigration(9000);
 }
 
 function installPdf(){
@@ -225,6 +223,7 @@ if(!install()){
 }
 
 window.tbmInstallMobilePdfPerformance=install;
-window.tbmRefreshMobileDashboardIndex=()=>scheduleMigration(200);
+window.tbmRefreshMobileDashboardIndex=()=>readMeta();
+window.tbmImportLegacyHistory=()=>scheduleMigration(0);
 window.tbmReadLightHistoryIndex=readMeta;
 })();
