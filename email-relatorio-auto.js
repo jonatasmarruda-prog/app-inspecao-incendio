@@ -3,23 +3,23 @@
 
 /*
   Envio automático e NÃO BLOQUEANTE de cópia do PDF após salvamento manual.
-  O envio real só é ativado quando o backend Firebase estiver configurado.
-  Nenhuma chave de e-mail fica no navegador.
+  Backend seguro: Vercel Serverless Function -> Resend.
+  A chave do Resend nunca fica no navegador.
 */
-const REGION='southamerica-east1';
-const PROJECT_ID='app-inspecao-sst-79aa6';
 const STATUS_KEY='tbm-sst-email-status-v1';
 const ENABLE_KEY='tbm-sst-email-enabled-v1';
-const SDK_STORAGE='https://www.gstatic.com/firebasejs/10.14.1/firebase-storage-compat.js';
-const SDK_FUNCTIONS='https://www.gstatic.com/firebasejs/10.14.1/firebase-functions-compat.js';
+const ENDPOINT_KEY='tbm-sst-email-endpoint-v1';
+const DEFAULT_ENDPOINT='';
+const MAX_PDF_BYTES=3_000_000;
 let sending=false;
-let sdkPromise=null;
 let ptHookInstalled=false;
 
 function currentState(){try{return state||window.state||null}catch(_){return window.state||null}}
 function isPtOpen(){const el=document.getElementById('ptAlturaOverlay');return !!el&&!el.classList.contains('hidden')}
 function enabled(){try{return localStorage.getItem(ENABLE_KEY)==='1'}catch(_){return false}}
 function setEnabled(v){try{localStorage.setItem(ENABLE_KEY,v?'1':'0')}catch(_){ }}
+function endpoint(){try{return String(localStorage.getItem(ENDPOINT_KEY)||window.TBM_EMAIL_ENDPOINT||DEFAULT_ENDPOINT||'').trim()}catch(_){return String(window.TBM_EMAIL_ENDPOINT||DEFAULT_ENDPOINT||'').trim()}}
+function setEndpoint(v){try{localStorage.setItem(ENDPOINT_KEY,String(v||'').trim())}catch(_){ }}
 function cleanPath(v){return String(v||'relatorio').replace(/[^a-zA-Z0-9._-]+/g,'_').replace(/^_+|_+$/g,'').slice(0,140)||'relatorio'}
 function readStatuses(){try{const x=JSON.parse(localStorage.getItem(STATUS_KEY)||'{}');return x&&typeof x==='object'?x:{}}catch(_){return{}}}
 function writeStatuses(x){try{localStorage.setItem(STATUS_KEY,JSON.stringify(x||{}))}catch(_){ }}
@@ -35,37 +35,19 @@ function toast(text,type='ok'){
   clearTimeout(el.__timer);el.__timer=setTimeout(()=>{el.style.opacity='0'},3600);
 }
 
-function loadScript(src,id){
-  return new Promise((resolve,reject)=>{
-    if(document.getElementById(id))return resolve();
-    const s=document.createElement('script');s.id=id;s.src=src;s.async=true;s.onload=resolve;s.onerror=()=>reject(new Error('Falha ao carregar '+id));document.head.appendChild(s);
-  });
-}
-
-async function waitFirebase(timeout=7000){
-  const start=Date.now();
-  while(Date.now()-start<timeout){if(window.firebase?.apps?.length)return window.firebase;await new Promise(r=>setTimeout(r,150))}
-  throw new Error('Firebase ainda não está disponível.');
-}
-
-async function ensureServices(){
-  if(sdkPromise)return sdkPromise;
-  sdkPromise=(async()=>{
-    const fb=await waitFirebase();
-    if(!fb.storage)await loadScript(SDK_STORAGE,'tbm-firebase-storage-sdk');
-    if(!fb.functions)await loadScript(SDK_FUNCTIONS,'tbm-firebase-functions-sdk');
-    const auth=fb.auth?.();
-    if(auth&&!auth.currentUser)await auth.signInAnonymously();
-    if(!auth?.currentUser)throw new Error('Usuário Firebase não autenticado.');
-    return {fb,auth,storage:fb.storage(),functions:fb.app().functions(REGION)};
-  })().catch(e=>{sdkPromise=null;throw e});
-  return sdkPromise;
-}
-
 async function sha256(blob){
   const buf=await blob.arrayBuffer();
   const hash=await crypto.subtle.digest('SHA-256',buf);
   return Array.from(new Uint8Array(hash)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+
+function blobToBase64(blob){
+  return new Promise((resolve,reject)=>{
+    const reader=new FileReader();
+    reader.onload=()=>resolve(String(reader.result||'').split(',')[1]||'');
+    reader.onerror=()=>reject(reader.error||new Error('Falha ao preparar PDF para envio.'));
+    reader.readAsDataURL(blob);
+  });
 }
 
 function dateStamp(){const d=new Date();return `${String(d.getDate()).padStart(2,'0')}-${String(d.getMonth()+1).padStart(2,'0')}-${d.getFullYear()}`}
@@ -75,10 +57,7 @@ function emailFilename(mode,original){
   return original||`Relatorio_SST_${dateStamp()}.pdf`;
 }
 
-/*
-  Captura o MESMO docDefinition usado pelo gerador atual sem alterar layout, cores ou tabelas.
-  O método download() é interceptado apenas durante esta geração de background e convertido em Blob.
-*/
+/* Captura o MESMO docDefinition atual; não altera layout, fotos, cores ou tabelas. */
 async function capturePdf(mode){
   if(!window.pdfMake?.createPdf)throw new Error('PDFMake indisponível.');
   const maker=mode==='pt'?window.makePTAlturaPdf:window.makePdf;
@@ -96,9 +75,7 @@ async function capturePdf(mode){
     function wrapped(docDefinition,...args){
       const real=original(docDefinition,...args);
       return {
-        download(filename){
-          try{real.getBlob(blob=>{clearTimeout(timer);done(blob,filename)})}catch(e){clearTimeout(timer);fail(e)}
-        },
+        download(filename){try{real.getBlob(blob=>{clearTimeout(timer);done(blob,filename)})}catch(e){clearTimeout(timer);fail(e)}},
         getBlob(cb){return real.getBlob(cb)},
         open(...a){return real.open?.(...a)},
         print(...a){return real.print?.(...a)},
@@ -126,9 +103,24 @@ function reportMeta(mode,pdf){
   return {id:String(st.id||'SEM-ID'),type:String(st.title||st.type||'Relatório SST'),company:String(st.company||''),sector:String(st.sector||'')};
 }
 
+async function postToBackend(url,payload){
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),45000);
+  try{
+    const response=await fetch(url,{method:'POST',mode:'cors',cache:'no-store',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload),signal:controller.signal});
+    const data=await response.json().catch(()=>({}));
+    if(!response.ok){
+      const detail=String(data?.detail||data?.error||`HTTP ${response.status}`);
+      throw new Error(detail);
+    }
+    return data;
+  }finally{clearTimeout(timer)}
+}
+
 async function send(mode='main'){
   if(sending)return {sent:false,busy:true};
-  if(!enabled())return {sent:false,skipped:true,reason:'backend-not-enabled'};
+  const url=endpoint();
+  if(!enabled()||!url)return {sent:false,skipped:true,reason:'backend-not-enabled'};
   sending=true;
   try{
     toast('📧 Preparando cópia do relatório…','info');
@@ -138,19 +130,16 @@ async function send(mode='main'){
     const previous=getStatus(meta.id,fingerprint);
     if(previous?.state==='sent')return {sent:true,duplicate:true};
 
-    const svc=await ensureServices();
-    const uid=svc.auth.currentUser.uid;
     const filename=cleanPath(pdf.filename.endsWith('.pdf')?pdf.filename:pdf.filename+'.pdf');
-    const reportId=cleanPath(meta.id);
-    const storagePath=`report-emails/${uid}/${reportId}/${fingerprint.slice(0,20)}-${filename}`;
-    saveStatus(meta.id,fingerprint,{state:'uploading',filename,storagePath});
+    if(pdf.blob.size>MAX_PDF_BYTES){
+      saveStatus(meta.id,fingerprint,{state:'pending',filename,error:'pdf_too_large',size:pdf.blob.size});
+      throw new Error('PDF muito grande para envio automático.');
+    }
 
-    await svc.storage.ref(storagePath).put(pdf.blob,{contentType:'application/pdf',customMetadata:{reportId:meta.id,reportType:meta.type||'',fingerprint}});
-    saveStatus(meta.id,fingerprint,{state:'sending',filename,storagePath});
+    saveStatus(meta.id,fingerprint,{state:'sending',filename,size:pdf.blob.size});
+    const pdfBase64=await blobToBase64(pdf.blob);
+    const data=await postToBackend(url,{pdfBase64,reportId:meta.id,filename,reportType:meta.type,company:meta.company,sector:meta.sector,fingerprint});
 
-    const callable=svc.functions.httpsCallable('sendInspectionReport');
-    const result=await callable({storagePath,reportId:meta.id,filename,reportType:meta.type,company:meta.company,sector:meta.sector,fingerprint,projectId:PROJECT_ID});
-    const data=result?.data||{};
     saveStatus(meta.id,fingerprint,{state:'sent',filename,messageId:data.messageId||'',sentAt:new Date().toISOString()});
     toast('✅ Relatório salvo • cópia enviada por e-mail.','ok');
     window.dispatchEvent(new CustomEvent('tbm-report-email-sent',{detail:{reportId:meta.id,filename}}));
@@ -177,10 +166,20 @@ function installPtSaveHook(){
   },false);
 }
 
+function configureBackend(url,on=true){
+  const clean=String(url||'').trim().replace(/\/+$/,'');
+  if(clean&&!/^https:\/\//i.test(clean))throw new Error('O endpoint de e-mail precisa usar HTTPS.');
+  setEndpoint(clean);
+  setEnabled(Boolean(on&&clean));
+  return {endpoint:endpoint(),enabled:enabled()};
+}
+
 installPtSaveHook();
 window.tbmAutoEmailSavedReport=({mode}={})=>send(mode||(isPtOpen()?'pt':'main'));
 window.tbmEnableAutoEmail=v=>{setEnabled(Boolean(v));return enabled()};
+window.tbmConfigureEmailBackend=configureBackend;
+window.tbmEmailBackendEndpoint=()=>endpoint();
 window.tbmAutoEmailEnabled=()=>enabled();
 window.tbmEmailReportStatuses=()=>readStatuses();
-window.__tbmEmailReportVersion='2026.09.04.2';
+window.__tbmEmailReportVersion='2026.09.04.3-vercel';
 })();
