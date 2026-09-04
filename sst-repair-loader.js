@@ -38,6 +38,7 @@ function loadHistoryLightFix(){const old=document.getElementById('tbm-history-li
 function loadMobileInteractionFix(){const old=document.getElementById('tbm-mobile-interaction-fix');if(old)old.remove();const s=document.createElement('script');s.id='tbm-mobile-interaction-fix';s.src='./mobile-interaction-fix.js?v=20260904-02&cb='+Date.now();s.async=false;document.body.appendChild(s);return new Promise(resolve=>{s.onload=resolve;s.onerror=resolve})}
 function loadNR24Module(){const old=document.getElementById('tbm-nr24-module');if(old)old.remove();const s=document.createElement('script');s.id='tbm-nr24-module';s.src='./nr24-module.js?v=20260904-01&cb='+Date.now();s.async=false;document.body.appendChild(s);return new Promise(resolve=>{s.onload=resolve;s.onerror=resolve})}
 function loadTrainingAttendanceModule(){const old=document.getElementById('tbm-training-attendance-module');if(old)old.remove();const s=document.createElement('script');s.id='tbm-training-attendance-module';s.src='./training-attendance-module.js?v=20260904-01&cb='+Date.now();s.async=false;document.body.appendChild(s);return new Promise(resolve=>{s.onload=resolve;s.onerror=resolve})}
+function loadTrainingAttendanceRefinement(){const old=document.getElementById('tbm-training-attendance-refinement');if(old)old.remove();const s=document.createElement('script');s.id='tbm-training-attendance-refinement';s.src='./training-attendance-refinement.js?v=20260904-01&cb='+Date.now();s.async=false;document.body.appendChild(s);return new Promise(resolve=>{s.onload=resolve;s.onerror=resolve})}
 function loadSolidStatusBadges(){const old=document.getElementById('tbm-solid-status-badges');if(old)old.remove();const s=document.createElement('script');s.id='tbm-solid-status-badges';s.src='./solid-status-badges.js?v=20260904-01&cb='+Date.now();s.async=false;document.body.appendChild(s);return new Promise(resolve=>{s.onload=resolve;s.onerror=resolve})}
 async function loadRepairs(){
   await loadFireChecklistSplit();
@@ -69,6 +70,8 @@ async function loadRepairs(){
   await loadNR24Module();
   // Lista de presença é carregada como módulo isolado após os demais, sem reescrever fluxos existentes.
   await loadTrainingAttendanceModule();
+  // Refinamento exclusivo da Lista de Presença: instrutor dinâmico, fotos opcionais e ações próprias.
+  await loadTrainingAttendanceRefinement();
   // Camada visual final: pinta status na UI e em qualquer tabela pdfmake sem alterar grid ou lógica.
   await loadSolidStatusBadges();
   setTimeout(loadCloudCrossDevice,0);
