@@ -65,6 +65,10 @@ function dynamicPdfTitle(docDefinition){
   if(type==='training-attendance'||signal.includes('LISTA DE PRESENCA')||signal.includes('TREINAMENTO SST'))return'LISTA DE PRESENÇA - TREINAMENTO DE SST';
   if(type==='fire'||signal.includes('COMBATE A INCENDIO')||signal.includes('EXTINTOR')||signal.includes('HIDRANTE'))return'INSPEÇÃO DE EQUIPAMENTOS DE COMBATE A INCÊNDIO';
   if(type==='machine'||signal.includes('NR-12')||signal.includes('NR 12')||signal.includes('MAQUINAS E EQUIPAMENTOS'))return'INSPEÇÃO DE MÁQUINAS E EQUIPAMENTOS - NR 12';
+  if(type==='epi'||signal.includes('INSPECAO DE EPI'))return'INSPEÇÃO DE EPI';
+  if(type==='accident'||signal.includes('INVESTIGACAO DE ACIDENTE'))return'INVESTIGAÇÃO DE ACIDENTE';
+  if(type==='report'||signal.includes('RELATORIO DE INSPECAO'))return'RELATÓRIO DE INSPEÇÃO';
+  if(type==='safety'||type==='seg'||signal.includes('INSPECAO DE SEGURANCA'))return'INSPEÇÃO DE SEGURANÇA DO TRABALHO';
   return'INSPEÇÃO DE SEGURANÇA DO TRABALHO';
 }
 function isMainTitleNode(node){
@@ -79,34 +83,38 @@ function isMainTitleNode(node){
     text.includes('PERMISSAO DE TRABALHO EM ALTURA')||
     text.includes('TREINAMENTO SST - LISTA DE PRESENCA')||
     text.includes('LISTA DE PRESENCA - TREINAMENTO')||
-    text.includes('INSPECAO DE MAQUINAS E EQUIPAMENTOS');
+    text.includes('INSPECAO DE MAQUINAS E EQUIPAMENTOS')||
+    text==='INVESTIGACAO DE ACIDENTE'||
+    text==='INSPECAO DE EPI'||
+    text==='RELATORIO DE INSPECAO'||
+    text==='INSPECAO DE SEGURANCA DO TRABALHO';
   return looksLikeTitle&&(node.bold===true||Number(node.fontSize)>=11||node.style==='header');
 }
-function replaceMainTitle(node,title){
-  if(!node||typeof node!=='object')return false;
+function neutralizeNestedTitles(node){
+  if(!node||typeof node!=='object')return;
   if(Array.isArray(node)){
     for(let i=0;i<node.length;i++){
-      if(isMainTitleNode(node[i])){
-        node[i]={text:title,alignment:'center',bold:true,fontSize:18,margin:[0,10,0,20]};
-        return true;
-      }
-      if(replaceMainTitle(node[i],title))return true;
+      if(isMainTitleNode(node[i]))node[i]={text:'',fontSize:1,margin:[0,0,0,0]};
+      else neutralizeNestedTitles(node[i]);
     }
-    return false;
+    return;
   }
   for(const k of Object.keys(node)){
     if(typeof node[k]==='function'||k==='image'||k==='svg'||k==='qr'||k==='canvas')continue;
-    if(isMainTitleNode(node[k])){
-      node[k]={text:title,alignment:'center',bold:true,fontSize:18,margin:[0,10,0,20]};
-      return true;
-    }
-    if(replaceMainTitle(node[k],title))return true;
+    if(isMainTitleNode(node[k]))node[k]={text:'',fontSize:1,margin:[0,0,0,0]};
+    else neutralizeNestedTitles(node[k]);
   }
-  return false;
 }
 function applyDynamicTitle(docDefinition){
   const title=dynamicPdfTitle(docDefinition);
-  replaceMainTitle(docDefinition?.content,title);
+  const content=docDefinition?.content;
+  if(Array.isArray(content)){
+    for(let i=content.length-1;i>=0;i--){
+      if(isMainTitleNode(content[i]))content.splice(i,1);
+      else neutralizeNestedTitles(content[i]);
+    }
+    content.unshift({text:title,alignment:'center',bold:true,fontSize:18,margin:[0,0,0,20]});
+  }
   if(docDefinition?.info&&typeof docDefinition.info==='object')docDefinition.info.title=title;
   return docDefinition;
 }
