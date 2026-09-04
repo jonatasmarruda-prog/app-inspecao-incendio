@@ -456,10 +456,10 @@ function workerSignatureCell(w,i){
 
 async function makePTPdf(action='download'){
   if(!window.pdfMake){alert('Biblioteca pdfmake indisponível.');return}
-  const logo=await imageToDataUrl(LOGO);const emitido=new Date().toLocaleString('pt-BR');
-  const content=[];
-  content.push({table:{widths:[55,'*',145],body:[[
-    logo?{image:logo,fit:[50,42]}:{text:'TBM',bold:true},
+  const logo=window.logoTBM||await imageToDataUrl(LOGO);const emitido=new Date().toLocaleString('pt-BR');
+  const content=[{image:logo,width:100,alignment:'center',margin:[0,0,0,10]}];
+  content.push({table:{widths:[1,'*',145],body:[[
+    {text:''},
     {stack:[{text:'PERMISSÃO DE TRABALHO – TRABALHO EM ALTURA (NR 35)',bold:true,fontSize:13},{text:'Escadas • Andaimes • Plataforma Elevatória (PTA)',fontSize:9,margin:[0,4,0,0]}]},
     {stack:[{text:`Nº ${ptState.id}`,bold:true,alignment:'right',fontSize:8.5},{text:`Emissão: ${emitido}`,alignment:'right',fontSize:7.5,margin:[0,4,0,0]}]}
   ]]},layout:'noBorders',margin:[0,0,0,8]});

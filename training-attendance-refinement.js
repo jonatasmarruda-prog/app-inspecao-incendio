@@ -110,8 +110,10 @@ async function buildRefinedDocDefinition(x=getState()){
     {text:p?.shift||'—',fontSize:9},
     p?.signature?{image:p.signature,fit:[100,50],alignment:'center'}:{text:'Sem assinatura',fontSize:8,color:'#64748b',alignment:'center'}
   ]);
-  const titleBlock=svg?{table:{widths:[72,'*'],body:[[{svg,fit:[62,42],alignment:'left'},{text:PDF_TITLE,bold:true,fontSize:16,alignment:'center',margin:[0,12,0,0]}]]},layout:'noBorders'}:{text:PDF_TITLE,bold:true,fontSize:16,alignment:'center'};
+  const titleBlock={text:PDF_TITLE,bold:true,fontSize:16,alignment:'center',margin:[0,0,0,10]};
+  const corporateLogo=window.logoTBM?{image:window.logoTBM,width:100,alignment:'center',margin:[0,0,0,10]}:{text:'TBM',bold:true,fontSize:18,color:'#8b1018',alignment:'center',margin:[0,0,0,10]};
   const content=[
+    corporateLogo,
     titleBlock,
     {canvas:[{type:'line',x1:0,y1:0,x2:515,y2:0,lineWidth:1.4,lineColor:'#8b1018'}],margin:[0,6,0,10]},
     {table:{widths:[90,'*'],body:[

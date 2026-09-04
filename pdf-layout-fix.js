@@ -156,7 +156,7 @@ window.makePdf=async function(action='download'){
 
     const st=currentState();
     const id=inspectionId(st);
-    const logoBase64=await imageToDataUrl(LOGO);
+    const logoBase64=window.logoTBM||await imageToDataUrl(LOGO);
     const emitido=nowBR();
     const ins=inspector(st);
     const witness=value('witness')||st.witness||'Responsável / Acompanhante';
@@ -181,13 +181,13 @@ window.makePdf=async function(action='download'){
     const nc=statuses.filter(v=>v==='NÃO CONFORME').length;
     const pend=statuses.filter(v=>v==='PENDENTE').length;
 
-    const content=[];
+    const content=[{image:logoBase64,width:100,alignment:'center',margin:[0,0,0,10]}];
 
     content.push({
       table:{
-        widths:[55,'*',150],
+        widths:[1,'*',150],
         body:[[ 
-          logoBase64?{image:logoBase64,fit:[50,42],alignment:'left',margin:[0,4,5,0]}:{text:'TBM',bold:true,fontSize:14,color:'#111111'},
+          {text:''},
           {stack:[
             {text:`RELATÓRIO DE INSPEÇÃO DE SEGURANÇA DO TRABALHO - ${typeName(st)}`.toUpperCase(),bold:true,fontSize:12.5,lineHeight:1.15,color:'#111111'},
             {text:'Documento técnico • Sistema Profissional SST',fontSize:9.5,color:'#111111',margin:[0,5,0,0]}

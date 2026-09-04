@@ -240,11 +240,12 @@ function photoGridPdf(x){
   return [{text:'REGISTRO FOTOGRÁFICO',bold:true,fontSize:10,fillColor:'#f4f4f4',margin:[0,10,0,5]},{table:{widths:['*','*'],body:rows},layout:'noBorders'}];
 }
 async function buildDocDefinition(x){
-  ensureState(x);const svg=await logoSvg();
+  ensureState(x);const svg=await logoSvg();const corporateLogo=window.logoTBM?{image:window.logoTBM,width:100,alignment:'center',margin:[0,0,0,10]}:{text:'TBM',bold:true,fontSize:18,color:'#8b1018',alignment:'center',margin:[0,0,0,10]};
   const total=x.checklistNR24.length,ok=x.checklistNR24.filter(i=>i.status==='CONFORME').length,bad=x.checklistNR24.filter(i=>i.status==='NÃO CONFORME').length,na=x.checklistNR24.filter(i=>i.status==='N/A').length;
-  const headerLeft=svg?{svg,fit:[72,48],alignment:'left'}:{text:'TBM',bold:true,fontSize:18,color:'#8b1018'};
+  const headerLeft={text:''};
   const content=[
-    {table:{widths:[82,'*',125],body:[[headerLeft,{stack:[{ text: 'INSPEÇÃO DE SEGURANÇA DO TRABALHO - NR 24', style: 'header', alignment: 'center', bold: true, fontSize: 16 },{text:TYPE_LABEL,bold:true,fontSize:9,alignment:'center',margin:[0,3,0,0]},{text:'Documento técnico • Sistema Profissional SST',fontSize:7.5,color:'#64748b',alignment:'center',margin:[0,2,0,0]}]},{stack:[{text:`Nº ${x.id||'SEM-ID'}`,bold:true,fontSize:8,alignment:'right'},{text:`Emissão: ${fmt(x.date)}`,fontSize:7,alignment:'right',margin:[0,3,0,0]}]}]]},layout:'noBorders',margin:[0,0,0,6]},
+    corporateLogo,
+    {table:{widths:[1,'*',125],body:[[headerLeft,{stack:[{ text: 'INSPEÇÃO DE SEGURANÇA DO TRABALHO - NR 24', style: 'header', alignment: 'center', bold: true, fontSize: 16 },{text:TYPE_LABEL,bold:true,fontSize:9,alignment:'center',margin:[0,3,0,0]},{text:'Documento técnico • Sistema Profissional SST',fontSize:7.5,color:'#64748b',alignment:'center',margin:[0,2,0,0]}]},{stack:[{text:`Nº ${x.id||'SEM-ID'}`,bold:true,fontSize:8,alignment:'right'},{text:`Emissão: ${fmt(x.date)}`,fontSize:7,alignment:'right',margin:[0,3,0,0]}]}]]},layout:'noBorders',margin:[0,0,0,6]},
     {canvas:[{type:'line',x1:0,y1:0,x2:515,y2:0,lineWidth:1.4,lineColor:'#8b1018'}],margin:[0,0,0,8]},
     {text:'DADOS DA INSPEÇÃO',bold:true,fontSize:10,fillColor:'#f4f4f4',margin:[0,0,0,5]},
     {table:{widths:[125,'*'],body:[
