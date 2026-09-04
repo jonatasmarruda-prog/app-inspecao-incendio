@@ -20,7 +20,7 @@ jobs:
       - name: Testar botões, histórico, abertura, exclusão e PT
         shell: bash
         run: |
-          cat >/tmp/smoke.cjs <<'NODE'
+          cat >smoke.cjs <<'NODE'
           const puppeteer=require('puppeteer-core');
           const assert=require('assert');
           const sleep=ms=>new Promise(r=>setTimeout(r,ms));
@@ -103,4 +103,4 @@ jobs:
             await browser.close();
           })().catch(async e=>{console.error(e);process.exit(1)});
           NODE
-          node /tmp/smoke.cjs
+          node smoke.cjs
