@@ -1,3 +1,4 @@
+# Smoke test único do backend de e-mail do Sistema SST
 name: Teste real de e-mail SST
 on:
   push:
