@@ -1,7 +1,7 @@
 /* Integração SST — carregamento robusto, sem travar a tela inicial */
 (()=>{
 'use strict';
-const VERSION='20260904-24-logo-pdf';
+const VERSION='20260904-25-corporate-header';
 // LOGO TBM (PLACEHOLDER PROVISÓRIO): substitua SOMENTE a string Base64 abaixo pela logo corporativa real em PNG.
 const logoTBM='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAZAAAAB4CAIAAABTvTPAAAAD80lEQVR42u3YP0jVWwDA8XP/YCikoVtDgxFEwgUTJLuBP1HulRrcmhyc3FwEbRCaawkhGmoRd0HBJUvExS44XCMo59DdP+P14nnDDy51X95XvPd49fp8Fn/ncLxXjvDlnF8mxhgAfgVZWwD8KvLpj0wmYy+An1Z6F3TCAlwJAf6lK2HTuQvgZ9D0tsoJC3AlBBAsQLAABAtAsADBAhAsAMECBAtAsAAECxAsAMECECxAsAAEC0CwAMECECwAwQIEC0CwAAQLECwAwQIQLECwAAQLECxbAAgWgGABggUgWACCBQgWgGABCBYgWACCBSBYgGABCBaAYAGCBSBYAIIFCBaAYAEIFiBYAIIFIFi0dOXKlaaZpaWlgYGBoaGhgYGB5eXldPLVq1eDg4N37969f//+4eFhi5UhhNXV1SRJkiTJ5/Ppw8rKSkdHR5Ikw8PD/f396+vrIYT29vaHDx82fmtycrK9vd1/hK/EGGOMTUN+W11dXV8OX79+XSwWj46OYoxHR0fFYvHt27dv3rwZHx+v1WoxxidPnpRKpYtWtvjwxvP79++vXbuWzhQKhXq9HmM8Pz+/c+dO0x/Db6i5VIJFi2CNjo6+e/euMdzZ2RkbGyuVSru7u+nM6enpxMREvV7/5srvCdb5+Xlvb286MzU1ValUYozVanV6elqwaEqTKyGt7O/v9/f3N4a3b9/+9OnTx48fC4VCOnP58uW1tbVcLvfNld/zFVtbW4uLi+lzuVze2NgIIWxsbJTLZfuPd1j8rRcImUymXq+nw2fPniVJcvPmzYtWtvioWq2WJMnQ0FC5XH7+/Hk6WSqVNjc304qNjY3ZcASLH3Dr1q1qtdoYVqvVvr6+GzdufPjwIYQwOzu7trb2+fPni1a2+OS2trbt7e1KpbK3t7e7u5tOdnd3Z7PZg4ODEEJnZ6f9R7D4AXNzc/Pz8ycnJyGE4+PjR48ezc/PT09PP378+OzsLITw4sWLXC530crv+Yqenp7r1683huPj4wsLC45XfFPeFtB0U7t37176XCwWnz59enh4ODIycunSpVqtNjMzMzo6GmPc398vFApXr16dnJzM5/Ppbe7PK//ySpjNZkMIL1++bMw/ePBgYWEhPcFBk0z6Hr7xuuHL1/IA/3Ghvk6TKyHwyxAsQLAABAsQLADBAhAsQLAABAtAsADBAhAsAMECBAtAsAAECxAsAMECECxAsAAEC0CwAMECECwAwQIEC0CwAAQLECwAwQIEyxYAggUgWIBgAQgWgGABggUgWACCBQgWgGABCBYgWACCBSBYgGABCBaAYAH/I/mmcSaTsSmAExaAYAG/h0yM0S4ATlgA/6Q/AL+7uXWH+uJrAAAAAElFTkSuQmCC';
 window.logoTBM=logoTBM;
@@ -66,8 +66,17 @@ function installPremiumPdfStatusBase(){
   function ensureCorporatePdfLogo(docDefinition){
     if(!docDefinition||typeof docDefinition!=='object'||!Array.isArray(docDefinition.content))return docDefinition;
     const content=docDefinition.content;
-    const already=content.slice(0,3).some(node=>node&&node.image===logoTBM&&node.alignment==='center');
-    if(already)return docDefinition;
+    let logoIndex=content.findIndex(node=>node&&node.image===logoTBM);
+    let logoNode;
+    if(logoIndex>=0){
+      logoNode=content.splice(logoIndex,1)[0];
+      logoNode.image=logoTBM;
+      logoNode.width=160;
+      logoNode.alignment='center';
+      logoNode.margin=[0,0,0,10];
+    }else{
+      logoNode={image:logoTBM,width:160,alignment:'center',margin:[0,0,0,10]};
+    }
     const first=content[0];
     const body=first?.table?.body;
     const row=Array.isArray(body)&&Array.isArray(body[0])?body[0]:null;
@@ -79,7 +88,7 @@ function installPremiumPdfStatusBase(){
         if(Array.isArray(first.table.widths)&&first.table.widths.length)first.table.widths.shift();
       }
     }
-    content.unshift({image:logoTBM,width:100,alignment:'center',margin:[0,0,0,10]});
+    content.unshift(logoNode);
     return docDefinition;
   }
 
@@ -124,7 +133,7 @@ function installPremiumPdfStatusBase(){
   window.tbmPremiumStatusCell=premiumStatusCell;
   window.tbmEnforcePremiumPdfStatus=enforce;
   window.tbmEnsureCorporatePdfLogo=ensureCorporatePdfLogo;
-  window.__tbmPremiumPdfStatusVersion='2026.09.04.2-global-logo-contrast';
+  window.__tbmPremiumPdfStatusVersion='2026.09.04.3-corporate-header-160';
   return true;
 }
 
