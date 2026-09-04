@@ -48,7 +48,7 @@ function render(){
   const box=document.getElementById('historyList');if(!box)return;
   const list=fullList.slice(0,visible);
   if(!list.length){
-    box.innerHTML='<div class="notice info">Histórico aberto. Os registros antigos estão sendo indexados gradualmente em segundo plano.</div>';
+    box.innerHTML='<div class="notice info">Nenhuma inspeção indexada neste dispositivo. Novos salvamentos aparecerão aqui automaticamente.</div>';
     return;
   }
   box.innerHTML=list.map(x=>{
@@ -74,11 +74,9 @@ async function openHistoryLight(){
     window.scrollTo(0,0);
   }
   visible=LIMIT;
-  // ABERTURA IMEDIATA: somente metadados leves já existentes.
-  // Nunca aguarda idbAll, openCursor ou leitura de fotos/assinaturas.
+  // Somente metadados já leves. Nenhum acesso ao IndexedDB acontece aqui.
   buildList();
   render();
-  try{window.tbmRefreshMobileDashboardIndex?.()}catch(_){ }
 }
 
 async function openOneLight(id){
@@ -97,16 +95,15 @@ function install(){
   const btn=document.getElementById('openHistory');
   if(btn){
     btn.onclick=openHistoryLight;
-    btn.dataset.tbmLightHistory='2';
+    btn.dataset.tbmLightHistory='3';
   }
   window.openHistory=openHistoryLight;
 
-  if(document.body.dataset.tbmLightHistoryCapture!=='2'){
-    document.body.dataset.tbmLightHistoryCapture='2';
+  if(document.body.dataset.tbmLightHistoryCapture!=='3'){
+    document.body.dataset.tbmLightHistoryCapture='3';
     document.addEventListener('click',async e=>{
       const historyButton=e.target.closest?.('#openHistory');
       if(historyButton){
-        // Bloqueia absolutamente qualquer onclick/listener antigo que chamava idbAll().
         e.preventDefault();
         e.stopImmediatePropagation();
         try{await openHistoryLight()}catch(err){console.error('[HISTÓRICO LEVE] abrir histórico',err)}
