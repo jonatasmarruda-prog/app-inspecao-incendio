@@ -42,6 +42,7 @@ function loadTrainingAttendanceModule(){const old=document.getElementById('tbm-t
 function loadTrainingAttendanceRefinement(){const old=document.getElementById('tbm-training-attendance-refinement');if(old)old.remove();const s=document.createElement('script');s.id='tbm-training-attendance-refinement';s.src='./training-attendance-refinement.js?v=20260904-01&cb='+Date.now();s.async=false;document.body.appendChild(s);return new Promise(resolve=>{s.onload=resolve;s.onerror=resolve})}
 function loadSolidStatusBadges(){const old=document.getElementById('tbm-solid-status-badges');if(old)old.remove();const s=document.createElement('script');s.id='tbm-solid-status-badges';s.src='./solid-status-badges.js?v=20260904-01&cb='+Date.now();s.async=false;document.body.appendChild(s);return new Promise(resolve=>{s.onload=resolve;s.onerror=resolve})}
 function loadAccidentInjuryModule(){const old=document.getElementById('tbm-accident-injury-module');if(old)old.remove();const s=document.createElement('script');s.id='tbm-accident-injury-module';s.src='./accident-injury-module.js?v=20260904-01&cb='+Date.now();s.async=false;document.body.appendChild(s);return new Promise(resolve=>{s.onload=resolve;s.onerror=resolve})}
+function loadAccidentDiagnosisConditional(){const old=document.getElementById('tbm-accident-diagnosis-conditional');if(old)old.remove();const s=document.createElement('script');s.id='tbm-accident-diagnosis-conditional';s.src='./accident-diagnosis-conditional.js?v=20260904-01&cb='+Date.now();s.async=false;document.body.appendChild(s);return new Promise(resolve=>{s.onload=resolve;s.onerror=resolve})}
 async function loadRepairs(){
   await loadFireChecklistSplit();
   await loadChecklistConditional();
@@ -78,6 +79,8 @@ async function loadRepairs(){
   await loadSolidStatusBadges();
   // Detalhamento avançado de lesão da Investigação de Acidente, isolado dos demais módulos.
   await loadAccidentInjuryModule();
+  // Remove o diagnóstico global apenas da Investigação de Acidente, na UI e no PDF.
+  await loadAccidentDiagnosisConditional();
   setTimeout(loadCloudCrossDevice,0);
 }
 if(document.readyState==='loading')window.addEventListener('DOMContentLoaded',loadRepairs,{once:true});else loadRepairs();
