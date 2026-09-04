@@ -1,7 +1,7 @@
 'use strict';
 
 const DEFAULT_ALLOWED_ORIGIN='https://jonatasmarruda-prog.github.io';
-const REPORT_EMAIL_TO='Jonatas.arruda@tbmtextil.com.br';
+const REPORT_EMAIL_TO='Jonatasmarruda@gmail.com';
 const MAX_BASE64_CHARS=4_100_000;
 
 function setCors(res,origin){
