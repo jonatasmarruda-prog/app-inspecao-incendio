@@ -9,14 +9,14 @@
 const STATUS_KEY='tbm-sst-email-status-v1';
 const ENABLE_KEY='tbm-sst-email-enabled-v1';
 const ENDPOINT_KEY='tbm-sst-email-endpoint-v1';
-const DEFAULT_ENDPOINT='';
+const DEFAULT_ENDPOINT='https://app-inspecao-incendio.vercel.app/api/send-report';
 const MAX_PDF_BYTES=3_000_000;
 let sending=false;
 let ptHookInstalled=false;
 
 function currentState(){try{return state||window.state||null}catch(_){return window.state||null}}
 function isPtOpen(){const el=document.getElementById('ptAlturaOverlay');return !!el&&!el.classList.contains('hidden')}
-function enabled(){try{return localStorage.getItem(ENABLE_KEY)==='1'}catch(_){return false}}
+function enabled(){try{return localStorage.getItem(ENABLE_KEY)!=='0'}catch(_){return true}}
 function setEnabled(v){try{localStorage.setItem(ENABLE_KEY,v?'1':'0')}catch(_){ }}
 function endpoint(){try{return String(localStorage.getItem(ENDPOINT_KEY)||window.TBM_EMAIL_ENDPOINT||DEFAULT_ENDPOINT||'').trim()}catch(_){return String(window.TBM_EMAIL_ENDPOINT||DEFAULT_ENDPOINT||'').trim()}}
 function setEndpoint(v){try{localStorage.setItem(ENDPOINT_KEY,String(v||'').trim())}catch(_){ }}
@@ -181,5 +181,5 @@ window.tbmConfigureEmailBackend=configureBackend;
 window.tbmEmailBackendEndpoint=()=>endpoint();
 window.tbmAutoEmailEnabled=()=>enabled();
 window.tbmEmailReportStatuses=()=>readStatuses();
-window.__tbmEmailReportVersion='2026.09.04.3-vercel';
+window.__tbmEmailReportVersion='2026.09.04.4-vercel-active';
 })();
