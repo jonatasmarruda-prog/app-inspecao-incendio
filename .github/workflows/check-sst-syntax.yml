@@ -6,8 +6,9 @@ on:
       - 'sst-modulos.js'
       - 'integracao-modulos.js'
       - 'sst-repair-loader.js'
+      - 'PDF_LOGO_GLOBAL_TRIGGER.txt'
 permissions:
-  contents: read
+  contents: write
 jobs:
   check:
     runs-on: ubuntu-latest
@@ -19,3 +20,85 @@ jobs:
           node --check integracao-modulos.js
           node --check sst-repair-loader.js
           echo "SINTAXE_OK"
+  apply-global-pdf-logo:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Aplicar logo corporativa em todos os geradores PDFMake
+        shell: python
+        run: |
+          from pathlib import Path
+
+          B64 = "iVBORw0KGgoAAAANSUhEUgAAAZAAAAB4CAIAAABTvTPAAAAD80lEQVR42u3YP0jVWwDA8XP/YCikoVtDgxFEwgUTJLuBP1HulRrcmhyc3FwEbRCaawkhGmoRd0HBJUvExS44XCMo59DdP+P14nnDDy51X95XvPd49fp8Fn/ncLxXjvDlnF8mxhgAfgVZWwD8KvLpj0wmYy+An1Z6F3TCAlwJAf6lK2HTuQvgZ9D0tsoJC3AlBBAsQLAABAtAsADBAhAsAMECBAtAsAAECxAsAMECECxAsAAEC0CwAMECECwAwQIEC0CwAAQLECwAwQIQLECwAAQLECxbAAgWgGABggUgWACCBQgWgGABCBYgWACCBSBYgGABCBaAYAGCBSBYAIIFCBaAYAEIFiBYAIIFIFi0dOXKlaaZpaWlgYGBoaGhgYGB5eXldPLVq1eDg4N37969f//+4eFhi5UhhNXV1SRJkiTJ5/Ppw8rKSkdHR5Ikw8PD/f396+vrIYT29vaHDx82fmtycrK9vd1/hK/EGGOMTUN+W11dXV8OX79+XSwWj46OYoxHR0fFYvHt27dv3rwZHx+v1WoxxidPnpRKpYtWtvjwxvP79++vXbuWzhQKhXq9HmM8Pz+/c+dO0x/Db6i5VIJFi2CNjo6+e/euMdzZ2RkbGyuVSru7u+nM6enpxMREvV7/5srvCdb5+Xlvb286MzU1ValUYozVanV6elqwaEqTKyGt7O/v9/f3N4a3b9/+9OnTx48fC4VCOnP58uW1tbVcLvfNld/zFVtbW4uLi+lzuVze2NgIIWxsbJTLZfuPd1j8rRcImUymXq+nw2fPniVJcvPmzYtWtvioWq2WJMnQ0FC5XH7+/Hk6WSqVNjc304qNjY3ZcASLH3Dr1q1qtdoYVqvVvr6+GzdufPjwIYQwOzu7trb2+fPni1a2+OS2trbt7e1KpbK3t7e7u5tOdnd3Z7PZg4ODEEJnZ6f9R7D4AXNzc/Pz8ycnJyGE4+PjR48ezc/PT09PP378+OzsLITw4sWLXC530crv+Yqenp7r1683huPj4wsLC45XfFPeFtB0U7t37176XCwWnz59enh4ODIycunSpVqtNjMzMzo6GmPc398vFApXr16dnJzM5/Ppbe7PK//ySpjNZkMIL1++bMw/ePBgYWEhPcFBk0z6Hr7xuuHL1/IA/3Ghvk6TKyHwyxAsQLAABAsQLADBAhAsQLAABAtAsADBAhAsAMECBAtAsAAECxAsAMECECxAsAAEC0CwAMECECwAwQIEC0CwAAQLECwAwQIEyxYAggUgWIBgAQgWgGABggUgWACCBQgWgGABCBYgWACCBSBYgGABCBaAYAH/I/mmcSaTsSmAExaAYAG/h0yM0S4ATlgA/6Q/AL+7uXWH+uJrAAAAAElFTkSuQmCC"
+          DATA = "data:image/png;base64," + B64
+
+          def replace_once(path, old, new, label):
+              p=Path(path); s=p.read_text(encoding='utf-8')
+              if new in s:
+                  return
+              if old not in s:
+                  raise SystemExit(f'{label}: trecho não encontrado em {path}')
+              p.write_text(s.replace(old,new,1),encoding='utf-8')
+
+          # 1) Constante global + barreira final para qualquer docDefinition atual ou futuro.
+          p=Path('integracao-modulos.js'); s=p.read_text(encoding='utf-8')
+          anchor="const VERSION='20260904-23';"
+          insert=f'''const VERSION='20260904-24-logo-pdf';\n// LOGO TBM (PLACEHOLDER PROVISÓRIO): substitua SOMENTE a string Base64 abaixo pela logo corporativa real em PNG.\nconst logoTBM='{DATA}';\nwindow.logoTBM=logoTBM;\nwindow.tbmLogoTBM=logoTBM;'''
+          if 'window.tbmLogoTBM=logoTBM;' not in s:
+              if anchor not in s: raise SystemExit('âncora da logo global não encontrada')
+              s=s.replace(anchor,insert,1)
+          marker='  function enforce(docDefinition){'
+          helper='''  function ensureCorporatePdfLogo(docDefinition){\n    if(!docDefinition||typeof docDefinition!==\'object\'||!Array.isArray(docDefinition.content))return docDefinition;\n    const content=docDefinition.content;\n    const already=content.slice(0,3).some(node=>node&&node.image===logoTBM&&node.alignment===\'center\');\n    if(already)return docDefinition;\n    const first=content[0];\n    const body=first?.table?.body;\n    const row=Array.isArray(body)&&Array.isArray(body[0])?body[0]:null;\n    if(row&&row.length>=2){\n      const legacy=row[0];\n      const legacyText=String(legacy?.text||\'\').trim().toUpperCase();\n      if(legacy&&typeof legacy===\'object\'&&(legacy.image||legacy.svg||legacyText===\'TBM\')){\n        row.shift();\n        if(Array.isArray(first.table.widths)&&first.table.widths.length)first.table.widths.shift();\n      }\n    }\n    content.unshift({image:logoTBM,width:100,alignment:\'center\',margin:[0,0,0,10]});\n    return docDefinition;\n  }\n\n'''
+          if 'function ensureCorporatePdfLogo(docDefinition)' not in s:
+              if marker not in s: raise SystemExit('âncora enforce não encontrada')
+              s=s.replace(marker,helper+marker,1)
+          if 'ensureCorporatePdfLogo(docDefinition);' not in s:
+              s=s.replace("  function enforce(docDefinition){\n    if(!docDefinition||typeof docDefinition!=='object')return docDefinition;", "  function enforce(docDefinition){\n    if(!docDefinition||typeof docDefinition!=='object')return docDefinition;\n    ensureCorporatePdfLogo(docDefinition);",1)
+          s=s.replace("window.__tbmPremiumPdfStatusVersion='2026.09.04.1-global-final-contrast';","window.__tbmPremiumPdfStatusVersion='2026.09.04.2-global-logo-contrast';")
+          if 'window.tbmEnsureCorporatePdfLogo=ensureCorporatePdfLogo;' not in s:
+              s=s.replace('  window.tbmEnforcePremiumPdfStatus=enforce;','  window.tbmEnforcePremiumPdfStatus=enforce;\n  window.tbmEnsureCorporatePdfLogo=ensureCorporatePdfLogo;',1)
+          p.write_text(s,encoding='utf-8')
+
+          # 2) Gerador-base: Incêndio, Segurança, NR-12, EPI, Acidente e Relatório.
+          replace_once('pdf-layout-fix.js',"    const logoBase64=await imageToDataUrl(LOGO);","    const logoBase64=window.logoTBM||await imageToDataUrl(LOGO);",'logo base gerador geral')
+          replace_once('pdf-layout-fix.js',"    const content=[];","    const content=[{image:logoBase64,width:100,alignment:'center',margin:[0,0,0,10]}];",'content gerador geral')
+          replace_once('pdf-layout-fix.js',"        widths:[55,'*',150],","        widths:[1,'*',150],",'largura cabeçalho geral')
+          replace_once('pdf-layout-fix.js',"          logoBase64?{image:logoBase64,fit:[50,42],alignment:'left',margin:[0,4,5,0]}:{text:'TBM',bold:true,fontSize:14,color:'#111111'},","          {text:''},",'logo lateral geral')
+
+          # 3) PT - Altura.
+          replace_once('pt-altura.js',"  const logo=await imageToDataUrl(LOGO);const emitido=new Date().toLocaleString('pt-BR');","  const logo=window.logoTBM||await imageToDataUrl(LOGO);const emitido=new Date().toLocaleString('pt-BR');",'logo PT')
+          replace_once('pt-altura.js',"  const content=[];","  const content=[{image:logo,width:100,alignment:'center',margin:[0,0,0,10]}];",'content PT')
+          replace_once('pt-altura.js',"  content.push({table:{widths:[55,'*',145],body:[[","  content.push({table:{widths:[1,'*',145],body:[[",'largura PT')
+          replace_once('pt-altura.js',"    logo?{image:logo,fit:[50,42]}:{text:'TBM',bold:true},","    {text:''},",'logo lateral PT')
+
+          # 4) NR 24.
+          replace_once('nr24-module.js',"  ensureState(x);const svg=await logoSvg();","  ensureState(x);const svg=await logoSvg();const corporateLogo=window.logoTBM?{image:window.logoTBM,width:100,alignment:'center',margin:[0,0,0,10]}:{text:'TBM',bold:true,fontSize:18,color:'#8b1018',alignment:'center',margin:[0,0,0,10]};",'logo NR24')
+          replace_once('nr24-module.js',"  const headerLeft=svg?{svg,fit:[72,48],alignment:'left'}:{text:'TBM',bold:true,fontSize:18,color:'#8b1018'};","  const headerLeft={text:''};",'logo lateral NR24')
+          replace_once('nr24-module.js',"  const content=[\n    {table:{widths:[82,'*',125],","  const content=[\n    corporateLogo,\n    {table:{widths:[1,'*',125],",'content NR24')
+
+          # 5) Lista de Presença.
+          replace_once('training-attendance-refinement.js',"  const titleBlock=svg?{table:{widths:[72,'*'],body:[[{svg,fit:[62,42],alignment:'left'},{text:PDF_TITLE,bold:true,fontSize:16,alignment:'center',margin:[0,12,0,0]}]]},layout:'noBorders'}:{text:PDF_TITLE,bold:true,fontSize:16,alignment:'center'};","  const titleBlock={text:PDF_TITLE,bold:true,fontSize:16,alignment:'center',margin:[0,0,0,10]};\n  const corporateLogo=window.logoTBM?{image:window.logoTBM,width:100,alignment:'center',margin:[0,0,0,10]}:{text:'TBM',bold:true,fontSize:18,color:'#8b1018',alignment:'center',margin:[0,0,0,10]};",'título Lista')
+          replace_once('training-attendance-refinement.js',"  const content=[\n    titleBlock,","  const content=[\n    corporateLogo,\n    titleBlock,",'content Lista')
+
+      - name: Validar sintaxe e cobertura global
+        run: |
+          node --check integracao-modulos.js
+          node --check pdf-layout-fix.js
+          node --check pt-altura.js
+          node --check nr24-module.js
+          node --check training-attendance-refinement.js
+          grep -q "const logoTBM='data:image/png;base64" integracao-modulos.js
+          grep -q "ensureCorporatePdfLogo" integracao-modulos.js
+          grep -q "image:logoBase64,width:100,alignment:'center'" pdf-layout-fix.js
+          grep -q "image:logo,width:100,alignment:'center'" pt-altura.js
+          grep -q "corporateLogo" nr24-module.js
+          grep -q "corporateLogo" training-attendance-refinement.js
+      - name: Commit da logomarca global
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add integracao-modulos.js pdf-layout-fix.js pt-altura.js nr24-module.js training-attendance-refinement.js
+          git commit -m "Inclui logomarca corporativa global em todos os PDFs"
+          git push origin main
