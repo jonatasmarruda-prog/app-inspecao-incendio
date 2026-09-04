@@ -1,5 +1,6 @@
 (()=>{
 'use strict';
+window.__tbmPdfFilenameVersion='2026.09.04.2-corporate-readable';
 
 /* Nome corporativo global e obrigatório para TODOS os PDFs do sistema. */
 const TIPOS=Object.freeze({
