@@ -14,6 +14,7 @@ const SDK_STORAGE='https://www.gstatic.com/firebasejs/10.14.1/firebase-storage-c
 const SDK_FUNCTIONS='https://www.gstatic.com/firebasejs/10.14.1/firebase-functions-compat.js';
 let sending=false;
 let sdkPromise=null;
+let ptHookInstalled=false;
 
 function currentState(){try{return state||window.state||null}catch(_){return window.state||null}}
 function isPtOpen(){const el=document.getElementById('ptAlturaOverlay');return !!el&&!el.classList.contains('hidden')}
@@ -67,10 +68,11 @@ async function sha256(blob){
   return Array.from(new Uint8Array(hash)).map(b=>b.toString(16).padStart(2,'0')).join('');
 }
 
-function pdfNameFallback(mode){
+function dateStamp(){const d=new Date();return `${String(d.getDate()).padStart(2,'0')}-${String(d.getMonth()+1).padStart(2,'0')}-${d.getFullYear()}`}
+function emailFilename(mode,original){
+  if(mode==='pt')return `Permissao_de_Trabalho_Altura_${dateStamp()}.pdf`;
   try{if(typeof window.gerarNomeArquivoPdf==='function')return window.gerarNomeArquivoPdf()}catch(_){ }
-  const d=new Date();const dd=String(d.getDate()).padStart(2,'0'),mm=String(d.getMonth()+1).padStart(2,'0'),yyyy=d.getFullYear();
-  return mode==='pt'?`Permissao_de_Trabalho_Altura_${dd}-${mm}-${yyyy}.pdf`:`Relatorio_SST_${dd}-${mm}-${yyyy}.pdf`;
+  return original||`Relatorio_SST_${dateStamp()}.pdf`;
 }
 
 /*
@@ -88,7 +90,7 @@ async function capturePdf(mode){
     let finished=false;
     const restore=()=>{if(pm.createPdf===wrapped)pm.createPdf=original};
     const fail=e=>{if(finished)return;finished=true;restore();reject(e instanceof Error?e:new Error(String(e||'Falha ao gerar PDF')))};
-    const done=(blob,filename)=>{if(finished)return;finished=true;restore();resolve({blob,filename:pdfNameFallback(mode)||filename})};
+    const done=(blob,sourceFilename)=>{if(finished)return;finished=true;restore();resolve({blob,sourceFilename:sourceFilename||'',filename:emailFilename(mode,sourceFilename)})};
     const timer=setTimeout(()=>fail(new Error('Tempo excedido ao gerar PDF para e-mail.')),45000);
 
     function wrapped(docDefinition,...args){
@@ -115,9 +117,10 @@ async function capturePdf(mode){
   });
 }
 
-function reportMeta(mode){
+function reportMeta(mode,pdf){
   if(mode==='pt'){
-    return {id:String(window.__tbmCurrentPtId||document.querySelector('#ptAlturaBody [data-pt-field]')?.closest?.('[data-id]')?.dataset?.id||currentState()?.id||'PT'),type:'PT - Trabalho em Altura',company:'TBM',sector:''};
+    const m=String(pdf?.sourceFilename||'').match(/PT_Trabalho_Altura_(.+)\.pdf$/i);
+    return {id:m?.[1]||`PT-${Date.now()}`,type:'PT - Trabalho em Altura',company:'TBM',sector:''};
   }
   const st=currentState()||{};
   return {id:String(st.id||'SEM-ID'),type:String(st.title||st.type||'Relatório SST'),company:String(st.company||''),sector:String(st.sector||'')};
@@ -130,7 +133,7 @@ async function send(mode='main'){
   try{
     toast('📧 Preparando cópia do relatório…','info');
     const pdf=await capturePdf(mode);
-    const meta=reportMeta(mode);
+    const meta=reportMeta(mode,pdf);
     const fingerprint=await sha256(pdf.blob);
     const previous=getStatus(meta.id,fingerprint);
     if(previous?.state==='sent')return {sent:true,duplicate:true};
@@ -161,9 +164,23 @@ async function send(mode='main'){
   }finally{sending=false}
 }
 
+function installPtSaveHook(){
+  if(ptHookInstalled)return;ptHookInstalled=true;
+  document.addEventListener('click',e=>{
+    const btn=e.target.closest?.('#ptSave');if(!btn)return;
+    setTimeout(async()=>{
+      try{
+        if(typeof window.savePTAltura==='function')await window.savePTAltura(false,false);
+        await send('pt');
+      }catch(err){console.warn('[PT EMAIL]',err)}
+    },120);
+  },false);
+}
+
+installPtSaveHook();
 window.tbmAutoEmailSavedReport=({mode}={})=>send(mode||(isPtOpen()?'pt':'main'));
 window.tbmEnableAutoEmail=v=>{setEnabled(Boolean(v));return enabled()};
 window.tbmAutoEmailEnabled=()=>enabled();
 window.tbmEmailReportStatuses=()=>readStatuses();
-window.__tbmEmailReportVersion='2026.09.04.1';
+window.__tbmEmailReportVersion='2026.09.04.2';
 })();
