@@ -1,6 +1,7 @@
 'use strict';
 
 const DEFAULT_ALLOWED_ORIGIN='https://jonatasmarruda-prog.github.io';
+const REPORT_EMAIL_TO='Jonatas.arruda@tbmtextil.com.br';
 const MAX_BASE64_CHARS=4_100_000;
 
 function setCors(res,origin){
@@ -37,10 +38,10 @@ module.exports=async function handler(req,res){
   if(origin!==allowed)return res.status(403).json({ok:false,error:'origin_not_allowed'});
 
   const apiKey=process.env.RESEND_API_KEY;
-  const to=process.env.REPORT_EMAIL_TO;
+  const to=REPORT_EMAIL_TO;
   const from=process.env.REPORT_EMAIL_FROM||'onboarding@resend.dev';
-  const replyTo=process.env.REPORT_EMAIL_REPLY_TO||'';
-  if(!apiKey||!to)return res.status(503).json({ok:false,error:'email_backend_not_configured'});
+  const replyTo=process.env.REPORT_EMAIL_REPLY_TO||REPORT_EMAIL_TO;
+  if(!apiKey)return res.status(503).json({ok:false,error:'email_backend_not_configured'});
 
   const body=req.body&&typeof req.body==='object'?req.body:{};
   const base64=String(body.pdfBase64||'').replace(/^data:application\/pdf;base64,/i,'').trim();
