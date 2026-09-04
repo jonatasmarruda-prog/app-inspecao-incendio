@@ -1,0 +1,1 @@
+Instalar módulo de detalhamento da lesão e mapa anatômico interativo na Investigação de Acidente.
