@@ -1,1 +1,0 @@
-Aplicar padrão corporativo global de cabeçalho, logo 160, título 18 e nome legível de arquivo PDF.
