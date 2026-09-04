@@ -1,0 +1,34 @@
+name: Ajustar PT - assinatura e evidências
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/patch-pt-signature-evidence.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Aplicar ajuste cirúrgico na PT
+        run: python3 .github/scripts/patch-pt-signature-evidence.py
+      - name: Validar sintaxe
+        run: node --check pt-altura.js
+      - name: Confirmar recursos obrigatórios
+        run: |
+          grep -q "ptIssuerSig" pt-altura.js
+          grep -q "Evidências Fotográficas do Local" pt-altura.js
+          grep -q "compressPTPhoto" pt-altura.js
+          grep -q "2026.09.04.pt-altura.4-sign-evidence" pt-altura.js
+      - name: Publicar ajuste da PT
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add pt-altura.js
+          git diff --cached --quiet && exit 0
+          git commit -m 'Ajusta assinatura, evidências e salvamento da PT'
+          git push origin main
