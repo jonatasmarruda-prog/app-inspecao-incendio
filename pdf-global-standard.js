@@ -42,6 +42,74 @@ function currentState(){
   try{return state||window.state||window.appState||window.currentInspection||{}}
   catch(_){return window.state||window.appState||window.currentInspection||{}}
 }
+function collectText(node,out,limit=120){
+  if(out.length>=limit||node==null)return out;
+  if(typeof node==='string'||typeof node==='number'||typeof node==='boolean'){out.push(String(node));return out}
+  if(Array.isArray(node)){for(const v of node){collectText(v,out,limit);if(out.length>=limit)break}return out}
+  if(typeof node!=='object')return out;
+  if(node.text!=null)out.push(cellText(node.text));
+  for(const k of Object.keys(node)){
+    if(out.length>=limit)break;
+    if(k==='image'||k==='svg'||k==='qr'||k==='canvas'||k==='text'||typeof node[k]==='function')continue;
+    collectText(node[k],out,limit);
+  }
+  return out;
+}
+function dynamicPdfTitle(docDefinition){
+  const st=currentState();
+  const type=String(st?.type||'').trim().toLowerCase();
+  const texts=collectText(docDefinition?.content,[],90);
+  const signal=norm([type,st?.title,docDefinition?.info?.title,docDefinition?.info?.subject,...texts].filter(Boolean).join(' | '));
+  if(type==='nr24'||signal.includes('NR 24'))return'INSPEÇÃO DE SEGURANÇA DO TRABALHO - NR 24';
+  if(type==='pt-altura'||signal.includes('TRABALHO EM ALTURA')||signal.includes('PERMISSAO DE TRABALHO'))return'PERMISSÃO DE TRABALHO EM ALTURA - PT';
+  if(type==='training-attendance'||signal.includes('LISTA DE PRESENCA')||signal.includes('TREINAMENTO SST'))return'LISTA DE PRESENÇA - TREINAMENTO DE SST';
+  if(type==='fire'||signal.includes('COMBATE A INCENDIO')||signal.includes('EXTINTOR')||signal.includes('HIDRANTE'))return'INSPEÇÃO DE EQUIPAMENTOS DE COMBATE A INCÊNDIO';
+  if(type==='machine'||signal.includes('NR-12')||signal.includes('NR 12')||signal.includes('MAQUINAS E EQUIPAMENTOS'))return'INSPEÇÃO DE MÁQUINAS E EQUIPAMENTOS - NR 12';
+  return'INSPEÇÃO DE SEGURANÇA DO TRABALHO';
+}
+function isMainTitleNode(node){
+  if(!node||typeof node!=='object'||Array.isArray(node)||node.text==null)return false;
+  const text=norm(cellText(node.text));
+  if(!text)return false;
+  const looksLikeTitle=
+    text.includes('RELATORIO DE INSPECAO DE SEGURANCA DO TRABALHO')||
+    text.includes('LAUDO DE INSPECAO DE SEGURANCA')||
+    text.includes('INSPECAO DE SEGURANCA DO TRABALHO - NR 24')||
+    text.includes('PT - TRABALHO EM ALTURA')||
+    text.includes('PERMISSAO DE TRABALHO EM ALTURA')||
+    text.includes('TREINAMENTO SST - LISTA DE PRESENCA')||
+    text.includes('LISTA DE PRESENCA - TREINAMENTO')||
+    text.includes('INSPECAO DE MAQUINAS E EQUIPAMENTOS');
+  return looksLikeTitle&&(node.bold===true||Number(node.fontSize)>=11||node.style==='header');
+}
+function replaceMainTitle(node,title){
+  if(!node||typeof node!=='object')return false;
+  if(Array.isArray(node)){
+    for(let i=0;i<node.length;i++){
+      if(isMainTitleNode(node[i])){
+        node[i]={text:title,alignment:'center',bold:true,fontSize:18,margin:[0,10,0,20]};
+        return true;
+      }
+      if(replaceMainTitle(node[i],title))return true;
+    }
+    return false;
+  }
+  for(const k of Object.keys(node)){
+    if(typeof node[k]==='function'||k==='image'||k==='svg'||k==='qr'||k==='canvas')continue;
+    if(isMainTitleNode(node[k])){
+      node[k]={text:title,alignment:'center',bold:true,fontSize:18,margin:[0,10,0,20]};
+      return true;
+    }
+    if(replaceMainTitle(node[k],title))return true;
+  }
+  return false;
+}
+function applyDynamicTitle(docDefinition){
+  const title=dynamicPdfTitle(docDefinition);
+  replaceMainTitle(docDefinition?.content,title);
+  if(docDefinition?.info&&typeof docDefinition.info==='object')docDefinition.info.title=title;
+  return docDefinition;
+}
 function equipmentName(e){
   if(e?.nome)return String(e.nome);
   const kind=e?.kind==='ext'?'Extintor':e?.kind==='hid'?'Hidrante':e?.kind==='light'?'Iluminação de Emergência':e?.kind==='alarm'?'Sirene / Alarme':(e?.kind||'Equipamento');
@@ -183,6 +251,7 @@ function decorate(node){
 function applyGlobalStandard(docDefinition){
   if(!docDefinition||typeof docDefinition!=='object'||processed.has(docDefinition))return docDefinition;
   processed.add(docDefinition);
+  applyDynamicTitle(docDefinition);
   transformTables(docDefinition);
   decorate(docDefinition);
   return docDefinition;
@@ -202,6 +271,7 @@ function install(){
   return true;
 }
 window.tbmApplyGlobalPdfStandard=applyGlobalStandard;
+window.tbmDynamicPdfTitle=dynamicPdfTitle;
 window.TBM_PDF_STATUS_COLORS=Object.freeze({...COLORS});
 if(!install()){
   let tries=0;
