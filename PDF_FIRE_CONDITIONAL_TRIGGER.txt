@@ -1,1 +1,0 @@
-Aplicar renderização condicional dos checklists de Extintores e Hidrantes no PDFMake.
