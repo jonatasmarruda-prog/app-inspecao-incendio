@@ -1,7 +1,7 @@
 (()=>{
 'use strict';
 
-const VERSION='2026.09.04.global-pdf-preview.3-await-logo';
+const VERSION='2026.09.04.global-pdf-preview.4-mobile-blob';
 const PREVIEW_IDS=['tbmGlobalPreview','ptView','trainingPreview','tbmReportPreview'];
 const DOWNLOAD_IDS=['tbmGlobalDownload','ptPdf','trainingDownload','reportPdf'];
 const SHARE_IDS=['pdf','ptShare','trainingShare','reportShare'];
@@ -65,18 +65,6 @@ function fakePdfHandle(){
     getDataUrl(cb){if(typeof cb==='function')cb('data:application/pdf;base64,')}
   };
 }
-function reservePreview(){
-  try{
-    const w=window.open('about:blank','_blank');
-    if(w){
-      w.document.open();
-      w.document.write('<!doctype html><meta charset="utf-8"><title>Visualizando inspeção</title><body style="font-family:Arial,sans-serif;padding:28px;color:#17202b"><h3>Preparando PDF da inspeção...</h3><p>O documento será aberto nesta aba.</p></body>');
-      w.document.close();
-    }
-    return w;
-  }catch(_){return null}
-}
-function closePreview(w){try{if(w&&!w.closed)w.close()}catch(_){ }}
 
 async function captureActiveDocDefinition(){
   const ctx=activeContext();
@@ -110,6 +98,7 @@ async function captureActiveDocDefinition(){
     }catch(err){finish(reject,err)}
   });
 }
+
 function pdfBlob(captured){
   return new Promise((resolve,reject)=>{
     try{
@@ -119,32 +108,42 @@ function pdfBlob(captured){
       const timer=setTimeout(()=>{if(!settled){settled=true;reject(new Error('Tempo esgotado ao gerar o preview.'))}},30000);
       pdf.getBlob(blob=>{
         if(settled)return;settled=true;clearTimeout(timer);
-        if(blob)resolve(blob);else reject(new Error('PDF vazio ou inválido.'));
+        if(blob&&blob.size!==0)resolve(blob);else reject(new Error('PDF vazio ou inválido.'));
       });
     }catch(err){reject(err)}
   });
 }
-function openBlob(blob,preopened){
-  const url=URL.createObjectURL(blob);
-  const w=preopened&&!preopened.closed?preopened:window.open('about:blank','_blank');
-  if(!w){URL.revokeObjectURL(url);return false}
-  try{w.location.replace(url)}catch(_){w.location.href=url}
-  setTimeout(()=>URL.revokeObjectURL(url),300000);
+
+function openBlobUrl(blob){
+  const blobUrl=URL.createObjectURL(blob);
+  let novaAba=null;
+  try{novaAba=window.open(blobUrl,'_blank')}catch(_){novaAba=null}
+  if(!novaAba||novaAba.closed||typeof novaAba.closed==='undefined'){
+    alert('Por favor, permita a abertura de pop-ups ou baixe o arquivo para visualizar.');
+    setTimeout(()=>URL.revokeObjectURL(blobUrl),60000);
+    return false;
+  }
+  setTimeout(()=>URL.revokeObjectURL(blobUrl),300000);
   return true;
 }
+
 async function previewActive(){
   if(busy)return;
-  const tab=reservePreview();
   setBusy(true);toast('👁️ Preparando visualização do PDF...','ok');
   try{
     const captured=await captureActiveDocDefinition();
     const blob=await pdfBlob(captured);
-    if(!openBlob(blob,tab)){closePreview(tab);throw new Error('O navegador bloqueou a nova aba. Permita pop-ups para visualizar o PDF.')}
+    if(!openBlobUrl(blob)){
+      toast('⚠️ O navegador bloqueou a visualização. Permita pop-ups ou use Baixar PDF.','warn');
+      return;
+    }
     toast('✅ PDF aberto para visualização.','ok');
   }catch(err){
-    closePreview(tab);console.error('[GLOBAL PDF PREVIEW]',err);toast('❌ '+(err?.message||'Não foi possível visualizar o PDF.'),'err');
+    console.error('[GLOBAL PDF PREVIEW]',err);
+    toast('❌ '+(err?.message||'Não foi possível visualizar o PDF.'),'err');
   }finally{setBusy(false)}
 }
+
 async function runAction(action){
   if(busy)return;
   const ctx=activeContext();if(!ctx)return toast('❌ Nenhuma inspeção ativa.','err');
