@@ -40,6 +40,12 @@ body{background:radial-gradient(circle at 50% -10%,#18222d 0,#070b10 42%,#05080c
 
 /* trigger: investigacao acidente 2 */
 
+/* TBM — contraste isolado das opções de Identificação das falhas */
+.accident-causes .accident-cause{
+  color:#212529!important;
+  font-weight:500!important;
+}
+
 /* TBM — Solid Badges corporativos para todos os checklists */
 .choices button,.tbm-fire-check-choices button,#ptAlturaOverlay .pt-check-actions button,.nr24-statuses button{background:#e9edf2!important;color:#17202b!important;border:1px solid #d8dee7!important;box-shadow:none!important}
 .choices button.ok,.tbm-fire-check-choices button.ok,#ptAlturaOverlay .pt-check-actions button.ok,.nr24-statuses button.ok{background-color:#198754!important;color:#ffffff!important;border:none!important}
