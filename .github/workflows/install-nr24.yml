@@ -1,0 +1,38 @@
+name: Instala módulo NR 24
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/install-nr24.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  install:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Integrar NR 24
+        run: python3 .github/scripts/install_nr24.py
+      - name: Validar JavaScript e preservação dos módulos existentes
+        run: |
+          node --check nr24-module.js
+          node --check sst-repair-loader.js
+          node --check service-worker.js
+          node --check sw.js
+          git diff --exit-code -- pdf-global-standard.js pdf-layout-fix.js pdf-final-fix.js pdf-photo-fit-fix.js pt-altura.js fire-checklist-split.js || (echo 'Arquivo protegido alterado' && exit 1)
+          grep -q "LAUDO DE INSPEÇÃO DE SEGURANÇA - NR 24" nr24-module.js
+          grep -q "fit:\[70,70\]" nr24-module.js
+          grep -q "fit:\[250,250\]" nr24-module.js
+          grep -q "Gênero da Instalação" nr24-module.js
+          grep -q "Jonatas Marques de Arruda" nr24-module.js
+      - name: Publicar integração
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add sst-repair-loader.js service-worker.js sw.js index.html
+          git diff --cached --quiet && exit 0
+          git commit -m 'Integra módulo NR 24 ao aplicativo SST'
+          git push origin main
