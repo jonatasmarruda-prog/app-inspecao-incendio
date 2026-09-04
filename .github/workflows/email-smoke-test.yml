@@ -1,0 +1,64 @@
+name: Teste real de e-mail SST
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/email-smoke-test.yml'
+permissions:
+  contents: read
+jobs:
+  email-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verificar backend de e-mail
+        shell: bash
+        run: |
+          set -euo pipefail
+          URL='https://app-inspecao-incendio.vercel.app/api/send-report'
+          for i in 1 2 3 4 5; do
+            code=$(curl -sS -o /tmp/health.json -w '%{http_code}' "$URL" || true)
+            echo "health HTTP $code: $(cat /tmp/health.json 2>/dev/null || true)"
+            if [ "$code" = '200' ]; then break; fi
+            sleep 5
+          done
+          test "$code" = '200'
+          python3 - <<'PY'
+          import json
+          x=json.load(open('/tmp/health.json'))
+          assert x.get('ok') is True, x
+          assert x.get('configured') is True, 'RESEND_API_KEY não configurada na Vercel'
+          print('Backend de e-mail configurado.')
+          PY
+      - name: Enviar PDF mínimo de teste para o Gmail configurado
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import base64, hashlib, json
+          pdf=b'''%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Count 1/Kids[3 0 R]>>endobj\n3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 300 200]/Contents 4 0 R/Resources<</Font<</F1 5 0 R>>>>>>endobj\n4 0 obj<</Length 68>>stream\nBT /F1 12 Tf 30 110 Td (Teste automatico do Sistema SST - e-mail OK) Tj ET\nendstream endobj\n5 0 obj<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>endobj\nxref\n0 6\n0000000000 65535 f \ntrailer<</Root 1 0 R/Size 6>>\nstartxref\n0\n%%EOF\n'''
+          fp=hashlib.sha256(pdf+b'email-smoke-20260904').hexdigest()
+          payload={
+            'pdfBase64':base64.b64encode(pdf).decode(),
+            'reportId':'TESTE-SISTEMA',
+            'filename':'Teste_Email_Sistema_SST.pdf',
+            'reportType':'Teste de funcionamento',
+            'company':'TBM Têxtil',
+            'sector':'Diagnóstico automático',
+            'fingerprint':fp,
+          }
+          open('/tmp/payload.json','w').write(json.dumps(payload))
+          PY
+          code=$(curl -sS -o /tmp/send.json -w '%{http_code}' \
+            -X POST 'https://app-inspecao-incendio.vercel.app/api/send-report' \
+            -H 'Origin: https://jonatasmarruda-prog.github.io' \
+            -H 'Content-Type: application/json' \
+            --data-binary @/tmp/payload.json)
+          echo "send HTTP $code: $(cat /tmp/send.json)"
+          test "$code" = '200'
+          python3 - <<'PY'
+          import json
+          x=json.load(open('/tmp/send.json'))
+          assert x.get('ok') is True, x
+          assert x.get('messageId'), x
+          print('Mensagem aceita pelo Resend:',x['messageId'])
+          PY
