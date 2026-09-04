@@ -36,7 +36,7 @@ function ensureFireChecklistState(){
   return st;
 }
 
-function statusClass(v){return v==='CONFORME'?'ok':v==='NÃO CONFORME'?'no':v==='PENDENTE'?'pend':''}
+function statusClass(v){return v==='CONFORME'?'ok':v==='NÃO CONFORME'?'no':v==='PENDENTE'?'pend':v==='N/A'?'na':''}
 
 function renderGroup(title,kind,questions,answers){
   return `<div class="tbm-fire-check-group" data-fire-group="${kind}">
@@ -89,7 +89,7 @@ function setAnswer(kind,index,status){
   const selector=`[data-fire-check-kind="${kind}"][data-fire-check-index="${index}"]`;
   const buttons=document.querySelectorAll(selector);
   buttons.forEach(btn=>{
-    btn.classList.remove('ok','no','pend');
+    btn.classList.remove('ok','no','pend','na');
     if(btn.dataset.fireCheckStatus===status)btn.classList.add(statusClass(status));
   });
   if(typeof window.scheduleSave==='function')window.scheduleSave();
