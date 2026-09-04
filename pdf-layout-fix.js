@@ -171,7 +171,10 @@ window.makePdf=async function(action='download'){
     const respostasExtintor=itensExtintor.map(item=>item.status);
     const respostasHidrante=itensHidrante.map(item=>item.status);
     const equipment=Array.isArray(st.equipment)?st.equipment:[];
-    const checklistStatuses=st.type==='fire'?[...respostasExtintor,...respostasHidrante]:checks.map((q,i)=>st.checks?.[i]||'PENDENTE');
+    const equipmentTypeText=e=>String(e?.tipoEquipamento||e?.equipamento||e?.tipo||'').trim().toLowerCase();
+    const temExtintor=equipment.some(e=>e?.kind==='ext'||equipmentTypeText(e).includes('extintor'));
+    const temHidrante=equipment.some(e=>e?.kind==='hid'||equipmentTypeText(e).includes('hidrante'));
+    const checklistStatuses=st.type==='fire'?[...(temExtintor?respostasExtintor:[]),...(temHidrante?respostasHidrante:[])]:checks.map((q,i)=>st.checks?.[i]||'PENDENTE');
     const statuses=[...equipment.map(e=>e.status||'PENDENTE'),...checklistStatuses];
     const total=statuses.length;
     const con=statuses.filter(v=>v==='CONFORME').length;
@@ -235,8 +238,8 @@ window.makePdf=async function(action='download'){
     }
 
     if(st.type==='fire'){
-      addChecklistTable(content,'Checklist de Inspeção - Extintores',perguntasExtintor,itensExtintor);
-      addChecklistTable(content,'Checklist de Inspeção - Hidrantes',perguntasHidrante,itensHidrante);
+      if(temExtintor)addChecklistTable(content,'Checklist de Inspeção - Extintores',perguntasExtintor,itensExtintor);
+      if(temHidrante)addChecklistTable(content,'Checklist de Inspeção - Hidrantes',perguntasHidrante,itensHidrante);
     }else if(checks.length){
       content.push(sectionTitle('Diagnóstico / Checklist'));
       const rows=[[headerCell('#'),headerCell('Item inspecionado'),headerCell('Status')]];
