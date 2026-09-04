@@ -1,0 +1,50 @@
+name: Correção profunda de estabilidade
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/stability-deep-fix.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Aplicar correções cirúrgicas
+        run: python3 .github/scripts/stability_patch.py
+      - name: Validar JavaScript corrigido
+        run: |
+          node --check premium-ux.js
+          node --check cloud-cross-device.js
+          node --check delete-draft.js
+          node --check save-button-fix.js
+          node --check email-relatorio-auto.js
+          node --check api/send-report.js
+          node --check sst-repair-loader.js
+          node --check service-worker.js
+          node --check sw.js
+          python3 - <<'PY'
+          import re
+          from pathlib import Path
+          h=Path('index.html').read_text(encoding='utf-8')
+          ss=re.findall(r'<script(?:\s[^>]*)?>([\s\S]*?)</script>',h,re.I)
+          assert ss
+          for i,s in enumerate(ss): Path(f'/tmp/index-{i}.js').write_text(s,encoding='utf-8')
+          print('inline scripts:',len(ss))
+          PY
+          for f in /tmp/index-*.js; do node --check "$f"; done
+      - name: Confirmar preservação do PDF e formulário
+        run: |
+          git diff --exit-code -- pdf-global-standard.js pdf-layout-fix.js pdf-final-fix.js pdf-photo-fit-fix.js pdf-filename-global.js pt-altura.js || (echo 'Arquivos protegidos foram alterados' && exit 1)
+      - name: Publicar correções
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add premium-ux.js cloud-cross-device.js delete-draft.js save-button-fix.js email-relatorio-auto.js api/send-report.js sst-repair-loader.js index.html service-worker.js sw.js
+          git diff --cached --quiet && exit 0
+          git commit -m 'Corrige travamentos, histórico, exclusão e envio de e-mail'
+          git push origin main
