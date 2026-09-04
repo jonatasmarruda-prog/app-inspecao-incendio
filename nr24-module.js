@@ -42,7 +42,7 @@ window.checklistNR24=ITEMS.map(x=>({...x}));
 window.checklistNR24Categorias=CATEGORIES.map(x=>({name:x.name,items:[...x.items]}));
 
 function st(){try{return state}catch(_){return window.state||null}}
-function h(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[m]))}
+function h(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
 function fmt(v){if(!v)return'—';const d=new Date(v);return Number.isNaN(d.getTime())?String(v):d.toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'})}
 function companyName(x){return x.company==='Outro'?(x.otherCompany||'Outro'):(x.company||'TBM Têxtil')}
 function inspectorName(x){return x.inspector==='Outro'?(x.inspectorOther||ISSUER_NAME):(x.inspector||ISSUER_NAME)}
