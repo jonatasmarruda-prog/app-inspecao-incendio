@@ -6,8 +6,10 @@ on:
       - 'sst-modulos.js'
       - 'integracao-modulos.js'
       - 'sst-repair-loader.js'
+      - '.github/scripts/apply_global_pdf_contrast.py'
+      - 'PDF_CONTRAST_TRIGGER.txt'
 permissions:
-  contents: read
+  contents: write
 jobs:
   check:
     runs-on: ubuntu-latest
@@ -19,3 +21,27 @@ jobs:
           node --check integracao-modulos.js
           node --check sst-repair-loader.js
           echo "SINTAXE_OK"
+  premium-pdf-contrast:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Aplicar contraste Premium diretamente nos geradores
+        run: python .github/scripts/apply_global_pdf_contrast.py
+      - name: Validar geradores
+        run: |
+          node --check pt-altura.js
+          node --check nr24-module.js
+          node --check pdf-layout-fix.js
+      - name: Commit das correções
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add pt-altura.js nr24-module.js pdf-layout-fix.js
+          if git diff --cached --quiet; then
+            echo "Nenhuma alteração pendente"
+          else
+            git commit -m "Padroniza contraste Premium diretamente em todos os geradores PDF"
+            git push origin main
+          fi
