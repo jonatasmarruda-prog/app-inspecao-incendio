@@ -25,6 +25,7 @@ function loadCnpjAutofill(){const old=document.getElementById('tbm-cnpj-autofill
 function loadPTAltura(){const old=document.getElementById('tbm-pt-altura');if(old)old.remove();const s=document.createElement('script');s.id='tbm-pt-altura';s.src='./pt-altura.js?v=20260903-03&cb='+Date.now();s.async=false;document.body.appendChild(s);return new Promise(resolve=>{s.onload=resolve;s.onerror=resolve})}
 function loadPTContrastFix(){const old=document.getElementById('tbm-pt-contrast-fix');if(old)old.remove();const s=document.createElement('script');s.id='tbm-pt-contrast-fix';s.src='./pt-contrast-fix.js?v=20260903-01&cb='+Date.now();s.async=false;document.body.appendChild(s);return new Promise(resolve=>{s.onload=resolve;s.onerror=resolve})}
 function loadPTSharePreviewFix(){const old=document.getElementById('tbm-pt-share-preview-fix');if(old)old.remove();const s=document.createElement('script');s.id='tbm-pt-share-preview-fix';s.src='./pt-share-preview-fix.js?v=20260904-01&cb='+Date.now();s.async=false;document.body.appendChild(s);return new Promise(resolve=>{s.onload=resolve;s.onerror=resolve})}
+function loadGlobalPdfPreview(){const old=document.getElementById('tbm-global-pdf-preview');if(old)old.remove();const s=document.createElement('script');s.id='tbm-global-pdf-preview';s.src='./global-pdf-preview.js?v=20260904-01&cb='+Date.now();s.async=false;document.body.appendChild(s);return new Promise(resolve=>{s.onload=resolve;s.onerror=resolve})}
 function loadPdfPhotoFitFix(){if(document.getElementById('tbm-pdf-photo-fit-fix'))return Promise.resolve();const s=document.createElement('script');s.id='tbm-pdf-photo-fit-fix';s.src='./pdf-photo-fit-fix.js?v=20260903-01';s.async=false;document.body.appendChild(s);return new Promise(resolve=>{s.onload=resolve;s.onerror=resolve})}
 function loadAbntMaster(){const old=document.getElementById('tbm-abnt-master');if(old)old.remove();return new Promise(resolve=>{const s=document.createElement('script');s.id='tbm-abnt-master';s.src='./abnt-master.js?v=20260903-36';s.async=false;document.body.appendChild(s);s.onload=resolve;s.onerror=resolve})}
 function loadFinalPdfFix(){const old=document.getElementById('tbm-final-pdf-fix');if(old)old.remove();return new Promise(resolve=>{const s=document.createElement('script');s.id='tbm-final-pdf-fix';s.src='./pdf-final-fix.js?v=20260903-02'+Date.now();s.async=false;document.body.appendChild(s);s.onload=resolve;s.onerror=resolve})}
@@ -64,8 +65,8 @@ async function loadRepairs(){
   try{window.tbmRestoreMobileMutationObserver?.()}catch(_){ }
   // Premium UX envolve makePdf; reaplica a camada móvel por fora para o botão PDF responder direto no celular.
   try{window.tbmInstallMobilePdfPerformance?.()}catch(_){ }
-  // Corrige especificamente baixar, visualizar e compartilhar o PDF da PT sem alterar o relatório principal.
-  await loadPTSharePreviewFix();
+  // Preview PDF agora é uma ação global e intercepta o gerador ativo de qualquer módulo.
+  await loadGlobalPdfPreview();
   // NR 24 entra por último para interceptar somente o tipo nr24 sem alterar PDFs/formulários existentes.
   await loadNR24Module();
   // Lista de presença é carregada como módulo isolado após os demais, sem reescrever fluxos existentes.
