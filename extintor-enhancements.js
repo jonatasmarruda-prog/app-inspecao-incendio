@@ -67,6 +67,7 @@ function updateExpiry(input,badge,dateText){
 }
 
 function enhanceCard(card){
+  if(!card||card.nodeType!==1)return;
   if(card.dataset.tbmExtEnhanced==='1') return;
   if(card.classList.contains('premium-extra')) return;
   const title=(card.querySelector('h3')?.textContent||card.textContent||'').toLowerCase();
@@ -88,6 +89,9 @@ function enhanceCard(card){
     if(capacity.name) hidden.name=capacity.name;
     hidden.value=originalValue;
     hidden.dataset.tbmCapacity='1';
+    // Preserva os vínculos com o equipamento original para o autosave.
+    if(capacity.dataset.e!==undefined)hidden.dataset.e=capacity.dataset.e;
+    if(capacity.dataset.k!==undefined)hidden.dataset.k=capacity.dataset.k;
 
     CAPACIDADES.forEach(cap=>{
       const b=document.createElement('button');
@@ -105,7 +109,7 @@ function enhanceCard(card){
         hidden.dispatchEvent(new Event('input',{bubbles:true}));
         hidden.dispatchEvent(new Event('change',{bubbles:true}));
         if(typeof window.scheduleSave==='function') window.scheduleSave();
-      });
+      },{passive:false});
       chips.appendChild(b);
     });
 
@@ -126,7 +130,7 @@ function enhanceCard(card){
     dateText.hidden=true;
     parent.appendChild(badge);
     parent.appendChild(dateText);
-    dateInput.addEventListener('input',()=>updateExpiry(dateInput,badge,dateText));
+    dateInput.addEventListener('input',()=>updateExpiry(dateInput,badge,dateText),{passive:true});
     dateInput.addEventListener('change',()=>{
       updateExpiry(dateInput,badge,dateText);
       if(typeof window.scheduleSave==='function') window.scheduleSave();
@@ -140,6 +144,12 @@ function enhanceCard(card){
 function scan(){
   injectCSS();
   document.querySelectorAll('.equipment').forEach(enhanceCard);
+}
+
+function enhanceAddedNode(node){
+  if(!node||node.nodeType!==1)return;
+  if(node.matches?.('.equipment'))enhanceCard(node);
+  node.querySelectorAll?.('.equipment').forEach(enhanceCard);
 }
 
 function loadPdfLayoutFix(){
@@ -156,8 +166,11 @@ function init(){
   scan();
   loadPdfLayoutFix();
   const root=document.getElementById('equipmentList')||document.body;
-  const observer=new MutationObserver(()=>{
-    requestAnimationFrame(scan);
+  const observer=new MutationObserver(records=>{
+    // Não varre todos os equipamentos a cada alteração: trata somente os novos nós.
+    for(const record of records){
+      for(const node of record.addedNodes)enhanceAddedNode(node);
+    }
   });
   observer.observe(root,{childList:true,subtree:true});
 }
