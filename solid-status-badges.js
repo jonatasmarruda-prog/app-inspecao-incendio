@@ -11,6 +11,26 @@ const COLORS={
   'N/A':'#6c757d'
 };
 
+function injectSolidBadgeCss(){
+  if(document.getElementById('tbm-solid-status-badges-style'))return;
+  const style=document.createElement('style');
+  style.id='tbm-solid-status-badges-style';
+  style.textContent=`
+    .choices button,.tbm-fire-check-choices button,#ptAlturaOverlay .pt-check-actions button,.nr24-statuses button{background:#e9edf2!important;color:#17202b!important;border:1px solid #d8dee7!important;box-shadow:none!important}
+    .choices button.ok,.tbm-fire-check-choices button.ok,#ptAlturaOverlay .pt-check-actions button.ok,.nr24-statuses button.ok{background-color:#198754!important;color:#ffffff!important;border:none!important}
+    .choices button.no,.tbm-fire-check-choices button.no,#ptAlturaOverlay .pt-check-actions button.no,.nr24-statuses button.no{background-color:#dc3545!important;color:#ffffff!important;border:none!important}
+    .choices button.na,.tbm-fire-check-choices button.na,#ptAlturaOverlay .pt-check-actions button.na,.nr24-statuses button.na{background-color:#6c757d!important;color:#ffffff!important;border:none!important}
+    .checkrow select[data-check]{background:#e9edf2!important;color:#17202b!important;border:1px solid #d8dee7!important;font-weight:900!important}
+    .checkrow select[data-check].tbm-status-conforme{background-color:#198754!important;color:#ffffff!important;border:none!important}
+    .checkrow select[data-check].tbm-status-nao-conforme{background-color:#dc3545!important;color:#ffffff!important;border:none!important}
+    .checkrow select[data-check].tbm-status-na{background-color:#6c757d!important;color:#ffffff!important;border:none!important}
+    .premium-extra .checkrow select[data-check].tbm-status-conforme{background-color:#198754!important;color:#ffffff!important;border:none!important}
+    .premium-extra .checkrow select[data-check].tbm-status-nao-conforme{background-color:#dc3545!important;color:#ffffff!important;border:none!important}
+    .premium-extra .checkrow select[data-check].tbm-status-na{background-color:#6c757d!important;color:#ffffff!important;border:none!important}
+  `;
+  document.head.appendChild(style);
+}
+
 function normalizeStatus(value){
   const s=String(value??'').trim().toUpperCase().replace(/\s+/g,' ');
   if(s==='CONFORME')return 'CONFORME';
@@ -137,6 +157,7 @@ function installPdfMakeDecorator(){
 }
 
 function install(){
+  injectSolidBadgeCss();
   installChecklistSelectDecorator();
   if(!installPdfMakeDecorator()){
     let attempts=0;
@@ -147,7 +168,7 @@ function install(){
   }
   window.tbmApplySolidBadgesToPdf=applySolidBadgesToDocDefinition;
   window.tbmRefreshSolidStatusBadges=()=>decorateAllChecklistSelects();
-  window.__tbmSolidStatusBadgesVersion='2026.09.04.1';
+  window.__tbmSolidStatusBadgesVersion='2026.09.04.2';
 }
 
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});else install();
