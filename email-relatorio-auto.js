@@ -32,7 +32,7 @@ function toast(text,type='ok'){
   if(!el){el=document.createElement('div');el.id='tbm-email-toast';Object.assign(el.style,{position:'fixed',left:'50%',bottom:'72px',transform:'translateX(-50%)',zIndex:'100002',maxWidth:'calc(100vw - 28px)',padding:'11px 14px',borderRadius:'12px',font:'700 12px Arial,sans-serif',boxShadow:'0 10px 30px #0003',textAlign:'center',transition:'opacity .2s ease'});document.body.appendChild(el)}
   const bg={ok:'#166534',wait:'#92400e',error:'#991b1b',info:'#1d4ed8'};
   el.style.background=bg[type]||bg.info;el.style.color='#fff';el.style.opacity='1';el.textContent=text;
-  clearTimeout(el.__timer);el.__timer=setTimeout(()=>{el.style.opacity='0'},3600);
+  clearTimeout(el.__timer);el.__timer=setTimeout(()=>{el.style.opacity='0'},4300);
 }
 
 async function sha256(blob){
@@ -57,7 +57,11 @@ function emailFilename(mode,original){
   return original||`Relatorio_SST_${dateStamp()}.pdf`;
 }
 
-/* Captura o MESMO docDefinition atual; não altera layout, fotos, cores ou tabelas. */
+/*
+  Captura o mesmo PDF usado pelo botão normal sem abrir resumo ou download.
+  A interceptação dura somente durante a geração e restaura EXATAMENTE a função
+  pdfMake anterior, evitando quebrar os wrappers do PDF depois do envio.
+*/
 async function capturePdf(mode){
   if(!window.pdfMake?.createPdf)throw new Error('PDFMake indisponível.');
   const maker=mode==='pt'?window.makePTAlturaPdf:window.makePdf;
@@ -65,17 +69,30 @@ async function capturePdf(mode){
 
   return await new Promise(async(resolve,reject)=>{
     const pm=window.pdfMake;
-    const original=pm.createPdf.bind(pm);
+    const previousCreatePdf=pm.createPdf;
+    const previousBypass=window.__tbmPdfSummaryBypass;
     let finished=false;
-    const restore=()=>{if(pm.createPdf===wrapped)pm.createPdf=original};
-    const fail=e=>{if(finished)return;finished=true;restore();reject(e instanceof Error?e:new Error(String(e||'Falha ao gerar PDF')))};
-    const done=(blob,sourceFilename)=>{if(finished)return;finished=true;restore();resolve({blob,sourceFilename:sourceFilename||'',filename:emailFilename(mode,sourceFilename)})};
-    const timer=setTimeout(()=>fail(new Error('Tempo excedido ao gerar PDF para e-mail.')),45000);
+    let restored=false;
+
+    const restore=()=>{
+      if(restored)return;restored=true;
+      if(pm.createPdf===wrapped)pm.createPdf=previousCreatePdf;
+      window.__tbmPdfSummaryBypass=previousBypass;
+    };
+    const fail=e=>{
+      if(finished)return;finished=true;clearTimeout(timer);restore();
+      reject(e instanceof Error?e:new Error(String(e||'Falha ao gerar PDF')));
+    };
+    const done=(blob,sourceFilename)=>{
+      if(finished)return;finished=true;clearTimeout(timer);restore();
+      resolve({blob,sourceFilename:sourceFilename||'',filename:emailFilename(mode,sourceFilename)});
+    };
+    const timer=setTimeout(()=>fail(new Error('Tempo excedido ao preparar PDF para e-mail.')),25000);
 
     function wrapped(docDefinition,...args){
-      const real=original(docDefinition,...args);
+      const real=previousCreatePdf.call(pm,docDefinition,...args);
       return {
-        download(filename){try{real.getBlob(blob=>{clearTimeout(timer);done(blob,filename)})}catch(e){clearTimeout(timer);fail(e)}},
+        download(filename){try{real.getBlob(blob=>done(blob,filename))}catch(e){fail(e)}},
         getBlob(cb){return real.getBlob(cb)},
         open(...a){return real.open?.(...a)},
         print(...a){return real.print?.(...a)},
@@ -85,12 +102,12 @@ async function capturePdf(mode){
       };
     }
 
+    window.__tbmPdfSummaryBypass=true;
     pm.createPdf=wrapped;
     try{
-      const p=maker.call(window,'__email_background__');
-      setTimeout(()=>document.getElementById('modal')?.classList.add('hidden'),0);
+      const p=maker.call(window,'download');
       if(p&&typeof p.then==='function')await p;
-    }catch(e){clearTimeout(timer);fail(e)}
+    }catch(e){fail(e)}
   });
 }
 
@@ -103,16 +120,22 @@ function reportMeta(mode,pdf){
   return {id:String(st.id||'SEM-ID'),type:String(st.title||st.type||'Relatório SST'),company:String(st.company||''),sector:String(st.sector||'')};
 }
 
+function friendlyBackendError(data,status){
+  const raw=String(data?.detail||data?.error||`HTTP ${status}`);
+  if(/only send testing emails|testing emails|verify a domain/i.test(raw))return 'Resend em modo de teste: é preciso verificar um domínio para enviar ao e-mail corporativo.';
+  if(/invalid_api_key|api key is invalid/i.test(raw))return 'A chave do Resend configurada na Vercel não é válida.';
+  if(/email_backend_not_configured/i.test(raw))return 'O serviço de e-mail ainda não está configurado na Vercel.';
+  if(/pdf_too_large/i.test(raw))return 'O PDF ficou grande demais para o envio automático.';
+  return raw;
+}
+
 async function postToBackend(url,payload){
   const controller=new AbortController();
   const timer=setTimeout(()=>controller.abort(),45000);
   try{
     const response=await fetch(url,{method:'POST',mode:'cors',cache:'no-store',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload),signal:controller.signal});
     const data=await response.json().catch(()=>({}));
-    if(!response.ok){
-      const detail=String(data?.detail||data?.error||`HTTP ${response.status}`);
-      throw new Error(detail);
-    }
+    if(!response.ok)throw new Error(friendlyBackendError(data,response.status));
     return data;
   }finally{clearTimeout(timer)}
 }
@@ -122,15 +145,16 @@ async function send(mode='main'){
   const url=endpoint();
   if(!enabled()||!url)return {sent:false,skipped:true,reason:'backend-not-enabled'};
   sending=true;
+  let meta=null,fingerprint='',filename='';
   try{
     toast('📧 Preparando cópia do relatório…','info');
     const pdf=await capturePdf(mode);
-    const meta=reportMeta(mode,pdf);
-    const fingerprint=await sha256(pdf.blob);
+    meta=reportMeta(mode,pdf);
+    fingerprint=await sha256(pdf.blob);
     const previous=getStatus(meta.id,fingerprint);
     if(previous?.state==='sent')return {sent:true,duplicate:true};
 
-    const filename=cleanPath(pdf.filename.endsWith('.pdf')?pdf.filename:pdf.filename+'.pdf');
+    filename=cleanPath(pdf.filename.endsWith('.pdf')?pdf.filename:pdf.filename+'.pdf');
     if(pdf.blob.size>MAX_PDF_BYTES){
       saveStatus(meta.id,fingerprint,{state:'pending',filename,error:'pdf_too_large',size:pdf.blob.size});
       throw new Error('PDF muito grande para envio automático.');
@@ -147,7 +171,8 @@ async function send(mode='main'){
   }catch(e){
     console.error('[E-MAIL RELATÓRIO]',e);
     const msg=String(e?.message||e||'Falha no envio');
-    toast('⚠️ Relatório salvo • envio de e-mail pendente.','wait');
+    if(meta&&fingerprint)saveStatus(meta.id,fingerprint,{state:'pending',filename,error:msg});
+    toast('⚠️ '+msg,'wait');
     window.dispatchEvent(new CustomEvent('tbm-report-email-pending',{detail:{error:msg}}));
     return {sent:false,pending:true,error:msg};
   }finally{sending=false}
@@ -162,7 +187,7 @@ function installPtSaveHook(){
         if(typeof window.savePTAltura==='function')await window.savePTAltura(false,false);
         await send('pt');
       }catch(err){console.warn('[PT EMAIL]',err)}
-    },120);
+    },180);
   },false);
 }
 
@@ -181,5 +206,8 @@ window.tbmConfigureEmailBackend=configureBackend;
 window.tbmEmailBackendEndpoint=()=>endpoint();
 window.tbmAutoEmailEnabled=()=>enabled();
 window.tbmEmailReportStatuses=()=>readStatuses();
-window.__tbmEmailReportVersion='2026.09.04.4-vercel-active';
+window.__tbmEmailReportVersion='2026.09.04.5-vercel-pdf-safe';
+
+/* Premium UX carrega depois deste módulo. Reaplica a proteção móvel por fora dele. */
+[900,1800,3200].forEach(t=>setTimeout(()=>{try{window.tbmInstallMobilePdfPerformance?.()}catch(_){ }},t));
 })();
