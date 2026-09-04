@@ -1,8 +1,10 @@
 'use strict';
 
+const BACKEND_VERSION='2026.09.04.2-resend-test-owner';
 const DEFAULT_ALLOWED_ORIGINS=['https://jonatasmarruda-prog.github.io','https://app-inspecao-incendio.vercel.app'];
-const REPORT_EMAIL_TO=String(process.env.REPORT_EMAIL_TO||'jonatasmarruda@gmail.com').trim().toLowerCase();
-const REPORT_EMAIL_FROM=process.env.REPORT_EMAIL_FROM||'onboarding@resend.dev';
+const RESEND_TEST_ACCOUNT_EMAIL='jonatasmarruda@gmail.com';
+const REPORT_EMAIL_ENV=String(process.env.REPORT_EMAIL_TO||'').trim().toLowerCase();
+const REPORT_EMAIL_FROM=String(process.env.REPORT_EMAIL_FROM||'onboarding@resend.dev').trim();
 const MAX_BASE64_CHARS=4_100_000;
 
 function allowedOrigins(){
@@ -15,6 +17,16 @@ function setCors(res,origin){
   res.setHeader('Access-Control-Allow-Methods','GET,POST,OPTIONS');
   res.setHeader('Access-Control-Allow-Headers','Content-Type');
   res.setHeader('Cache-Control','no-store');
+}
+
+function isResendTestMode(){
+  return /^onboarding@resend\.dev$/i.test(REPORT_EMAIL_FROM);
+}
+function reportRecipient(){
+  // A conta Resend em modo de teste só permite enviar para o e-mail do próprio titular.
+  // Ignoramos REPORT_EMAIL_TO nesse modo para impedir que uma variável antiga da Vercel
+  // faça o backend voltar a responder 403.
+  return isResendTestMode()?RESEND_TEST_ACCOUNT_EMAIL:(REPORT_EMAIL_ENV||RESEND_TEST_ACCOUNT_EMAIL);
 }
 
 function safeText(value,max=160){
@@ -36,12 +48,18 @@ module.exports=async function handler(req,res){
   setCors(res,origin);
 
   if(req.method==='OPTIONS')return res.status(204).end();
-  if(req.method==='GET')return res.status(200).json({ok:true,service:'send-report',configured:Boolean(process.env.RESEND_API_KEY)});
+  if(req.method==='GET')return res.status(200).json({
+    ok:true,
+    service:'send-report',
+    configured:Boolean(process.env.RESEND_API_KEY),
+    version:BACKEND_VERSION,
+    recipientMode:isResendTestMode()?'resend-test-owner':'custom-domain'
+  });
   if(req.method!=='POST')return res.status(405).json({ok:false,error:'method_not_allowed'});
   if(!allowedOrigins().has(origin))return res.status(403).json({ok:false,error:'origin_not_allowed'});
 
   const apiKey=process.env.RESEND_API_KEY;
-  const to=REPORT_EMAIL_TO;
+  const to=reportRecipient();
   const from=REPORT_EMAIL_FROM;
   if(!apiKey)return res.status(503).json({ok:false,error:'email_backend_not_configured'});
 
@@ -92,7 +110,7 @@ module.exports=async function handler(req,res){
       console.error('[RESEND]',response.status,data);
       return res.status(502).json({ok:false,error:'resend_error',status:response.status,detail:data?.message||data?.name||''});
     }
-    return res.status(200).json({ok:true,messageId:data.id||''});
+    return res.status(200).json({ok:true,messageId:data.id||'',version:BACKEND_VERSION});
   }catch(error){
     console.error('[SEND REPORT]',error);
     return res.status(502).json({ok:false,error:'email_transport_error'});
