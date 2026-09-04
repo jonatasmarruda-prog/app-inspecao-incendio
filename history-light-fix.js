@@ -2,9 +2,10 @@
 'use strict';
 
 const META_KEY='tbm-sst-mobile-dashboard-v2';
-const LIMIT=80;
+const LIMIT=40;
 let fullList=[];
 let visible=LIMIT;
+let renderTimer=null;
 
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const typeInfo=t=>({
@@ -24,25 +25,32 @@ function fmtDate(v){
   return d.toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'});
 }
 function readMeta(){
-  try{const x=JSON.parse(localStorage.getItem(META_KEY)||'[]');return Array.isArray(x)?x:[]}
-  catch(_){return[]}
-}
-async function lightRecords(){
-  if(typeof window.tbmDashboardRecords==='function'){
-    const list=await window.tbmDashboardRecords();
-    if(Array.isArray(list)&&list.length)return list;
-  }
-  const local=readMeta();
-  if(local.length)return local;
-  return [];
+  try{
+    if(typeof window.tbmReadLightHistoryIndex==='function'){
+      const x=window.tbmReadLightHistoryIndex();
+      if(Array.isArray(x))return x;
+    }
+    const x=JSON.parse(localStorage.getItem(META_KEY)||'[]');
+    return Array.isArray(x)?x:[];
+  }catch(_){return[]}
 }
 function equipmentNc(x){
   return (Array.isArray(x?.equipment)?x.equipment:[]).filter(e=>String(e?.status||e?.situacao||'').toUpperCase()==='NÃO CONFORME').length;
 }
+function isHistoryVisible(){
+  const h=document.getElementById('history');
+  return !!h&&!h.classList.contains('hidden');
+}
+function buildList(){
+  fullList=readMeta().filter(x=>!x?.deleted).sort((a,b)=>String(b.updatedAt||b.createdAt||'').localeCompare(String(a.updatedAt||a.createdAt||'')));
+}
 function render(){
   const box=document.getElementById('historyList');if(!box)return;
   const list=fullList.slice(0,visible);
-  if(!list.length){box.innerHTML='<div class="notice info">Nenhuma inspeção salva ainda.</div>';return}
+  if(!list.length){
+    box.innerHTML='<div class="notice info">Histórico aberto. Os registros antigos estão sendo indexados gradualmente em segundo plano.</div>';
+    return;
+  }
   box.innerHTML=list.map(x=>{
     const [icon,name]=typeInfo(x.type);
     const title=x.title||name;
@@ -51,30 +59,26 @@ function render(){
   }).join('')+(fullList.length>visible?`<button id="tbmHistoryMore" type="button" class="btn secondary full">Mostrar mais (${fullList.length-visible})</button>`:'');
   document.getElementById('tbmHistoryMore')?.addEventListener('click',()=>{visible+=LIMIT;render()},{once:true});
 }
-
-async function waitForIndex(){
-  let list=await lightRecords();
-  if(list.length)return list;
-  try{window.tbmRefreshMobileDashboardIndex?.()}catch(_){ }
-  for(let i=0;i<14;i++){
-    await new Promise(r=>setTimeout(r,180));
-    list=await lightRecords();
-    if(list.length)return list;
-  }
-  return [];
+function refreshIfVisible(){
+  if(!isHistoryVisible())return;
+  clearTimeout(renderTimer);
+  renderTimer=setTimeout(()=>{buildList();render();try{window.tbmDecorateHistory?.()}catch(_){ }},120);
 }
 
 async function openHistoryLight(){
   const box=document.getElementById('historyList');
-  if(box)box.innerHTML='<div class="notice info">⏳ Carregando histórico...</div>';
+  if(box)box.innerHTML='<div class="notice info">⏳ Abrindo histórico...</div>';
   if(typeof window.show==='function')window.show('history');
   else{
     ['home','form','history','report'].forEach(id=>document.getElementById(id)?.classList.toggle('hidden',id!=='history'));
     window.scrollTo(0,0);
   }
   visible=LIMIT;
-  fullList=(await waitForIndex()).filter(x=>!x?.deleted).sort((a,b)=>String(b.updatedAt||b.createdAt||'').localeCompare(String(a.updatedAt||a.createdAt||'')));
+  // ABERTURA IMEDIATA: somente metadados leves já existentes.
+  // Nunca aguarda idbAll, openCursor ou leitura de fotos/assinaturas.
+  buildList();
   render();
+  try{window.tbmRefreshMobileDashboardIndex?.()}catch(_){ }
 }
 
 async function openOneLight(id){
@@ -93,22 +97,35 @@ function install(){
   const btn=document.getElementById('openHistory');
   if(btn){
     btn.onclick=openHistoryLight;
-    btn.dataset.tbmLightHistory='1';
+    btn.dataset.tbmLightHistory='2';
   }
   window.openHistory=openHistoryLight;
-  if(document.body.dataset.tbmLightHistoryEvents!=='1'){
-    document.body.dataset.tbmLightHistoryEvents='1';
+
+  if(document.body.dataset.tbmLightHistoryCapture!=='2'){
+    document.body.dataset.tbmLightHistoryCapture='2';
     document.addEventListener('click',async e=>{
+      const historyButton=e.target.closest?.('#openHistory');
+      if(historyButton){
+        // Bloqueia absolutamente qualquer onclick/listener antigo que chamava idbAll().
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        try{await openHistoryLight()}catch(err){console.error('[HISTÓRICO LEVE] abrir histórico',err)}
+        return;
+      }
+
       const b=e.target.closest?.('[data-open-h]');
       if(!b||String(b.dataset.openH||'').startsWith('PT-'))return;
-      e.preventDefault();e.stopImmediatePropagation();
-      try{await openOneLight(b.dataset.openH)}catch(err){console.error('[HISTÓRICO LEVE] abrir',err)}
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      try{await openOneLight(b.dataset.openH)}catch(err){console.error('[HISTÓRICO LEVE] abrir registro',err)}
     },true);
   }
 }
 
+window.addEventListener('tbm-history-index-updated',refreshIfVisible);
+window.addEventListener('tbm-history-index-complete',refreshIfVisible);
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});else install();
-setTimeout(install,500);
-setTimeout(install,1500);
+setTimeout(install,300);
+setTimeout(install,1200);
 window.tbmOpenHistoryLight=openHistoryLight;
 })();
