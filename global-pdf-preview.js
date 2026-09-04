@@ -1,7 +1,7 @@
 (()=>{
 'use strict';
 
-const VERSION='2026.09.04.global-pdf-preview.2-no-observer-loop';
+const VERSION='2026.09.04.global-pdf-preview.3-await-logo';
 const PREVIEW_IDS=['tbmGlobalPreview','ptView','trainingPreview','tbmReportPreview'];
 const DOWNLOAD_IDS=['tbmGlobalDownload','ptPdf','trainingDownload','reportPdf'];
 const SHARE_IDS=['pdf','ptShare','trainingShare','reportShare'];
@@ -83,6 +83,7 @@ async function captureActiveDocDefinition(){
   if(!ctx)throw new Error('Nenhum módulo de inspeção ativo foi identificado.');
   if(!window.pdfMake||typeof window.pdfMake.createPdf!=='function')throw new Error('Biblioteca pdfmake indisponível.');
   try{await Promise.resolve(ctx.save?.())}catch(_){ }
+  if(typeof window.carregarLogo==='function')await window.carregarLogo(window.LOGO_TBM_URL);
   const pm=window.pdfMake;
   const originalCreatePdf=pm.createPdf;
   const previousBypass=window.__tbmPdfSummaryBypass;
@@ -150,6 +151,7 @@ async function runAction(action){
   setBusy(true);
   try{
     try{await Promise.resolve(ctx.save?.())}catch(_){ }
+    if(typeof window.carregarLogo==='function')await window.carregarLogo(window.LOGO_TBM_URL);
     await Promise.resolve(ctx.generate(action));
   }catch(err){console.error('[GLOBAL PDF ACTION]',err);toast('❌ '+(err?.message||'Falha ao gerar o PDF.'),'err')}
   finally{setBusy(false)}
