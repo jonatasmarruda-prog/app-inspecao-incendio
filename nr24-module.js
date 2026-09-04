@@ -13,29 +13,26 @@ const CNPJ='07.603.376/0003-00';
 
 const CATEGORIES=[
   {name:'INSTALAÇÕES SANITÁRIAS',items:[
-    'Quantidade adequada de vasos e lavatórios',
-    'Separação por gênero',
-    'Ventilação e iluminação suficientes',
-    'Limpeza e manutenção regular'
-  ]},
-  {name:'VESTIÁRIOS',items:[
-    'Disponíveis quando exigido',
-    'Armários individuais com boa conservação',
-    'Ambientes separados por sexo',
-    'Bancos e espaço suficiente'
-  ]},
-  {name:'REFEITÓRIOS',items:[
-    'Área limpa, ventilada e com mobiliário adequado',
-    'Proibido uso de áreas de trabalho como refeitório'
-  ]},
-  {name:'ÁGUA POTÁVEL',items:[
-    'Disponível em locais acessíveis',
-    'Fontes higiênicas (copos individuais ou jato inclinado)'
-  ]},
-  {name:'LIMPEZA E CONSERVAÇÃO',items:[
-    'Procedimentos diários de limpeza',
-    'Sinalização de piso molhado',
-    'Produtos de limpeza armazenados com segurança'
+    'As instalações sanitárias são separadas por sexo?',
+    'As instalações são mantidas limpas e sem odores durante toda a jornada?',
+    'Possuem paredes revestidas com material impermeável e lavável?',
+    'Possuem pisos de material impermeável, lavável e liso?',
+    'Dispõem de água canalizada e esgotos com sifões hidráulicos?',
+    'Possuem iluminação de, no mínimo, 100 lux?',
+    'Não se comunicam com locais de trabalho ou refeições?',
+    'Possuem fiação elétrica protegida por eletroduto?',
+    'Os gabinetes sanitários são instalados em compartimentos individuais?',
+    'Os gabinetes possuem portas com fecho que impeçam devassamento?',
+    'Os gabinetes são ventilados para o exterior?',
+    'Os gabinetes possuem recipientes com tampa para papéis?',
+    'Os vasos sanitários possuem descarga?',
+    'Os lavatórios obedecem a relação mínima de 1 para cada 20 funcionários?',
+    'Há material de secagem das mãos (proibido toalhas coletivas)?',
+    'Os chuveiros possuem portas que impeçam devassamento?',
+    'Os chuveiros possuem piso e paredes de material resistente, liso e impermeável?',
+    'Os chuveiros obedecem a relação mínima de 1 para cada 10 funcionários?',
+    'Os mictórios são providos de aparelho de descarga?',
+    'Os mictórios são de fácil escoamento e limpeza?'
   ]}
 ];
 const ITEMS=[];
@@ -45,7 +42,7 @@ window.checklistNR24=ITEMS.map(x=>({...x}));
 window.checklistNR24Categorias=CATEGORIES.map(x=>({name:x.name,items:[...x.items]}));
 
 function st(){try{return state}catch(_){return window.state||null}}
-function h(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
+function h(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[m]))}
 function fmt(v){if(!v)return'—';const d=new Date(v);return Number.isNaN(d.getTime())?String(v):d.toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'})}
 function companyName(x){return x.company==='Outro'?(x.otherCompany||'Outro'):(x.company||'TBM Têxtil')}
 function inspectorName(x){return x.inspector==='Outro'?(x.inspectorOther||ISSUER_NAME):(x.inspector||ISSUER_NAME)}
