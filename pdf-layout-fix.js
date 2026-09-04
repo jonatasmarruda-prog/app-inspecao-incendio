@@ -82,6 +82,27 @@ const sectionHeaderLayout={
 function labelCell(text){return {text:String(text??''),bold:true,fillColor:'#f4f4f4',fontSize:9,color:'#111111'}}
 function valueCell(text){return {text:String(text==null||String(text).trim()===''?'—':text),fontSize:9,color:'#111111'}}
 function headerCell(text){return {text:String(text??''),bold:true,fillColor:'#f4f4f4',fontSize:8.5,color:'#111111'}}
+function normalizePdfChecklistItem(value,fallback='PENDENTE'){
+  if(value&&typeof value==='object'&&!Array.isArray(value)){
+    return {
+      ...value,
+      status:String(value.status||fallback),
+      fotoEvidencia:String(value.fotoEvidencia||value.evidencia||'')
+    };
+  }
+  return {status:String(value||fallback),fotoEvidencia:''};
+}
+function premiumStatusCell(item){
+  item=normalizePdfChecklistItem(item,'PENDENTE');
+  return {
+    stack: [
+      { text: item.status, bold: true, alignment: 'center', color: '#ffffff' },
+      item.fotoEvidencia ? { image: item.fotoEvidencia, fit: [80, 80], alignment: 'center', margin: [0, 5, 0, 0] } : null
+    ].filter(Boolean),
+    fillColor: item.status === 'CONFORME' ? '#198754' : (item.status === 'NÃO CONFORME' ? '#dc3545' : '#6c757d'),
+    margin: [0, 5, 0, 5]
+  };
+}
 
 function sectionTitle(title){
   return {table:{widths:['*'],body:[[{text:title,bold:true,fillColor:'#f4f4f4',fontSize:11,color:'#111111'}]]},layout:sectionHeaderLayout,margin:[0,10,0,0]};
@@ -116,10 +137,13 @@ function signatureCell(name,role,image){
   return {stack,margin:[5,8,5,6]};
 }
 
-function addChecklistTable(content,title,questions,answers){
+function addChecklistTable(content,title,questions,items){
   content.push(sectionTitle(title));
   const rows=[[headerCell('#'),headerCell('Item inspecionado'),headerCell('Status')]];
-  questions.forEach((q,i)=>rows.push([String(i+1),q,answers[i]||'PENDENTE']));
+  questions.forEach((q,i)=>{
+    const item=normalizePdfChecklistItem(items?.[i],'PENDENTE');
+    rows.push([String(i+1),q,premiumStatusCell(item)]);
+  });
   content.push({table:{headerRows:1,widths:[28,'*',115],body:rows},layout:gridLayout,fontSize:8});
 }
 
@@ -142,8 +166,10 @@ window.makePdf=async function(action='download'){
     const checks=checksFor(st);
     const perguntasExtintor=Array.isArray(window.perguntasExtintor)?window.perguntasExtintor:FIRE_EXT_QUESTIONS;
     const perguntasHidrante=Array.isArray(window.perguntasHidrante)?window.perguntasHidrante:FIRE_HID_QUESTIONS;
-    const respostasExtintor=checklistAnswers(st.checklistExtintores,perguntasExtintor.length);
-    const respostasHidrante=checklistAnswers(st.checklistHidrantes,perguntasHidrante.length);
+    const itensExtintor=perguntasExtintor.map((_,i)=>normalizePdfChecklistItem(st.checklistExtintores?.[i],'PENDENTE'));
+    const itensHidrante=perguntasHidrante.map((_,i)=>normalizePdfChecklistItem(st.checklistHidrantes?.[i],'PENDENTE'));
+    const respostasExtintor=itensExtintor.map(item=>item.status);
+    const respostasHidrante=itensHidrante.map(item=>item.status);
     const equipment=Array.isArray(st.equipment)?st.equipment:[];
     const checklistStatuses=st.type==='fire'?[...respostasExtintor,...respostasHidrante]:checks.map((q,i)=>st.checks?.[i]||'PENDENTE');
     const statuses=[...equipment.map(e=>e.status||'PENDENTE'),...checklistStatuses];
@@ -203,18 +229,24 @@ window.makePdf=async function(action='download'){
       equipment.forEach((e,i)=>{
         const kind=e.kind==='ext'?'Extintor':e.kind==='hid'?'Hidrante':e.kind==='light'?'Iluminação de Emergência':e.kind==='alarm'?'Sirene / Alarme':(e.kind||'Equipamento');
         const data=[e.tipo,e.capacidade,e.localizacao,e.ultima?`Última inspeção/recarga: ${e.ultima}`:''].filter(Boolean).join(' • ')||'Não informado';
-        rows.push([String(i+1),kind,e.patrimonio||'Não informado',data,e.status||'PENDENTE',e.obs||'']);
+        rows.push([String(i+1),kind,e.patrimonio||'Não informado',data,premiumStatusCell({status:e.status||'PENDENTE',fotoEvidencia:e.fotoEvidencia||''}),e.obs||'']);
       });
       content.push({table:{headerRows:1,widths:[20,70,65,145,75,'*'],body:rows},layout:gridLayout,fontSize:7.5});
     }
 
     if(st.type==='fire'){
-      addChecklistTable(content,'Checklist de Inspeção - Extintores',perguntasExtintor,respostasExtintor);
-      addChecklistTable(content,'Checklist de Inspeção - Hidrantes',perguntasHidrante,respostasHidrante);
+      addChecklistTable(content,'Checklist de Inspeção - Extintores',perguntasExtintor,itensExtintor);
+      addChecklistTable(content,'Checklist de Inspeção - Hidrantes',perguntasHidrante,itensHidrante);
     }else if(checks.length){
       content.push(sectionTitle('Diagnóstico / Checklist'));
       const rows=[[headerCell('#'),headerCell('Item inspecionado'),headerCell('Status')]];
-      checks.forEach((q,i)=>rows.push([String(i+1),q,st.checks?.[i]||'PENDENTE']));
+      checks.forEach((q,i)=>{
+        const item={
+          status:st.checks?.[i]||'PENDENTE',
+          fotoEvidencia:st.checkEvidence?.[i]||st.checksEvidence?.[i]||''
+        };
+        rows.push([String(i+1),q,premiumStatusCell(item)]);
+      });
       content.push({table:{headerRows:1,widths:[28,'*',115],body:rows},layout:gridLayout,fontSize:8});
     }
 

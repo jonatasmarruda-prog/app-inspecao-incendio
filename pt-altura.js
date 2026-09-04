@@ -131,7 +131,7 @@ function normalizeState(x){
   const s=JSON.parse(JSON.stringify(x||freshState()));
   const oldIssuer=s.issuer||{};
   s.type=PT_TYPE;s.title=PT_TITLE;s.issuer={name:EMISSOR_NOME,role:EMISSOR_CARGO,signature:oldIssuer.signature||''};
-  s.checklistPT=checklistPT.map(q=>{const old=(s.checklistPT||[]).find(z=>z.id===q.id)||{};return {...q,status:['CONFORME','NÃO CONFORME','N/A'].includes(old.status)?old.status:'N/A'}});
+  s.checklistPT=checklistPT.map(q=>{const old=(s.checklistPT||[]).find(z=>z.id===q.id)||{};return {...q,status:['CONFORME','NÃO CONFORME','N/A'].includes(old.status)?old.status:'N/A',fotoEvidencia:String(old.fotoEvidencia||'')}});
   s.episSelecionados={...blankFlags(EPI_OPTIONS),...(s.episSelecionados||{})};
   s.meiosAcesso={...blankFlags(ACCESS_OPTIONS),...(s.meiosAcesso||{})};
   s.epiOutro=s.epiOutro||'';s.meioAcessoOutro=s.meioAcessoOutro||'';
@@ -426,7 +426,18 @@ function pdfHeader(text){return {text,bold:true,fillColor:'#f4f4f4',fontSize:9,c
 function pdfSection(title){return {table:{widths:['*'],body:[[{text:title,bold:true,fillColor:'#f4f4f4',fontSize:11,color:'#111'}]]},layout:pdfGrid,margin:[0,10,0,0]}}
 function checklistTable(group,title){
   const rows=[[pdfHeader('#'),pdfHeader('Item verificado'),pdfHeader('Status')]];
-  ptState.checklistPT.filter(x=>x.grupo===group).forEach(x=>rows.push([String(x.n),x.item,x.status]));
+  ptState.checklistPT.filter(item=>item.grupo===group).forEach(item=>rows.push([
+    String(item.n),
+    item.item,
+    {
+      stack: [
+        { text: item.status, bold: true, alignment: 'center', color: '#ffffff' },
+        item.fotoEvidencia ? { image: item.fotoEvidencia, fit: [80, 80], alignment: 'center', margin: [0, 5, 0, 0] } : null
+      ].filter(Boolean),
+      fillColor: item.status === 'CONFORME' ? '#198754' : (item.status === 'NÃO CONFORME' ? '#dc3545' : '#6c757d'),
+      margin: [0, 5, 0, 5]
+    }
+  ]));
   return [pdfSection(title),{table:{headerRows:1,widths:[28,'*',100],body:rows},layout:pdfGrid,fontSize:7.7}];
 }
 function selectedLabels(options,obj,otherText){

@@ -224,9 +224,11 @@ function categoryPdf(cat,x){
     { text: item.pergunta, alignment: 'justify' },
     {
       stack: [
-        { text: item.status, bold: true, alignment: 'center' },
+        { text: item.status, bold: true, alignment: 'center', color: '#ffffff' },
         item.fotoEvidencia ? { image: item.fotoEvidencia, fit: [80, 80], alignment: 'center', margin: [0, 5, 0, 0] } : null
-      ].filter(Boolean)
+      ].filter(Boolean),
+      fillColor: item.status === 'CONFORME' ? '#198754' : (item.status === 'NÃO CONFORME' ? '#dc3545' : '#6c757d'),
+      margin: [0, 5, 0, 5]
     }
   ]);
   return [{text:cat.name,bold:true,fontSize:10,fillColor:'#f4f4f4',margin:[0,8,0,5]},{table:{headerRows:1,widths:['auto','*',120],body:[[{text:'Item',bold:true,fillColor:'#eeeeee',alignment:'center'},{text:'Critério Verificado',bold:true,fillColor:'#eeeeee'},{text:'Status / Evidência',bold:true,fillColor:'#eeeeee',alignment:'center'}],...rows],dontBreakRows:true},layout:compactChecklistLayout(),fontSize:8.3,margin:[0,0,0,6]}];
