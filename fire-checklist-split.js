@@ -23,26 +23,45 @@ window.perguntasHidrante=perguntasHidrante;
 
 function currentState(){try{return state}catch(_){return window.state||null}}
 function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
+function validStatus(v){return ['CONFORME','NÃO CONFORME','PENDENTE','N/A'].includes(v)?v:'PENDENTE'}
+function normalizeItem(value,index,questions,kind){
+  if(value&&typeof value==='object'&&!Array.isArray(value)){
+    return {
+      ...value,
+      id:value.id||`${kind}-${index+1}`,
+      pergunta:value.pergunta||value.item||questions[index]||'',
+      status:validStatus(value.status),
+      fotoEvidencia:String(value.fotoEvidencia||value.evidencia||'')
+    };
+  }
+  return {
+    id:`${kind}-${index+1}`,
+    pergunta:questions[index]||'',
+    status:validStatus(String(value||'PENDENTE')),
+    fotoEvidencia:''
+  };
+}
+function normalizeArray(list,questions,kind){
+  const source=Array.isArray(list)?list:[];
+  return questions.map((_,i)=>normalizeItem(source[i],i,questions,kind));
+}
 
 function ensureFireChecklistState(){
   const st=currentState();
   if(!st||st.type!=='fire')return st;
-  if(!Array.isArray(st.checklistExtintores))st.checklistExtintores=perguntasExtintor.map(()=>'PENDENTE');
-  if(!Array.isArray(st.checklistHidrantes))st.checklistHidrantes=perguntasHidrante.map(()=>'PENDENTE');
-  while(st.checklistExtintores.length<perguntasExtintor.length)st.checklistExtintores.push('PENDENTE');
-  while(st.checklistHidrantes.length<perguntasHidrante.length)st.checklistHidrantes.push('PENDENTE');
-  st.checklistExtintores=st.checklistExtintores.slice(0,perguntasExtintor.length);
-  st.checklistHidrantes=st.checklistHidrantes.slice(0,perguntasHidrante.length);
+  st.checklistExtintores=normalizeArray(st.checklistExtintores,perguntasExtintor,'extintor');
+  st.checklistHidrantes=normalizeArray(st.checklistHidrantes,perguntasHidrante,'hidrante');
   return st;
 }
 
 function statusClass(v){return v==='CONFORME'?'ok':v==='NÃO CONFORME'?'no':v==='PENDENTE'?'pend':v==='N/A'?'na':''}
+function itemStatus(v){return validStatus(v&&typeof v==='object'?v.status:v)}
 
 function renderGroup(title,kind,questions,answers){
   return `<div class="tbm-fire-check-group" data-fire-group="${kind}">
     <div class="tbm-fire-check-title">${title}</div>
     ${questions.map((q,i)=>{
-      const selected=answers[i]||'PENDENTE';
+      const selected=itemStatus(answers[i]);
       return `<div class="check tbm-fire-check-item">
         <b style="font-size:12px;display:block;margin-bottom:8px">${i+1}. ${esc(q)}</b>
         <div class="choices tbm-fire-check-choices">
@@ -85,12 +104,13 @@ function setAnswer(kind,index,status){
   const st=ensureFireChecklistState();
   if(!st)return;
   const arr=kind==='extintor'?st.checklistExtintores:st.checklistHidrantes;
-  arr[index]=status;
+  if(!arr[index])return;
+  arr[index].status=validStatus(status);
   const selector=`[data-fire-check-kind="${kind}"][data-fire-check-index="${index}"]`;
   const buttons=document.querySelectorAll(selector);
   buttons.forEach(btn=>{
     btn.classList.remove('ok','no','pend','na');
-    if(btn.dataset.fireCheckStatus===status)btn.classList.add(statusClass(status));
+    if(btn.dataset.fireCheckStatus===arr[index].status)btn.classList.add(statusClass(arr[index].status));
   });
   if(typeof window.scheduleSave==='function')window.scheduleSave();
 }
@@ -111,5 +131,8 @@ function install(){
 
 window.tbmRenderFireChecklist=renderSplitChecklist;
 window.tbmEnsureFireChecklistState=ensureFireChecklistState;
+window.tbmSetFireChecklistStatus=setAnswer;
+window.tbmFireChecklistStatus=itemStatus;
+window.__tbmFireChecklistSplitVersion='2026.09.04.5-object-status';
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});else install();
 })();
