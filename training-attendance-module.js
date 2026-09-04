@@ -22,9 +22,7 @@ function ensureState(x=st()){
   a.date=String(a.date||'');
   a.location=String(a.location||'');
   a.instructor=INSTRUCTOR;
-  a.participants=Array.isArray(a.participants)&&a.participants.length?a.participants.map(p=>({
-    name:String(p?.name||''),shift:SHIFTS.includes(p?.shift)?p.shift:'Turno A',signature:String(p?.signature||'')
-  })):[blankParticipant()];
+  a.participants=Array.isArray(a.participants)&&a.participants.length?a.participants.map(p=>({name:String(p?.name||''),shift:SHIFTS.includes(p?.shift)?p.shift:'Turno A',signature:String(p?.signature||'')})):[blankParticipant()];
   x.trainingAttendance=a;
   x.title=TYPE_LABEL;
   return x;
@@ -47,67 +45,37 @@ function installType(){
 
 function installSelectorOption(){
   const sel=document.getElementById('inspectionTypeSelect');if(!sel)return;
-  if(!sel.querySelector(`option[value="${TYPE}"]`)){
-    const o=document.createElement('option');o.value=TYPE;o.textContent=TYPE_LABEL;sel.appendChild(o);
-  }
+  if(!sel.querySelector(`option[value="${TYPE}"]`)){const o=document.createElement('option');o.value=TYPE;o.textContent=TYPE_LABEL;sel.appendChild(o)}
 }
 
 function installCard(){
   if(document.getElementById('trainingAttendanceCard'))return;
   const anchor=document.getElementById('checklistCard');if(!anchor)return;
   const card=document.createElement('div');card.id='trainingAttendanceCard';card.className='card hidden';
-  card.innerHTML=`
-    <div class="sectionTitle">📝 Lista de Presença - Treinamento SST</div>
-    <div class="grid">
-      <div class="field"><label>Tema</label><input id="trainingTheme" placeholder="Tema do treinamento"></div>
-      <div class="field"><label>Data</label><input id="trainingDate" type="date"></div>
-      <div class="field"><label>Local</label><input id="trainingLocation" placeholder="Local do treinamento"></div>
-      <div class="field"><label>Instrutor</label><input id="trainingInstructor" value="${h(INSTRUCTOR)}" readonly disabled></div>
-    </div>
-    <div class="title" style="font-size:16px;margin:20px 0 10px">Participantes</div>
-    <div id="trainingParticipants"></div>
-    <button type="button" id="addTrainingParticipant" class="btn secondary full no-print">➕ Adicionar Participante</button>`;
+  card.innerHTML=`<div class="sectionTitle">📝 Lista de Presença - Treinamento SST</div><div class="grid"><div class="field"><label>Tema</label><input id="trainingTheme" placeholder="Tema do treinamento"></div><div class="field"><label>Data</label><input id="trainingDate" type="date"></div><div class="field"><label>Local</label><input id="trainingLocation" placeholder="Local do treinamento"></div><div class="field"><label>Instrutor</label><input id="trainingInstructor" value="${h(INSTRUCTOR)}" readonly disabled></div></div><div class="title" style="font-size:16px;margin:20px 0 10px">Participantes</div><div id="trainingParticipants"></div><button type="button" id="addTrainingParticipant" class="btn secondary full no-print">➕ Adicionar Participante</button>`;
   anchor.insertAdjacentElement('beforebegin',card);
 }
 
 function syncHeader(){
   const x=ensureState();if(!x)return;
-  const a=x.trainingAttendance;
-  const theme=document.getElementById('trainingTheme'),date=document.getElementById('trainingDate'),location=document.getElementById('trainingLocation');
+  const a=x.trainingAttendance,theme=document.getElementById('trainingTheme'),date=document.getElementById('trainingDate'),location=document.getElementById('trainingLocation');
   if(theme)a.theme=theme.value.trim();if(date)a.date=date.value;if(location)a.location=location.value.trim();a.instructor=INSTRUCTOR;
 }
 
 function initParticipantCanvas(canvas,index,initial){
   if(!canvas)return;
-  const x=ensureState();if(!x)return;
   try{
     if(typeof setupCanvas==='function'){
-      const clear=setupCanvas(canvas,initial,v=>{const s=ensureState();if(!s?.trainingAttendance?.participants?.[index])return;s.trainingAttendance.participants[index].signature=v;schedule()});
-      clears.set(index,clear);return;
+      const clear=setupCanvas(canvas,initial,v=>{const x=ensureState();if(!x?.trainingAttendance?.participants?.[index])return;x.trainingAttendance.participants[index].signature=v;schedule()});
+      clears.set(index,clear);
     }
-  }catch(e){console.warn('[LISTA PRESENÇA CANVAS]',e)}
-  const ctx=canvas.getContext('2d'),r=canvas.getBoundingClientRect(),d=Math.min(devicePixelRatio||1,2);canvas.width=Math.max(1,Math.round(r.width*d));canvas.height=Math.max(1,Math.round(r.height*d));ctx.setTransform(d,0,0,d,0,0);ctx.lineWidth=2;ctx.lineCap='round';ctx.strokeStyle='#111827';
-  if(initial){const im=new Image();im.onload=()=>ctx.drawImage(im,0,0,r.width,r.height);im.src=initial}
-  let drawing=false,last=null;const pos=e=>{const b=canvas.getBoundingClientRect();return{x:e.clientX-b.left,y:e.clientY-b.top}};
-  canvas.onpointerdown=e=>{drawing=true;last=pos(e);canvas.setPointerCapture?.(e.pointerId);e.preventDefault()};
-  canvas.onpointermove=e=>{if(!drawing)return;const p=pos(e);ctx.beginPath();ctx.moveTo(last.x,last.y);ctx.lineTo(p.x,p.y);ctx.stroke();last=p;e.preventDefault()};
-  canvas.onpointerup=e=>{if(!drawing)return;drawing=false;const s=ensureState();if(s?.trainingAttendance?.participants?.[index]){s.trainingAttendance.participants[index].signature=canvas.toDataURL('image/png');schedule()}canvas.releasePointerCapture?.(e.pointerId)};
-  clears.set(index,()=>{ctx.clearRect(0,0,r.width,r.height);const s=ensureState();if(s?.trainingAttendance?.participants?.[index]){s.trainingAttendance.participants[index].signature='';schedule()}});
+  }catch(e){console.error('[LISTA PRESENÇA CANVAS]',e)}
 }
 
 function renderParticipants(){
   const x=ensureState(),box=document.getElementById('trainingParticipants');if(!x||!box)return;
   clears.clear();
-  box.innerHTML=x.trainingAttendance.participants.map((p,i)=>`<div class="training-participant" data-training-participant="${i}">
-    <div class="training-participant-title">Participante ${i+1}</div>
-    <div class="grid">
-      <div class="field"><label>Nome Completo</label><input data-training-name="${i}" value="${h(p.name)}" placeholder="Nome completo"></div>
-      <div class="field"><label>Turno</label><select data-training-shift="${i}">${SHIFTS.map(v=>`<option ${p.shift===v?'selected':''}>${h(v)}</option>`).join('')}</select></div>
-    </div>
-    <label class="training-signature-label">Assinatura</label>
-    <div class="sigwrap"><canvas class="training-signature-canvas" data-training-signature="${i}"></canvas></div>
-    <button type="button" class="btn secondary full no-print" data-training-clear="${i}">Limpar assinatura</button>
-  </div>`).join('');
+  box.innerHTML=x.trainingAttendance.participants.map((p,i)=>`<div class="training-participant" data-training-participant="${i}"><div class="training-participant-title">Participante ${i+1}</div><div class="grid"><div class="field"><label>Nome Completo</label><input data-training-name="${i}" value="${h(p.name)}" placeholder="Nome completo"></div><div class="field"><label>Turno</label><select data-training-shift="${i}">${SHIFTS.map(v=>`<option ${p.shift===v?'selected':''}>${h(v)}</option>`).join('')}</select></div></div><label class="training-signature-label">Assinatura</label><div class="sigwrap"><canvas class="training-signature-canvas" data-training-signature="${i}"></canvas></div><button type="button" class="btn secondary full no-print" data-training-clear="${i}">Limpar assinatura</button></div>`).join('');
   requestAnimationFrame(()=>x.trainingAttendance.participants.forEach((p,i)=>initParticipantCanvas(box.querySelector(`[data-training-signature="${i}"]`),i,p.signature)));
 }
 
@@ -135,7 +103,7 @@ function bindEvents(){
   document.addEventListener('click',e=>{
     const x=ensureState();if(!x||x.type!==TYPE)return;
     if(e.target.closest?.('#addTrainingParticipant')){e.preventDefault();syncHeader();x.trainingAttendance.participants.push(blankParticipant());renderParticipants();schedule();return}
-    const clear=e.target.closest?.('[data-training-clear]');if(clear){e.preventDefault();clears.get(Number(clear.dataset.trainingClear))?.();return}
+    const clear=e.target.closest?.('[data-training-clear]');if(clear){e.preventDefault();clears.get(Number(clear.dataset.trainingClear))?.()}
   },false);
 }
 
@@ -158,32 +126,9 @@ function tableLayout(){return{hLineColor:()=> '#cfd6df',vLineColor:()=> '#cfd6df
 
 async function buildDocDefinition(x){
   ensureState(x);const a=x.trainingAttendance,svg=await logoSvg();
-  const participantRows=a.participants.map(p=>[
-    {text:p.name||'—',fontSize:9},
-    {text:p.shift||'—',fontSize:9},
-    p.signature?{image:p.signature,fit:[100,50],alignment:'center'}:{text:'Sem assinatura',fontSize:8,color:'#64748b',alignment:'center'}
-  ]);
+  const participantRows=a.participants.map(p=>[{text:p.name||'—',fontSize:9},{text:p.shift||'—',fontSize:9},p.signature?{image:p.signature,fit:[100,50],alignment:'center'}:{text:'Sem assinatura',fontSize:8,color:'#64748b',alignment:'center'}]);
   const titleBlock=svg?{table:{widths:[72,'*'],body:[[{svg,fit:[62,42],alignment:'left'},{text:PDF_TITLE,bold:true,fontSize:16,alignment:'center',margin:[0,12,0,0]}]]},layout:'noBorders'}:{text:PDF_TITLE,bold:true,fontSize:16,alignment:'center'};
-  return{
-    pageSize:'A4',pageMargins:[40,42,40,56],defaultStyle:{font:'Roboto',fontSize:9,color:'#17202b'},
-    content:[
-      titleBlock,
-      {canvas:[{type:'line',x1:0,y1:0,x2:515,y2:0,lineWidth:1.4,lineColor:'#8b1018'}],margin:[0,6,0,10]},
-      {table:{widths:[90,'*'],body:[
-        [{text:'Tema',bold:true,fillColor:'#eeeeee'},{text:a.theme||'Não informado'}],
-        [{text:'Data',bold:true,fillColor:'#eeeeee'},{text:formatDate(a.date)}],
-        [{text:'Local',bold:true,fillColor:'#eeeeee'},{text:a.location||'Não informado'}],
-        [{text:'Instrutor',bold:true,fillColor:'#eeeeee'},{text:INSTRUCTOR}]
-      ]},layout:tableLayout(),margin:[0,0,0,14]},
-      {text:'PARTICIPANTES',bold:true,fontSize:10,fillColor:'#f4f4f4',margin:[0,0,0,5]},
-      {table:{headerRows:1,widths:['*',92,125],body:[
-        [{text:'Nome',bold:true,fillColor:'#eeeeee'},{text:'Turno',bold:true,fillColor:'#eeeeee'},{text:'Assinatura',bold:true,fillColor:'#eeeeee',alignment:'center'}],
-        ...participantRows
-      ]},layout:tableLayout()}
-    ],
-    footer:(currentPage,pageCount)=>({margin:[40,0,40,16],stack:[{canvas:[{type:'line',x1:0,y1:0,x2:515,y2:0,lineWidth:.6,lineColor:'#cbd5e1'}]},{text:`Sistema Profissional SST • ${INSTRUCTOR} • Página ${currentPage}/${pageCount}`,fontSize:6.5,color:'#64748b',alignment:'center',margin:[0,4,0,0]}]}),
-    info:{title:PDF_TITLE,subject:TYPE_LABEL,author:'Jonatas Marques de Arruda',creator:'Sistema Profissional SST'}
-  };
+  return{pageSize:'A4',pageMargins:[40,42,40,56],defaultStyle:{font:'Roboto',fontSize:9,color:'#17202b'},content:[titleBlock,{canvas:[{type:'line',x1:0,y1:0,x2:515,y2:0,lineWidth:1.4,lineColor:'#8b1018'}],margin:[0,6,0,10]},{table:{widths:[90,'*'],body:[[{text:'Tema',bold:true,fillColor:'#eeeeee'},{text:a.theme||'Não informado'}],[{text:'Data',bold:true,fillColor:'#eeeeee'},{text:formatDate(a.date)}],[{text:'Local',bold:true,fillColor:'#eeeeee'},{text:a.location||'Não informado'}],[{text:'Instrutor',bold:true,fillColor:'#eeeeee'},{text:INSTRUCTOR}]]},layout:tableLayout(),margin:[0,0,0,14]},{text:'PARTICIPANTES',bold:true,fontSize:10,fillColor:'#f4f4f4',margin:[0,0,0,5]},{table:{headerRows:1,widths:['*',92,125],body:[[{text:'Nome',bold:true,fillColor:'#eeeeee'},{text:'Turno',bold:true,fillColor:'#eeeeee'},{text:'Assinatura',bold:true,fillColor:'#eeeeee',alignment:'center'}],...participantRows]},layout:tableLayout()}],footer:(currentPage,pageCount)=>({margin:[40,0,40,16],stack:[{canvas:[{type:'line',x1:0,y1:0,x2:515,y2:0,lineWidth:.6,lineColor:'#cbd5e1'}]},{text:`Sistema Profissional SST • ${INSTRUCTOR} • Página ${currentPage}/${pageCount}`,fontSize:6.5,color:'#64748b',alignment:'center',margin:[0,4,0,0]}]}),info:{title:PDF_TITLE,subject:TYPE_LABEL,author:'Jonatas Marques de Arruda',creator:'Sistema Profissional SST'}};
 }
 
 async function makeAttendancePdf(action='download'){
@@ -191,7 +136,7 @@ async function makeAttendancePdf(action='download'){
   if(!window.pdfMake?.createPdf)throw new Error('Biblioteca pdfmake indisponível.');
   const docDefinition=await buildDocDefinition(x),filename=`Lista_Presenca_Treinamento_SST_${x.id||'SEM-ID'}.pdf`;
   if(action===true)action='share';if(action===false)action='download';
-  if(action==='share')return await new Promise(resolve=>window.pdfMake.createPdf(docDefinition).getBlob(async blob=>{try{const file=new File([blob],filename,{type:'application/pdf'});if(navigator.share&&(!navigator.canShare||navigator.canShare({files:[file]})))await navigator.share({title:PDF_TITLE,text:a?.theme||TYPE_LABEL,files:[file]});else window.pdfMake.createPdf(docDefinition).download(filename)}catch(e){if(e?.name!=='AbortError')window.pdfMake.createPdf(docDefinition).download(filename)}finally{resolve()}}));
+  if(action==='share')return await new Promise(resolve=>window.pdfMake.createPdf(docDefinition).getBlob(async blob=>{try{const file=new File([blob],filename,{type:'application/pdf'});if(navigator.share&&(!navigator.canShare||navigator.canShare({files:[file]})))await navigator.share({title:PDF_TITLE,text:x.trainingAttendance.theme||TYPE_LABEL,files:[file]});else window.pdfMake.createPdf(docDefinition).download(filename)}catch(e){if(e?.name!=='AbortError')window.pdfMake.createPdf(docDefinition).download(filename)}finally{resolve()}}));
   window.pdfMake.createPdf(docDefinition).download(filename);
 }
 
