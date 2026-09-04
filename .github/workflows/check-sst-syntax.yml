@@ -9,13 +9,17 @@ on:
       - 'accident-injury-module.js'
       - 'pdf-global-standard.js'
       - 'pdf-filename-global.js'
+      - 'LOGO_URL_TRIGGER.txt'
 permissions:
-  contents: read
+  contents: write
 jobs:
   check:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Aplicar logo oficial quando solicitado
+        if: github.event_name == 'push' && contains(github.event.head_commit.message, 'Executa patch da logo oficial TBM')
+        run: python .github/scripts/apply_external_logo.py
       - name: Verificar JavaScript
         run: |
           node --check sst-modulos.js
@@ -24,4 +28,16 @@ jobs:
           node --check accident-injury-module.js
           node --check pdf-global-standard.js
           node --check pdf-filename-global.js
+          node --check global-pdf-preview.js
+          node --check service-worker.js
+          node --check sw.js
           echo "SINTAXE_OK"
+      - name: Commitar patch da logo
+        if: github.event_name == 'push' && contains(github.event.head_commit.message, 'Executa patch da logo oficial TBM')
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add integracao-modulos.js global-pdf-preview.js service-worker.js sw.js
+          git diff --cached --quiet && exit 0
+          git commit -m "Integra logo oficial TBM via fetch e Base64"
+          git push
