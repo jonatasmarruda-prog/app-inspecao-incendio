@@ -6,7 +6,7 @@ if(window[FLAG])return;window[FLAG]=true;
 
 const TYPE='nr24';
 const TYPE_LABEL='Inspeção NR 24 (Sanitários e Vivência)';
-const PDF_TITLE='LAUDO DE INSPEÇÃO DE SEGURANÇA - NR 24';
+const PDF_TITLE='INSPEÇÃO DE SEGURANÇA DO TRABALHO - NR 24';
 const ISSUER_NAME='Jonatas Marques de Arruda';
 const ISSUER_ROLE='Coordenador / Técnico de Segurança do Trabalho';
 const CNPJ='07.603.376/0003-00';
@@ -56,7 +56,7 @@ function ensureState(x=st()){
     const prev=old.find(v=>Number(v?.id)===def.id)||old[i]||{};
     const legacy=x.checks?.[i];
     const status=['CONFORME','NÃO CONFORME','N/A'].includes(prev.status)?prev.status:(['CONFORME','NÃO CONFORME','N/A'].includes(legacy)?legacy:'N/A');
-    return {...def,status,fotoEvidencia:String(prev.fotoEvidencia||'')};
+    return {...def,pergunta:def.text,status,fotoEvidencia:String(prev.fotoEvidencia||'')};
   });
   x.checks=x.checks&&typeof x.checks==='object'?x.checks:{};
   x.checklistNR24.forEach((item,i)=>{x.checks[i]=item.status});
@@ -217,13 +217,19 @@ async function logoSvg(){
   return logoSvgPromise;
 }
 function tableLayout(){return{hLineColor:()=> '#cfd6df',vLineColor:()=> '#cfd6df',hLineWidth:()=>.6,vLineWidth:()=>.6,paddingLeft:()=>6,paddingRight:()=>6,paddingTop:()=>5,paddingBottom:()=>5}}
+function compactChecklistLayout(){return{hLineColor:()=> '#cfd6df',vLineColor:()=> '#cfd6df',hLineWidth:()=>.6,vLineWidth:()=>.6,paddingLeft:()=>5,paddingRight:()=>5,paddingTop:()=>3,paddingBottom:()=>3}}
 function categoryPdf(cat,x){
-  const rows=x.checklistNR24.filter(i=>i.category===cat.name).map(item=>{
-    const stack=[{text:item.status||'N/A',bold:true}];
-    if(item.fotoEvidencia)stack.push({image:item.fotoEvidencia,fit:[70,70],margin:[0,5,0,0]});
-    return [{text:String(item.id),alignment:'center'},{text:item.text},{stack}];
-  });
-  return [{text:cat.name,bold:true,fontSize:10,fillColor:'#f4f4f4',margin:[0,8,0,5]},{table:{headerRows:1,widths:[34,'*',115],body:[[{text:'Item',bold:true,fillColor:'#eeeeee'},{text:'Critério verificado',bold:true,fillColor:'#eeeeee'},{text:'Situação / Evidência',bold:true,fillColor:'#eeeeee'}],...rows]},layout:tableLayout(),fontSize:8.5,margin:[0,0,0,6]}];
+  const rows=x.checklistNR24.filter(i=>i.category===cat.name).map((item,index)=>[
+    { text: index + 1, alignment: 'center' },
+    { text: item.pergunta, alignment: 'justify' },
+    {
+      stack: [
+        { text: item.status, bold: true, alignment: 'center' },
+        item.fotoEvidencia ? { image: item.fotoEvidencia, fit: [80, 80], alignment: 'center', margin: [0, 5, 0, 0] } : null
+      ].filter(Boolean)
+    }
+  ]);
+  return [{text:cat.name,bold:true,fontSize:10,fillColor:'#f4f4f4',margin:[0,8,0,5]},{table:{headerRows:1,widths:['auto','*',120],body:[[{text:'Item',bold:true,fillColor:'#eeeeee',alignment:'center'},{text:'Critério Verificado',bold:true,fillColor:'#eeeeee'},{text:'Status / Evidência',bold:true,fillColor:'#eeeeee',alignment:'center'}],...rows],dontBreakRows:true},layout:compactChecklistLayout(),fontSize:8.3,margin:[0,0,0,6]}];
 }
 function photoGridPdf(x){
   const photos=(x.photos||[]).filter(p=>p?.data);if(!photos.length)return[];
@@ -236,7 +242,7 @@ async function buildDocDefinition(x){
   const total=x.checklistNR24.length,ok=x.checklistNR24.filter(i=>i.status==='CONFORME').length,bad=x.checklistNR24.filter(i=>i.status==='NÃO CONFORME').length,na=x.checklistNR24.filter(i=>i.status==='N/A').length;
   const headerLeft=svg?{svg,fit:[72,48],alignment:'left'}:{text:'TBM',bold:true,fontSize:18,color:'#8b1018'};
   const content=[
-    {table:{widths:[82,'*',125],body:[[headerLeft,{stack:[{text:PDF_TITLE,bold:true,fontSize:15,color:'#8b1018',alignment:'center'},{text:TYPE_LABEL,bold:true,fontSize:9,alignment:'center',margin:[0,3,0,0]},{text:'Documento técnico • Sistema Profissional SST',fontSize:7.5,color:'#64748b',alignment:'center',margin:[0,2,0,0]}]},{stack:[{text:`Nº ${x.id||'SEM-ID'}`,bold:true,fontSize:8,alignment:'right'},{text:`Emissão: ${fmt(x.date)}`,fontSize:7,alignment:'right',margin:[0,3,0,0]}]}]]},layout:'noBorders',margin:[0,0,0,6]},
+    {table:{widths:[82,'*',125],body:[[headerLeft,{stack:[{ text: 'INSPEÇÃO DE SEGURANÇA DO TRABALHO - NR 24', style: 'header', alignment: 'center', bold: true, fontSize: 16 },{text:TYPE_LABEL,bold:true,fontSize:9,alignment:'center',margin:[0,3,0,0]},{text:'Documento técnico • Sistema Profissional SST',fontSize:7.5,color:'#64748b',alignment:'center',margin:[0,2,0,0]}]},{stack:[{text:`Nº ${x.id||'SEM-ID'}`,bold:true,fontSize:8,alignment:'right'},{text:`Emissão: ${fmt(x.date)}`,fontSize:7,alignment:'right',margin:[0,3,0,0]}]}]]},layout:'noBorders',margin:[0,0,0,6]},
     {canvas:[{type:'line',x1:0,y1:0,x2:515,y2:0,lineWidth:1.4,lineColor:'#8b1018'}],margin:[0,0,0,8]},
     {text:'DADOS DA INSPEÇÃO',bold:true,fontSize:10,fillColor:'#f4f4f4',margin:[0,0,0,5]},
     {table:{widths:[125,'*'],body:[
@@ -261,7 +267,7 @@ async function buildDocDefinition(x){
   sig.push({text:ISSUER_NAME,bold:true,alignment:'center',fontSize:9,margin:[0,8,0,0]},{text:ISSUER_ROLE,alignment:'center',fontSize:8});
   content.push({text:'RESPONSÁVEL TÉCNICO',bold:true,fontSize:10,fillColor:'#f4f4f4',margin:[0,10,0,5]},{stack:sig,margin:[0,0,0,10]});
   return {
-    pageSize:'A4',pageMargins:[40,42,40,72],defaultStyle:{font:'Roboto',fontSize:9,color:'#17202b'},content,
+    pageSize:'A4',pageMargins:[40,42,40,72],defaultStyle:{font:'Roboto',fontSize:9,color:'#17202b'},styles:{header:{fontSize:16,bold:true}},content,
     footer:(currentPage,pageCount)=>({margin:[40,0,40,16],stack:[{canvas:[{type:'line',x1:0,y1:0,x2:515,y2:0,lineWidth:.6,lineColor:'#cbd5e1'}]},{text:`${ISSUER_NAME} - ${ISSUER_ROLE}`,bold:true,fontSize:7.5,alignment:'center',margin:[0,5,0,0]},{text:`Documento eletrônico emitido pelo Sistema Profissional de Inspeção SST • ID ${x.id||'SEM-ID'} • Página ${currentPage}/${pageCount}`,fontSize:6.5,color:'#64748b',alignment:'center',margin:[0,2,0,0]}]}),
     info:{title:PDF_TITLE,subject:TYPE_LABEL,author:ISSUER_NAME,creator:'Sistema Profissional SST'}
   };
@@ -295,5 +301,5 @@ function install(){
 }
 
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});else install();
-window.__tbmNR24Version='2026.09.04.1-inline-evidence';
+window.__tbmNR24Version='2026.09.04.2-compact-pdf';
 })();
