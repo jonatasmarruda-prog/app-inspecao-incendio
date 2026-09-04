@@ -30,10 +30,11 @@ function loadFinalPdfFix(){const old=document.getElementById('tbm-final-pdf-fix'
 function loadEquipmentVerticalFix(){const old=document.getElementById('tbm-pdf-equipment-vertical-fix');if(old)old.remove();const s=document.createElement('script');s.id='tbm-pdf-equipment-vertical-fix';s.src='./pdf-equipment-vertical-fix.js?v=20260903-01&cb='+Date.now();s.async=false;document.body.appendChild(s);return new Promise(resolve=>{s.onload=resolve;s.onerror=resolve})}
 function loadGlobalPdfStandard(){const old=document.getElementById('tbm-pdf-global-standard');if(old)old.remove();const s=document.createElement('script');s.id='tbm-pdf-global-standard';s.src='./pdf-global-standard.js?v=20260903-02&cb='+Date.now();s.async=false;document.body.appendChild(s);return new Promise(resolve=>{s.onload=resolve;s.onerror=resolve})}
 function loadPdfFilenameGlobal(){const old=document.getElementById('tbm-pdf-filename-global');if(old)old.remove();const s=document.createElement('script');s.id='tbm-pdf-filename-global';s.src='./pdf-filename-global.js?v=20260903-01&cb='+Date.now();s.async=false;document.body.appendChild(s);return new Promise(resolve=>{s.onload=resolve;s.onerror=resolve})}
-function loadAutoEmailReport(){const old=document.getElementById('tbm-email-relatorio-auto');if(old)old.remove();const s=document.createElement('script');s.id='tbm-email-relatorio-auto';s.src='./email-relatorio-auto.js?v=20260904-05&cb='+Date.now();s.async=false;document.body.appendChild(s);return new Promise(resolve=>{s.onload=resolve;s.onerror=resolve})}
+function loadAutoEmailReport(){const old=document.getElementById('tbm-email-relatorio-auto');if(old)old.remove();const s=document.createElement('script');s.id='tbm-email-relatorio-auto';s.src='./email-relatorio-auto.js?v=20260904-06&cb='+Date.now();s.async=false;document.body.appendChild(s);return new Promise(resolve=>{s.onload=resolve;s.onerror=resolve})}
 function loadPremiumUX(){const old=document.getElementById('tbm-premium-ux');if(old)old.remove();const s=document.createElement('script');s.id='tbm-premium-ux';s.src='./premium-ux.js?v=20260903-03&cb='+Date.now();s.async=false;document.body.appendChild(s);return new Promise(resolve=>{s.onload=resolve;s.onerror=resolve})}
 function loadMobilePerformanceFix(){const old=document.getElementById('tbm-mobile-performance-fix');if(old)old.remove();const s=document.createElement('script');s.id='tbm-mobile-performance-fix';s.src='./mobile-performance-fix.js?v=20260903-04&cb='+Date.now();s.async=false;document.body.appendChild(s);return new Promise(resolve=>{s.onload=resolve;s.onerror=resolve})}
 function loadHistoryLightFix(){const old=document.getElementById('tbm-history-light-fix');if(old)old.remove();const s=document.createElement('script');s.id='tbm-history-light-fix';s.src='./history-light-fix.js?v=20260904-04&cb='+Date.now();s.async=false;document.body.appendChild(s);return new Promise(resolve=>{s.onload=resolve;s.onerror=resolve})}
+function loadMobileInteractionFix(){const old=document.getElementById('tbm-mobile-interaction-fix');if(old)old.remove();const s=document.createElement('script');s.id='tbm-mobile-interaction-fix';s.src='./mobile-interaction-fix.js?v=20260904-01&cb='+Date.now();s.async=false;document.body.appendChild(s);return new Promise(resolve=>{s.onload=resolve;s.onerror=resolve})}
 async function loadRepairs(){
   await loadFireChecklistSplit();
   await loadChecklistConditional();
@@ -52,7 +53,10 @@ async function loadRepairs(){
   // Proteções de memória/histórico precisam existir ANTES do Premium UX para impedir fallback ao idbAll no celular.
   await loadMobilePerformanceFix();
   await loadHistoryLightFix();
+  // Remove observação pesada de classes e evita recriação dupla das assinaturas no celular.
+  await loadMobileInteractionFix();
   await loadPremiumUX();
+  try{window.tbmRestoreMobileMutationObserver?.()}catch(_){ }
   // Premium UX envolve makePdf; reaplica a camada móvel por fora para o botão PDF responder direto no celular.
   try{window.tbmInstallMobilePdfPerformance?.()}catch(_){ }
   setTimeout(loadCloudCrossDevice,0);
