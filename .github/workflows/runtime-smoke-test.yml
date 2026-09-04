@@ -1,0 +1,106 @@
+name: Teste funcional do aplicativo SST
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/runtime-smoke-test.yml'
+permissions:
+  contents: read
+jobs:
+  runtime-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Preparar navegador
+        run: npm install --no-save puppeteer-core@24.16.0
+      - name: Iniciar aplicativo local
+        run: |
+          python3 -m http.server 8000 --bind 127.0.0.1 >/tmp/sst-http.log 2>&1 &
+          sleep 2
+      - name: Testar botões, histórico, abertura, exclusão e PT
+        shell: bash
+        run: |
+          cat >/tmp/smoke.cjs <<'NODE'
+          const puppeteer=require('puppeteer-core');
+          const assert=require('assert');
+          const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+          (async()=>{
+            const browser=await puppeteer.launch({headless:true,executablePath:'/usr/bin/google-chrome',args:['--no-sandbox','--disable-dev-shm-usage']});
+            const page=await browser.newPage();
+            await page.setViewport({width:430,height:932,deviceScaleFactor:2,isMobile:true,hasTouch:true});
+            const pageErrors=[];
+            page.on('pageerror',e=>pageErrors.push(String(e.message||e)));
+            page.on('dialog',async d=>{try{await d.accept()}catch(_){}});
+            await page.goto('http://127.0.0.1:8000/index.html',{waitUntil:'domcontentloaded',timeout:60000});
+            await sleep(7000);
+            const isVisible=sel=>page.$eval(sel,e=>!e.classList.contains('hidden')&&getComputedStyle(e).display!=='none');
+            const click=async sel=>{const t=Date.now();await page.click(sel);await sleep(350);const dt=Date.now()-t;assert(dt<3500,`${sel} demorou ${dt}ms`);};
+            assert(await isVisible('#home'),'Tela inicial não abriu');
+            assert.strictEqual(await page.$$eval('.tile[data-type]',x=>x.length),6,'Quantidade inesperada de módulos principais');
+
+            for(const type of ['fire','safety','machine','epi','accident','report']){
+              await click(`.tile[data-type="${type}"]`);
+              assert(await isVisible('#form'),`Módulo ${type} não abriu o formulário`);
+              await click('#backHome');
+              assert(await isVisible('#home'),`Voltar do módulo ${type} falhou`);
+            }
+
+            await click('.tile[data-type="fire"]');
+            let eq=await page.$$eval('#equipmentList .equipment',x=>x.length);
+            await click('#addExt');
+            let afterExt=await page.$$eval('#equipmentList .equipment',x=>x.length);
+            assert(afterExt>eq,'Botão adicionar extintor não adicionou item');
+            await click('#addHid');
+            let afterHid=await page.$$eval('#equipmentList .equipment',x=>x.length);
+            assert(afterHid>afterExt,'Botão adicionar hidrante não adicionou item');
+            if(await page.$('#addIluminacao')){await click('#addIluminacao');}
+            if(await page.$('#addSirene')){await click('#addSirene');}
+            await click('#clear1');
+            await click('#clear2');
+            await page.type('#sector','SMOKE TEST');
+            await page.evaluate(()=>{window.tbmAutoEmailSavedReport=()=>Promise.resolve({sent:true,smoke:true});});
+            await click('#saveTop');
+            await sleep(1300);
+            const saveText=await page.$eval('#saveTop',e=>e.textContent);
+            assert(/Salv|✅/i.test(saveText),'Botão salvar não respondeu');
+            await click('#backHome');
+
+            await click('#openHistory');
+            assert(await isVisible('#history'),'Histórico não abriu');
+            const cards=await page.$$eval('#historyList .historyItem',x=>x.length);
+            assert(cards>=1,'Inspeção salva não apareceu no histórico leve');
+            await click('#historyList [data-open-h]');
+            assert(await isVisible('#form'),'Abrir registro do histórico falhou');
+            await click('#backHome');
+            await click('#openHistory');
+            const beforeDelete=await page.$$eval('#historyList .historyItem',x=>x.length);
+            await click('#historyList [data-delete-h]');
+            await sleep(350);
+            const afterDelete=await page.$$eval('#historyList .historyItem',x=>x.length);
+            assert(afterDelete===beforeDelete-1,'Excluir do histórico não removeu o registro imediatamente');
+            await click('#historyBack');
+            assert(await isVisible('#home'),'Voltar do histórico falhou');
+
+            assert(await page.$('#ptAlturaTile'),'Botão PT - Trabalho em Altura não foi carregado');
+            await click('#ptAlturaTile');
+            assert(await isVisible('#ptAlturaOverlay'),'PT - Trabalho em Altura não abriu');
+            await click('#ptClose');
+            const ptHidden=await page.$eval('#ptAlturaOverlay',e=>e.classList.contains('hidden'));
+            assert(ptHidden,'Fechar PT falhou');
+
+            await click('.tile[data-type="fire"]');
+            assert(await page.$('#btnExcluirInspecao'),'Botão Excluir Inspeção não foi carregado');
+            await Promise.all([
+              page.waitForNavigation({waitUntil:'domcontentloaded',timeout:10000}).catch(()=>null),
+              page.click('#btnExcluirInspecao')
+            ]);
+            await sleep(1000);
+            assert(await isVisible('#home'),'Excluir inspeção não retornou/recarregou a tela inicial');
+
+            const relevant=pageErrors.filter(x=>!/firebase|network|ERR_|Failed to fetch|Load failed/i.test(x));
+            assert.strictEqual(relevant.length,0,'Erros JavaScript: '+relevant.join(' | '));
+            console.log('SMOKE OK: módulos, voltar, equipamentos, salvar, histórico, abrir, excluir e PT.');
+            await browser.close();
+          })().catch(async e=>{console.error(e);process.exit(1)});
+          NODE
+          node /tmp/smoke.cjs
