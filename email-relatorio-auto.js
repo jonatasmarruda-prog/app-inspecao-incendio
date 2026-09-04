@@ -122,7 +122,7 @@ function reportMeta(mode,pdf){
 
 function friendlyBackendError(data,status){
   const raw=String(data?.detail||data?.error||`HTTP ${status}`);
-  if(/only send testing emails|testing emails|verify a domain/i.test(raw))return 'Resend em modo de teste: é preciso verificar um domínio para enviar ao e-mail corporativo.';
+  if(/only send testing emails|testing emails|verify a domain/i.test(raw))return 'Resend em modo de teste: o envio só é permitido para o e-mail da própria conta Resend.';
   if(/invalid_api_key|api key is invalid/i.test(raw))return 'A chave do Resend configurada na Vercel não é válida.';
   if(/email_backend_not_configured/i.test(raw))return 'O serviço de e-mail ainda não está configurado na Vercel.';
   if(/pdf_too_large/i.test(raw))return 'O PDF ficou grande demais para o envio automático.';
@@ -206,7 +206,7 @@ window.tbmConfigureEmailBackend=configureBackend;
 window.tbmEmailBackendEndpoint=()=>endpoint();
 window.tbmAutoEmailEnabled=()=>enabled();
 window.tbmEmailReportStatuses=()=>readStatuses();
-window.__tbmEmailReportVersion='2026.09.04.5-vercel-pdf-safe';
+window.__tbmEmailReportVersion='2026.09.04.6-gmail-test';
 
 /* Premium UX carrega depois deste módulo. Reaplica a proteção móvel por fora dele. */
 [900,1800,3200].forEach(t=>setTimeout(()=>{try{window.tbmInstallMobilePdfPerformance?.()}catch(_){ }},t));
