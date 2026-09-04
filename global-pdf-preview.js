@@ -1,12 +1,12 @@
 (()=>{
 'use strict';
 
-const VERSION='2026.09.04.global-pdf-preview.1';
+const VERSION='2026.09.04.global-pdf-preview.2-no-observer-loop';
 const PREVIEW_IDS=['tbmGlobalPreview','ptView','trainingPreview','tbmReportPreview'];
 const DOWNLOAD_IDS=['tbmGlobalDownload','ptPdf','trainingDownload','reportPdf'];
 const SHARE_IDS=['pdf','ptShare','trainingShare','reportShare'];
 let busy=false;
-let observer=null;
+let actionRefreshTimer=null;
 
 const $=id=>document.getElementById(id);
 function visible(el){
@@ -14,6 +14,10 @@ function visible(el){
   const cs=getComputedStyle(el);
   return !el.classList.contains('hidden')&&cs.display!=='none'&&cs.visibility!=='hidden';
 }
+function setText(el,text){if(el&&el.textContent!==text)el.textContent=text}
+function setAction(el,action){if(el&&el.dataset.tbmGlobalPdfAction!==action)el.dataset.tbmGlobalPdfAction=action}
+function setClass(el,className){if(el&&el.className!==className)el.className=className}
+
 function activeContext(){
   const pt=$('ptAlturaOverlay');
   if(visible(pt)&&typeof window.makePTAlturaPdf==='function'){
@@ -33,6 +37,7 @@ function activeContext(){
   }
   return null;
 }
+
 function toast(text,type='ok'){
   if(typeof window.tbmToast==='function'){window.tbmToast(text,type);return}
   let el=$('tbm-global-preview-toast');
@@ -41,7 +46,10 @@ function toast(text,type='ok'){
     Object.assign(el.style,{position:'fixed',left:'50%',bottom:'22px',transform:'translateX(-50%)',zIndex:'100000',maxWidth:'calc(100vw - 28px)',padding:'12px 16px',borderRadius:'12px',font:'700 13px Arial,sans-serif',boxShadow:'0 10px 30px #0004',textAlign:'center'});
     document.body.appendChild(el);
   }
-  el.style.background=type==='err'?'#991b1b':type==='warn'?'#92400e':'#166534';el.style.color='#fff';el.textContent=text;el.style.opacity='1';
+  el.style.background=type==='err'?'#991b1b':type==='warn'?'#92400e':'#166534';
+  el.style.color='#fff';
+  if(el.textContent!==text)el.textContent=text;
+  el.style.opacity='1';
   clearTimeout(el.__timer);el.__timer=setTimeout(()=>{el.style.opacity='0'},2800);
 }
 function setBusy(on){
@@ -69,6 +77,7 @@ function reservePreview(){
   }catch(_){return null}
 }
 function closePreview(w){try{if(w&&!w.closed)w.close()}catch(_){ }}
+
 async function captureActiveDocDefinition(){
   const ctx=activeContext();
   if(!ctx)throw new Error('Nenhum módulo de inspeção ativo foi identificado.');
@@ -105,8 +114,12 @@ function pdfBlob(captured){
     try{
       const pdf=captured.createPdf.call(captured.pdfMake,captured.docDefinition);
       if(!pdf||typeof pdf.getBlob!=='function')return reject(new Error('Não foi possível gerar o arquivo para visualização.'));
-      const timer=setTimeout(()=>reject(new Error('Tempo esgotado ao gerar o preview.')),30000);
-      pdf.getBlob(blob=>{clearTimeout(timer);if(blob)resolve(blob);else reject(new Error('PDF vazio ou inválido.'))});
+      let settled=false;
+      const timer=setTimeout(()=>{if(!settled){settled=true;reject(new Error('Tempo esgotado ao gerar o preview.'))}},30000);
+      pdf.getBlob(blob=>{
+        if(settled)return;settled=true;clearTimeout(timer);
+        if(blob)resolve(blob);else reject(new Error('PDF vazio ou inválido.'));
+      });
     }catch(err){reject(err)}
   });
 }
@@ -141,6 +154,7 @@ async function runAction(action){
   }catch(err){console.error('[GLOBAL PDF ACTION]',err);toast('❌ '+(err?.message||'Falha ao gerar o PDF.'),'err')}
   finally{setBusy(false)}
 }
+
 function button(id,label,cls,action){
   const b=document.createElement('button');b.type='button';b.id=id;b.className='btn '+cls;b.textContent=label;b.dataset.tbmGlobalPdfAction=action;return b;
 }
@@ -148,34 +162,47 @@ function normalizeGenericActions(){
   const save=$('save'),legacy=$('pdf');if(!save||!legacy)return;
   const card=save.closest('.card');if(!card)return;
   let row=card.querySelector(':scope > .actions');
-  if(!row){row=document.createElement('div');row.className='actions';card.insertBefore(row,card.firstChild);row.appendChild(save);row.appendChild(legacy)}
+  if(!row){
+    row=document.createElement('div');row.className='actions';card.insertBefore(row,card.firstChild);row.appendChild(save);row.appendChild(legacy);
+  }
   save.classList.remove('full');legacy.classList.remove('full');
-  save.textContent='💾 Salvar';
-  legacy.textContent='📲 Compartilhar';legacy.className='btn blue';legacy.dataset.tbmGlobalPdfAction='share';
-  let preview=$('tbmGlobalPreview');if(!preview){preview=button('tbmGlobalPreview','👁️ Visualizar Inspeção','secondary','preview');row.insertBefore(preview,legacy)}
-  let download=$('tbmGlobalDownload');if(!download){download=button('tbmGlobalDownload','📥 Baixar PDF','primary','download');row.insertBefore(download,legacy)}
+  setText(save,'💾 Salvar');
+  setText(legacy,'📲 Compartilhar');setClass(legacy,'btn blue');setAction(legacy,'share');
+  let preview=$('tbmGlobalPreview');
+  if(!preview){preview=button('tbmGlobalPreview','👁️ Visualizar Inspeção','secondary','preview');row.insertBefore(preview,legacy)}
+  let download=$('tbmGlobalDownload');
+  if(!download){download=button('tbmGlobalDownload','📥 Baixar PDF','primary','download');row.insertBefore(download,legacy)}
 }
 function normalizePTActions(){
   const row=document.querySelector('#ptAlturaBody .pt-actions');if(!row)return;
   const save=$('ptSave'),download=$('ptPdf'),share=$('ptShare');
-  if(save)save.textContent='💾 Salvar';
-  if(download){download.textContent='📥 Baixar PDF';download.dataset.tbmGlobalPdfAction='download'}
-  if(share){share.textContent='📲 Compartilhar';share.dataset.tbmGlobalPdfAction='share'}
-  let preview=$('ptView');if(!preview){preview=button('ptView','👁️ Visualizar Inspeção','secondary','preview');row.insertBefore(preview,download||share||null)}else{preview.textContent='👁️ Visualizar Inspeção';preview.dataset.tbmGlobalPdfAction='preview'}
+  setText(save,'💾 Salvar');
+  if(download){setText(download,'📥 Baixar PDF');setAction(download,'download')}
+  if(share){setText(share,'📲 Compartilhar');setAction(share,'share')}
+  let preview=$('ptView');
+  if(!preview){preview=button('ptView','👁️ Visualizar Inspeção','secondary','preview');row.insertBefore(preview,download||share||null)}
+  else{setText(preview,'👁️ Visualizar Inspeção');setAction(preview,'preview')}
 }
 function normalizeTrainingActions(){
   const row=$('trainingAttendanceActions')?.querySelector('.actions');if(!row)return;
   const map=[['trainingSave','💾 Salvar',null],['trainingPreview','👁️ Visualizar Inspeção','preview'],['trainingDownload','📥 Baixar PDF','download'],['trainingShare','📲 Compartilhar','share']];
-  map.forEach(([id,label,action])=>{const b=$(id);if(!b)return;b.textContent=label;if(action)b.dataset.tbmGlobalPdfAction=action});
+  map.forEach(([id,label,action])=>{const b=$(id);if(!b)return;setText(b,label);if(action)setAction(b,action)});
 }
 function normalizeReportActions(){
   const row=document.querySelector('#report .actions');if(!row)return;
   const download=$('reportPdf'),share=$('reportShare');
-  if(download){download.textContent='📥 Baixar PDF';download.dataset.tbmGlobalPdfAction='download'}
-  if(share){share.textContent='📲 Compartilhar';share.dataset.tbmGlobalPdfAction='share'}
-  let preview=$('tbmReportPreview');if(!preview){preview=button('tbmReportPreview','👁️ Visualizar Inspeção','secondary','preview');row.insertBefore(preview,download||share||null)}
+  if(download){setText(download,'📥 Baixar PDF');setAction(download,'download')}
+  if(share){setText(share,'📲 Compartilhar');setAction(share,'share')}
+  let preview=$('tbmReportPreview');
+  if(!preview){preview=button('tbmReportPreview','👁️ Visualizar Inspeção','secondary','preview');row.insertBefore(preview,download||share||null)}
 }
-function ensureActions(){normalizeGenericActions();normalizePTActions();normalizeTrainingActions();normalizeReportActions()}
+function ensureActions(){
+  try{normalizeGenericActions();normalizePTActions();normalizeTrainingActions();normalizeReportActions()}catch(err){console.warn('[GLOBAL PDF UI]',err)}
+}
+function queueEnsureActions(delay=0){
+  clearTimeout(actionRefreshTimer);
+  actionRefreshTimer=setTimeout(ensureActions,delay);
+}
 function captureClick(e){
   const b=e.target?.closest?.('[data-tbm-global-pdf-action]');if(!b)return;
   e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();
@@ -185,8 +212,11 @@ function captureClick(e){
 function install(){
   ensureActions();
   document.addEventListener('click',captureClick,true);
-  observer=new MutationObserver(()=>ensureActions());observer.observe(document.body,{childList:true,subtree:true});
-  setTimeout(ensureActions,300);setTimeout(ensureActions,1200);
+  document.addEventListener('click',()=>queueEnsureActions(0),false);
+  window.addEventListener('sst-modules-loaded',()=>queueEnsureActions(0));
+  window.addEventListener('tbm-nr24-ready',()=>queueEnsureActions(0));
+  [250,700,1400,2500].forEach(ms=>setTimeout(ensureActions,ms));
+  window.tbmRefreshGlobalPdfActions=ensureActions;
   window.tbmPreviewActiveInspection=previewActive;
   window.__tbmGlobalPdfPreviewVersion=VERSION;
 }
