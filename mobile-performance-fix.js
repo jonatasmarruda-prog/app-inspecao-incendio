@@ -1,9 +1,10 @@
 (()=>{
 'use strict';
 
-const FLAG='__tbmMobilePdfPerformanceV2';
+const FLAG='__tbmMobilePdfPerformanceV3';
 const META_KEY='tbm-sst-mobile-dashboard-v2';
-let seeding=false;
+let migrationRunning=false;
+let migrationScheduled=false;
 
 function isMobile(){
   try{
@@ -69,55 +70,112 @@ function deleteMeta(id){
   writeMeta(readMeta().filter(x=>String(x.id)!==String(id)));
 }
 
-function seedMetaInBackground(){
-  if(seeding||readMeta().length)return;
-  seeding=true;
-  const run=()=>{
+function idle(fn,delay=0){
+  setTimeout(()=>{
+    if(typeof requestIdleCallback==='function')requestIdleCallback(fn,{timeout:2500});
+    else fn();
+  },delay);
+}
+
+function openDb(){
+  return new Promise((resolve,reject)=>{
     try{
-      const req=indexedDB.open('SSTInspecoes',2);
-      req.onerror=()=>{seeding=false};
-      req.onsuccess=()=>{
-        const db=req.result;let list=[];
-        let tx;
-        try{tx=db.transaction('inspections','readonly')}catch(_){seeding=false;db.close();return}
-        const cur=tx.objectStore('inspections').openCursor();
-        cur.onsuccess=()=>{
-          const c=cur.result;
-          if(!c)return;
-          const slim=slimRecord(c.value);if(slim)list.push(slim);
-          c.continue();
-        };
-        tx.oncomplete=()=>{writeMeta(list);seeding=false;db.close();setTimeout(()=>window.tbmRenderDashboard?.(),50)};
-        tx.onerror=()=>{seeding=false;db.close()};
-      };
-    }catch(_){seeding=false}
-  };
-  if(typeof requestIdleCallback==='function')requestIdleCallback(run,{timeout:2500});else setTimeout(run,1200);
+      const req=indexedDB.open('SSTInspecoes');
+      req.onsuccess=()=>resolve(req.result);
+      req.onerror=()=>reject(req.error||new Error('Falha ao abrir IndexedDB'));
+    }catch(e){reject(e)}
+  });
+}
+function getKeys(db){
+  return new Promise((resolve,reject)=>{
+    try{
+      const tx=db.transaction('inspections','readonly');
+      const req=tx.objectStore('inspections').getAllKeys();
+      req.onsuccess=()=>resolve(Array.isArray(req.result)?req.result:[]);
+      req.onerror=()=>reject(req.error||new Error('Falha ao listar chaves'));
+    }catch(e){reject(e)}
+  });
+}
+function getOne(db,key){
+  return new Promise((resolve,reject)=>{
+    try{
+      const tx=db.transaction('inspections','readonly');
+      const req=tx.objectStore('inspections').get(key);
+      req.onsuccess=()=>resolve(req.result||null);
+      req.onerror=()=>reject(req.error||new Error('Falha ao ler registro'));
+    }catch(e){reject(e)}
+  });
+}
+
+async function migrateMetaIncrementally(){
+  if(!isMobile()||migrationRunning)return;
+  migrationScheduled=false;
+  migrationRunning=true;
+  let db=null;
+  try{
+    db=await openDb();
+    const keys=await getKeys(db);
+    const known=new Set(readMeta().map(x=>String(x.id)));
+    const pending=keys.filter(k=>!known.has(String(k)));
+    let index=0;
+    const step=async()=>{
+      if(index>=pending.length){
+        migrationRunning=false;
+        try{db?.close()}catch(_){ }
+        window.dispatchEvent(new CustomEvent('tbm-history-index-complete'));
+        return;
+      }
+      const key=pending[index++];
+      try{
+        const record=await getOne(db,key);
+        if(record)upsertMeta(record);
+        window.dispatchEvent(new CustomEvent('tbm-history-index-updated',{detail:{id:String(key)}}));
+      }catch(e){console.warn('[HISTÓRICO] migração de um registro',e)}
+      // Um registro por vez, com grande intervalo: nunca varrer todos no clique.
+      idle(step,1600);
+    };
+    idle(step,1200);
+  }catch(e){
+    migrationRunning=false;
+    try{db?.close()}catch(_){ }
+    console.warn('[HISTÓRICO] migração incremental',e);
+  }
+}
+function scheduleMigration(delay=7000){
+  if(migrationRunning||migrationScheduled)return;
+  migrationScheduled=true;
+  idle(()=>migrateMetaIncrementally(),delay);
 }
 
 function installDashboardIndex(){
   if(!isMobile())return;
-  window.tbmDashboardRecords=async function(){
-    const list=readMeta();
-    if(!list.length)seedMetaInBackground();
-    return list;
-  };
+  // O dashboard e o histórico recebem SOMENTE metadados leves.
+  // Não existe mais fallback para idbAll/openCursor de registros completos.
+  window.tbmDashboardRecords=async()=>readMeta();
 
-  if(typeof window.idbPut==='function'&&!window.idbPut.__tbmMobileMeta){
+  if(typeof window.idbPut==='function'&&!window.idbPut.__tbmMobileMetaV3){
     const old=window.idbPut;
-    const wrapped=async function(x,...args){const r=await old.call(this,x,...args);upsertMeta(x);return r};
-    wrapped.__tbmMobileMeta=true;wrapped.__tbmOriginal=old;window.idbPut=wrapped;
+    const wrapped=async function(x,...args){
+      const r=await old.call(this,x,...args);
+      upsertMeta(x);
+      return r;
+    };
+    wrapped.__tbmMobileMetaV3=true;wrapped.__tbmOriginal=old;window.idbPut=wrapped;
   }
-  if(typeof window.idbDelete==='function'&&!window.idbDelete.__tbmMobileMeta){
+  if(typeof window.idbDelete==='function'&&!window.idbDelete.__tbmMobileMetaV3){
     const old=window.idbDelete;
-    const wrapped=async function(id,...args){const r=await old.call(this,id,...args);deleteMeta(id);return r};
-    wrapped.__tbmMobileMeta=true;wrapped.__tbmOriginal=old;window.idbDelete=wrapped;
+    const wrapped=async function(id,...args){
+      const r=await old.call(this,id,...args);
+      deleteMeta(id);
+      return r;
+    };
+    wrapped.__tbmMobileMetaV3=true;wrapped.__tbmOriginal=old;window.idbDelete=wrapped;
   }
   try{
     const st=(typeof state!=='undefined'&&state)?state:(window.state||null);
     if(st?.id)upsertMeta(st);
   }catch(_){ }
-  seedMetaInBackground();
+  scheduleMigration(9000);
 }
 
 function installPdf(){
@@ -130,16 +188,10 @@ function installPdf(){
     let nextAction=action;
     if(nextAction===true)nextAction='share';
     if(nextAction===false)nextAction='download';
-
-    // Se o celular não compartilha arquivos PDF, baixa diretamente.
-    // Evita gerar Blob e depois gerar o mesmo PDF novamente no fallback.
     if(nextAction==='share'&&!canSharePdfFiles())nextAction='download';
 
-    // No celular, não clonar novamente o state inteiro (incluindo Base64 das fotos)
-    // somente para montar o resumo antes do PDF.
     const previousBypass=window.__tbmPdfSummaryBypass;
     window.__tbmPdfSummaryBypass=true;
-
     try{
       const result=current.call(this,nextAction,...rest);
       if(result&&typeof result.then==='function'){
@@ -173,5 +225,6 @@ if(!install()){
 }
 
 window.tbmInstallMobilePdfPerformance=install;
-window.tbmRefreshMobileDashboardIndex=seedMetaInBackground;
+window.tbmRefreshMobileDashboardIndex=()=>scheduleMigration(200);
+window.tbmReadLightHistoryIndex=readMeta;
 })();
