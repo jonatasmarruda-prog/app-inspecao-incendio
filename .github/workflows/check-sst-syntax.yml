@@ -17,14 +17,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Corrigir duplicidade residual quando solicitado
+      - name: Corrigir duplicidades residuais quando solicitado
         if: github.event_name == 'push' && contains(github.event.head_commit.message, 'Executa correcao residual da auditoria')
         run: |
           python3 - <<'PY'
           from pathlib import Path
           p=Path('index.html')
           s=p.read_text(encoding='utf-8')
+          s=s.replace('<script src="./extintor-enhancements.js?v=20260903-01" defer></script>','')
           s=s.replace('<script src="./delete-draft.js?v=20260903-01"></script>','')
+          assert s.count('extintor-enhancements.js')==1, 'extintor-enhancements continua duplicado'
           assert s.count('delete-draft.js')==1, 'delete-draft continua duplicado'
           p.write_text(s,encoding='utf-8')
           Path('AUDIT_FIX_TRIGGER.txt').unlink(missing_ok=True)
@@ -53,5 +55,5 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
           git diff --cached --quiet && exit 0
-          git commit -m "Remove carga duplicada residual do delete-draft"
+          git commit -m "Remove cargas duplicadas residuais do index"
           git push
