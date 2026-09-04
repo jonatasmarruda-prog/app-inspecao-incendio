@@ -1,8 +1,115 @@
 /* Integração SST — carregamento robusto, sem travar a tela inicial */
 (()=>{
 'use strict';
-const VERSION='20260903-22';
+const VERSION='20260904-23';
 window.SSTAppModules=window.SSTAppModules||{};
+
+/*
+ * PADRÃO PREMIUM GLOBAL DE STATUS NO PDFMAKE
+ * Esta camada é instalada ANTES das demais camadas de PDF.
+ * Como os wrappers posteriores chamam esta função por último antes do pdfMake original,
+ * ela é a barreira final de contraste para TODOS os módulos do sistema.
+ */
+function installPremiumPdfStatusBase(){
+  const pm=window.pdfMake;
+  if(!pm||typeof pm.createPdf!=='function')return false;
+  if(pm.createPdf.__tbmPremiumStatusBase)return true;
+
+  const original=pm.createPdf.bind(pm);
+  const norm=v=>String(v??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toUpperCase().replace(/\s+/g,' ');
+  const canonical=v=>{
+    const s=norm(v);
+    if(s==='CONFORME')return 'CONFORME';
+    if(s==='NAO CONFORME')return 'NÃO CONFORME';
+    if(s==='N/A'||s==='NA'||s==='N.A.'||s==='N.A')return 'N/A';
+    if(s==='PENDENTE')return 'PENDENTE';
+    return '';
+  };
+  const textOf=cell=>{
+    if(cell==null)return'';
+    if(typeof cell==='string'||typeof cell==='number'||typeof cell==='boolean')return String(cell);
+    if(Array.isArray(cell))return cell.map(textOf).join(' ').trim();
+    if(typeof cell==='object'){
+      if(cell.text!=null)return textOf(cell.text);
+      if(Array.isArray(cell.stack))return cell.stack.map(textOf).join(' ').trim();
+    }
+    return'';
+  };
+  const evidenceOf=cell=>{
+    let found='';
+    const seen=new WeakSet();
+    const walk=node=>{
+      if(found||!node||typeof node!=='object'||seen.has(node))return;
+      seen.add(node);
+      if(typeof node.image==='string'&&node.image){found=node.image;return}
+      if(Array.isArray(node)){for(const x of node){walk(x);if(found)break}return}
+      for(const key of Object.keys(node)){
+        if(key==='svg'||key==='canvas'||key==='qr'||typeof node[key]==='function')continue;
+        walk(node[key]);if(found)break;
+      }
+    };
+    walk(cell);return found;
+  };
+  const premiumStatusCell=(status,fotoEvidencia='')=>({
+    stack:[
+      {text:status,bold:true,alignment:'center',color:'#ffffff'},
+      fotoEvidencia?{image:fotoEvidencia,fit:[80,80],alignment:'center',margin:[0,5,0,0]}:null
+    ].filter(Boolean),
+    fillColor:status==='CONFORME'?'#198754':(status==='NÃO CONFORME'?'#dc3545':'#6c757d'),
+    margin:[0,5,0,5]
+  });
+
+  function enforce(docDefinition){
+    if(!docDefinition||typeof docDefinition!=='object')return docDefinition;
+    const seen=new WeakSet();
+    const walk=node=>{
+      if(!node||typeof node!=='object'||seen.has(node))return;
+      seen.add(node);
+      if(Array.isArray(node)){node.forEach(walk);return}
+      const body=node.table?.body;
+      if(Array.isArray(body)){
+        body.forEach(row=>{
+          if(!Array.isArray(row))return;
+          for(let i=0;i<row.length;i++){
+            const status=canonical(textOf(row[i]));
+            if(status){
+              row[i]=premiumStatusCell(status,evidenceOf(row[i]));
+            }else{
+              walk(row[i]);
+            }
+          }
+        });
+      }
+      for(const key of Object.keys(node)){
+        if(key==='table'||key==='image'||key==='svg'||key==='canvas'||key==='qr'||typeof node[key]==='function')continue;
+        walk(node[key]);
+      }
+    };
+    walk(docDefinition);
+    return docDefinition;
+  }
+
+  const wrapped=function(docDefinition,...args){
+    try{enforce(docDefinition)}catch(err){console.warn('[PDF STATUS PREMIUM GLOBAL]',err)}
+    return original(docDefinition,...args);
+  };
+  wrapped.__tbmPremiumStatusBase=true;
+  wrapped.__tbmOriginal=original;
+  pm.createPdf=wrapped;
+  window.tbmPremiumStatusCell=premiumStatusCell;
+  window.tbmEnforcePremiumPdfStatus=enforce;
+  window.__tbmPremiumPdfStatusVersion='2026.09.04.1-global-final-contrast';
+  return true;
+}
+
+if(!installPremiumPdfStatusBase()){
+  let tries=0;
+  const timer=setInterval(()=>{
+    tries++;
+    if(installPremiumPdfStatusBase()||tries>=20)clearInterval(timer);
+  },100);
+}
+
 function load(src){return new Promise((resolve,reject)=>{if(src==='sst-modulos.js'&&typeof window.openSSTModule==='function')return resolve(true);const s=document.createElement('script');s.src='./'+src+'?v='+VERSION+'&t='+Date.now();s.async=false;s.onload=()=>resolve(true);s.onerror=()=>reject(new Error(src));document.head.appendChild(s)})}
 function fallback(type){
  const names={seg:['🦺','Inspeção de Segurança','Condições e irregularidades'],machine:['⚙️','Máquinas e Equipamentos','Checklist NR-12'],epi:['🧤','Inspeção de EPI','Controle e conformidade'],accident:['⚠️','Investigação de Acidente','Registro e causas'],report:['📋','Relatório de Inspeção','Irregularidade e melhoria']};
