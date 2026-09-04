@@ -6,8 +6,9 @@ on:
       - 'sst-modulos.js'
       - 'integracao-modulos.js'
       - 'sst-repair-loader.js'
+      - 'PDF_FIRE_CONDITIONAL_TRIGGER.txt'
 permissions:
-  contents: read
+  contents: write
 jobs:
   check:
     runs-on: ubuntu-latest
@@ -19,3 +20,41 @@ jobs:
           node --check integracao-modulos.js
           node --check sst-repair-loader.js
           echo "SINTAXE_OK"
+  fire-pdf-conditional:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Aplicar renderização condicional no PDF de incêndio
+        shell: python
+        run: |
+          from pathlib import Path
+          p=Path('pdf-layout-fix.js')
+          s=p.read_text(encoding='utf-8')
+          old1="""    const respostasExtintor=itensExtintor.map(item=>item.status);\n    const respostasHidrante=itensHidrante.map(item=>item.status);\n    const equipment=Array.isArray(st.equipment)?st.equipment:[];\n    const checklistStatuses=st.type==='fire'?[...respostasExtintor,...respostasHidrante]:checks.map((q,i)=>st.checks?.[i]||'PENDENTE');"""
+          new1="""    const respostasExtintor=itensExtintor.map(item=>item.status);\n    const respostasHidrante=itensHidrante.map(item=>item.status);\n    const equipment=Array.isArray(st.equipment)?st.equipment:[];\n    const equipmentTypeText=e=>String(e?.tipoEquipamento||e?.equipamento||e?.tipo||'').trim().toLowerCase();\n    const temExtintor=equipment.some(e=>e?.kind==='ext'||equipmentTypeText(e).includes('extintor'));\n    const temHidrante=equipment.some(e=>e?.kind==='hid'||equipmentTypeText(e).includes('hidrante'));\n    const checklistStatuses=st.type==='fire'?[...(temExtintor?respostasExtintor:[]),...(temHidrante?respostasHidrante:[])]:checks.map((q,i)=>st.checks?.[i]||'PENDENTE');"""
+          old2="""    if(st.type==='fire'){\n      addChecklistTable(content,'Checklist de Inspeção - Extintores',perguntasExtintor,itensExtintor);\n      addChecklistTable(content,'Checklist de Inspeção - Hidrantes',perguntasHidrante,itensHidrante);\n    }else if(checks.length){"""
+          new2="""    if(st.type==='fire'){\n      if(temExtintor)addChecklistTable(content,'Checklist de Inspeção - Extintores',perguntasExtintor,itensExtintor);\n      if(temHidrante)addChecklistTable(content,'Checklist de Inspeção - Hidrantes',perguntasHidrante,itensHidrante);\n    }else if(checks.length){"""
+          if old1 not in s: raise SystemExit('Trecho de tipos não encontrado')
+          if old2 not in s: raise SystemExit('Trecho de renderização não encontrado')
+          s=s.replace(old1,new1,1).replace(old2,new2,1)
+          p.write_text(s,encoding='utf-8')
+      - name: Validar sintaxe e regra Premium
+        run: |
+          node --check pdf-layout-fix.js
+          grep -q "const temExtintor" pdf-layout-fix.js
+          grep -q "const temHidrante" pdf-layout-fix.js
+          grep -q "if(temExtintor)addChecklistTable" pdf-layout-fix.js
+          grep -q "if(temHidrante)addChecklistTable" pdf-layout-fix.js
+          grep -q "color: '#ffffff'" pdf-layout-fix.js
+          grep -q "'#198754'" pdf-layout-fix.js
+          grep -q "'#dc3545'" pdf-layout-fix.js
+          grep -q "'#6c757d'" pdf-layout-fix.js
+      - name: Commit da correção condicional
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add pdf-layout-fix.js
+          git commit -m "Renderiza checklists de incêndio conforme equipamentos inspecionados"
+          git push origin main
