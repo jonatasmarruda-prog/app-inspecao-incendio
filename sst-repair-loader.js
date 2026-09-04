@@ -35,6 +35,7 @@ function loadPremiumUX(){const old=document.getElementById('tbm-premium-ux');if(
 function loadMobilePerformanceFix(){const old=document.getElementById('tbm-mobile-performance-fix');if(old)old.remove();const s=document.createElement('script');s.id='tbm-mobile-performance-fix';s.src='./mobile-performance-fix.js?v=20260903-04&cb='+Date.now();s.async=false;document.body.appendChild(s);return new Promise(resolve=>{s.onload=resolve;s.onerror=resolve})}
 function loadHistoryLightFix(){const old=document.getElementById('tbm-history-light-fix');if(old)old.remove();const s=document.createElement('script');s.id='tbm-history-light-fix';s.src='./history-light-fix.js?v=20260904-04&cb='+Date.now();s.async=false;document.body.appendChild(s);return new Promise(resolve=>{s.onload=resolve;s.onerror=resolve})}
 function loadMobileInteractionFix(){const old=document.getElementById('tbm-mobile-interaction-fix');if(old)old.remove();const s=document.createElement('script');s.id='tbm-mobile-interaction-fix';s.src='./mobile-interaction-fix.js?v=20260904-02&cb='+Date.now();s.async=false;document.body.appendChild(s);return new Promise(resolve=>{s.onload=resolve;s.onerror=resolve})}
+function loadNR24Module(){const old=document.getElementById('tbm-nr24-module');if(old)old.remove();const s=document.createElement('script');s.id='tbm-nr24-module';s.src='./nr24-module.js?v=20260904-01&cb='+Date.now();s.async=false;document.body.appendChild(s);return new Promise(resolve=>{s.onload=resolve;s.onerror=resolve})}
 async function loadRepairs(){
   await loadFireChecklistSplit();
   await loadChecklistConditional();
@@ -59,6 +60,8 @@ async function loadRepairs(){
   try{window.tbmRestoreMobileMutationObserver?.()}catch(_){ }
   // Premium UX envolve makePdf; reaplica a camada móvel por fora para o botão PDF responder direto no celular.
   try{window.tbmInstallMobilePdfPerformance?.()}catch(_){ }
+  // NR 24 entra por último para interceptar somente o tipo nr24 sem alterar PDFs/formulários existentes.
+  await loadNR24Module();
   setTimeout(loadCloudCrossDevice,0);
 }
 if(document.readyState==='loading')window.addEventListener('DOMContentLoaded',loadRepairs,{once:true});else loadRepairs();
