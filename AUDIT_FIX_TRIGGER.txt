@@ -1,1 +1,1 @@
-Remover carga duplicada residual do delete-draft.
+Remover cargas duplicadas residuais do extintor e delete-draft apos neutralizar workflows legados.
