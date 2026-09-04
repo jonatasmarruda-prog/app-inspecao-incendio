@@ -1,7 +1,7 @@
 'use strict';
 
 const DEFAULT_ALLOWED_ORIGINS=['https://jonatasmarruda-prog.github.io','https://app-inspecao-incendio.vercel.app'];
-const REPORT_EMAIL_TO=process.env.REPORT_EMAIL_TO||'Jonatasmarruda@gmail.com';
+const REPORT_EMAIL_TO=String(process.env.REPORT_EMAIL_TO||'jonatasmarruda@gmail.com').trim().toLowerCase();
 const REPORT_EMAIL_FROM=process.env.REPORT_EMAIL_FROM||'onboarding@resend.dev';
 const MAX_BASE64_CHARS=4_100_000;
 
