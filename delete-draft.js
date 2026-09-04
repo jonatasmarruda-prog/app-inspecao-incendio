@@ -1,5 +1,8 @@
 (()=>{
 'use strict';
+const MODULE_FLAG='__tbmDeleteDraftV2';
+if(window[MODULE_FLAG])return;
+window[MODULE_FLAG]=true;
 
 function currentInspectionId(){
   try { if (typeof state !== 'undefined' && state && state.id) { return String(state.id).trim(); } } catch (_) {}

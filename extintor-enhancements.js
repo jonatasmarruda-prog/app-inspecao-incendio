@@ -1,5 +1,8 @@
 (()=>{
 'use strict';
+const MODULE_FLAG='__tbmExtintorEnhancementsV4';
+if(window[MODULE_FLAG])return;
+window[MODULE_FLAG]=true;
 
 const CAPACIDADES=['4 kg','6 kg','8 kg','10 L','75 L'];
 const STYLE_ID='tbm-extintor-enhancements';

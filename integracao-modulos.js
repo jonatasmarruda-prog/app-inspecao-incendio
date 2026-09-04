@@ -1,25 +1,55 @@
 /* Integração SST — carregamento robusto, sem travar a tela inicial */
 (()=>{
 'use strict';
-const VERSION='20260904-26-external-logo';
-// LOGO TBM OFICIAL: carregada da URL externa e convertida para Base64 antes de qualquer PDF.
+const VERSION='20260904-27-audit-stable';
+// LOGO TBM OFICIAL: URL externa com cache Base64 e fallback local para geração offline segura.
 const LOGO_TBM_URL='https://i.postimg.cc/rFWSj5mw/10.png';
+const LOGO_TBM_LOCAL='./Têxtil Bezerra de Menezes 2.jpeg';
+const LOGO_TBM_CACHE_KEY='tbm-logo-oficial-base64-v1';
+const LOGO_TBM_TRANSPARENT='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9ZRAAAAABJRU5ErkJggg==';
 let logoTBM='';
 let logoTBMPromise=null;
+function logoValida(value){return /^data:image\//i.test(String(value||''))}
+function lerLogoCache(){
+  try{const value=localStorage.getItem(LOGO_TBM_CACHE_KEY)||'';return logoValida(value)?value:''}catch(_){return''}
+}
+function salvarLogoCache(value){
+  if(!logoValida(value))return;
+  try{localStorage.setItem(LOGO_TBM_CACHE_KEY,value)}catch(_){ }
+}
+function blobParaBase64(blob){
+  return new Promise((resolve,reject)=>{
+    const reader=new FileReader();
+    reader.onload=()=>resolve(String(reader.result||''));
+    reader.onerror=()=>reject(reader.error||new Error('Falha ao converter a logo TBM para Base64'));
+    reader.readAsDataURL(blob);
+  });
+}
+async function baixarLogoBase64(url,options={}){
+  const resposta=await fetch(url,options);
+  if(!resposta.ok)throw new Error(`Falha ao carregar a logo TBM (${resposta.status})`);
+  const base64=await blobParaBase64(await resposta.blob());
+  if(!logoValida(base64))throw new Error('A logo TBM não retornou uma imagem válida.');
+  return base64;
+}
 async function carregarLogo(url=LOGO_TBM_URL){
   if(url===LOGO_TBM_URL&&logoTBM)return logoTBM;
   if(url===LOGO_TBM_URL&&logoTBMPromise)return logoTBMPromise;
   const tarefa=(async()=>{
-    const resposta=await fetch(url,{cache:'force-cache',mode:'cors'});
-    if(!resposta.ok)throw new Error(`Falha ao carregar a logo TBM (${resposta.status})`);
-    const blob=await resposta.blob();
-    const base64=await new Promise((resolve,reject)=>{
-      const reader=new FileReader();
-      reader.onload=()=>resolve(String(reader.result||''));
-      reader.onerror=()=>reject(reader.error||new Error('Falha ao converter a logo TBM para Base64'));
-      reader.readAsDataURL(blob);
-    });
-    if(!/^data:image\//i.test(base64))throw new Error('A logo TBM não retornou uma imagem válida.');
+    let base64='';
+    try{
+      base64=await baixarLogoBase64(url,{cache:'force-cache',mode:url===LOGO_TBM_URL?'cors':'same-origin'});
+      if(url===LOGO_TBM_URL)salvarLogoCache(base64);
+    }catch(erroExterno){
+      if(url!==LOGO_TBM_URL)throw erroExterno;
+      console.warn('[LOGO TBM] URL externa indisponível; usando fallback seguro.',erroExterno);
+      base64=lerLogoCache();
+      if(!base64){
+        try{base64=await baixarLogoBase64(LOGO_TBM_LOCAL,{cache:'force-cache',mode:'same-origin'})}
+        catch(erroLocal){console.warn('[LOGO TBM] fallback local indisponível; mantendo PDF operacional.',erroLocal);base64=LOGO_TBM_TRANSPARENT}
+      }
+    }
+    if(!logoValida(base64))base64=LOGO_TBM_TRANSPARENT;
     if(url===LOGO_TBM_URL){
       logoTBM=base64;
       window.logoTBM=base64;
@@ -28,16 +58,22 @@ async function carregarLogo(url=LOGO_TBM_URL){
     return base64;
   })();
   if(url===LOGO_TBM_URL){
-    logoTBMPromise=tarefa.catch(err=>{logoTBMPromise=null;throw err});
+    logoTBMPromise=tarefa.catch(err=>{
+      console.warn('[LOGO TBM] recuperação final aplicada.',err);
+      logoTBM=lerLogoCache()||LOGO_TBM_TRANSPARENT;
+      window.logoTBM=logoTBM;window.tbmLogoTBM=logoTBM;
+      return logoTBM;
+    });
     return logoTBMPromise;
   }
   return tarefa;
 }
 window.LOGO_TBM_URL=LOGO_TBM_URL;
+window.LOGO_TBM_LOCAL=LOGO_TBM_LOCAL;
 window.carregarLogo=carregarLogo;
 window.logoTBM='';
 window.tbmLogoTBM='';
-// Pré-carrega em segundo plano; as ações de PDF também aguardam obrigatoriamente esta Promise.
+// Pré-carregamento não bloqueante; visualizar/baixar também aguardam esta mesma Promise.
 carregarLogo(LOGO_TBM_URL).catch(err=>console.warn('[LOGO TBM]',err));
 window.SSTAppModules=window.SSTAppModules||{};
 
