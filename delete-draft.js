@@ -18,42 +18,20 @@ function currentInspectionId(){
 }
 
 async function removeCurrentFromIndexedDB(id){
-  if(!id||!indexedDB.databases)return;
-  try{
-    const dbs=await indexedDB.databases();
-    for(const meta of dbs){
-      if(!meta.name)continue;
-      await new Promise(resolve=>{
-        const req=indexedDB.open(meta.name);
-        req.onerror=()=>resolve();
-        req.onsuccess=()=>{
-          const db=req.result;
-          const stores=[...db.objectStoreNames];
-          if(!stores.length){db.close();resolve();return;}
-          let pending=stores.length;
-          stores.forEach(storeName=>{
-            try{
-              const tx=db.transaction(storeName,'readwrite');
-              const store=tx.objectStore(storeName);
-              const cursorReq=store.openCursor();
-              cursorReq.onsuccess=e=>{
-                const cursor=e.target.result;
-                if(!cursor){pending--;if(!pending){try{db.close()}catch(_){}resolve()}return;}
-                let raw='';
-                try{raw=JSON.stringify(cursor.value)}catch(_){}
-                let key='';
-                try{key=String(cursor.key)}catch(_){}
-                if((raw&&raw.includes(id))||key===id){try{cursor.delete()}catch(_){}
-                }
-                cursor.continue();
-              };
-              cursorReq.onerror=()=>{pending--;if(!pending){try{db.close()}catch(_){}resolve()}};
-            }catch(_){pending--;if(!pending){try{db.close()}catch(_){}resolve()}}
-          });
-        };
-      });
-    }
-  }catch(e){console.warn('Não foi possível limpar o rascunho do IndexedDB:',e)}
+  if(!id)return;
+  await new Promise(resolve=>{
+    try{
+      const req=indexedDB.open('SSTInspecoes');
+      req.onerror=()=>resolve();
+      req.onsuccess=()=>{
+        const db=req.result;
+        if(!db.objectStoreNames.contains('inspections')){db.close();resolve();return;}
+        const tx=db.transaction('inspections','readwrite');
+        tx.objectStore('inspections').delete(String(id));
+        tx.oncomplete=tx.onerror=tx.onabort=()=>{try{db.close()}catch(_){}resolve()};
+      };
+    }catch(_){resolve()}
+  });
 }
 
 async function limparInspecao(){
@@ -84,9 +62,10 @@ async function limparInspecao(){
   try { window.__tbmExtra = []; } catch (_) {}
   try { sessionStorage.clear(); } catch (_) {}
   if (id) {
-    try { if (typeof window.idbDelete === 'function') { await window.idbDelete(id); } } catch (e) { console.warn('Falha idbDelete:', e); }
-    try { await removeCurrentFromIndexedDB(id); } catch (e) { console.warn('Falha na limpeza completa do IndexedDB:', e); }
-    try { if (window.SST?.fs) { await window.SST.fs.collection('inspections').doc(String(id)).delete(); } } catch (e) { console.warn('Falha nuvem:', e); }
+    let deleted=false;
+    try { if (typeof window.idbDelete === 'function') { await window.idbDelete(id); deleted=true; } } catch (e) { console.warn('Falha idbDelete:', e); }
+    if(!deleted){try { await removeCurrentFromIndexedDB(id); } catch (e) { console.warn('Falha na exclusão local:', e); }}
+    try { if (window.SST?.fs) { window.SST.fs.collection('inspections').doc(String(id)).delete().catch(()=>{}); } } catch (e) { console.warn('Falha nuvem:', e); }
   }
   window.location.reload();
 }

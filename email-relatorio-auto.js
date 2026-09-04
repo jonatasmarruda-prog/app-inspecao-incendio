@@ -35,6 +35,14 @@ function toast(text,type='ok'){
   clearTimeout(el.__timer);el.__timer=setTimeout(()=>{el.style.opacity='0'},4300);
 }
 
+function yieldUI(){return new Promise(resolve=>setTimeout(resolve,0))}
+function runWhenIdle(fn,delay=1400){
+  setTimeout(()=>{
+    const run=()=>{try{const p=fn();if(p&&typeof p.catch==='function')p.catch(e=>console.warn('[EMAIL IDLE]',e))}catch(e){console.warn('[EMAIL IDLE]',e)}};
+    if(typeof requestIdleCallback==='function')requestIdleCallback(run,{timeout:6000});else setTimeout(run,200);
+  },delay);
+}
+
 async function sha256(blob){
   const buf=await blob.arrayBuffer();
   const hash=await crypto.subtle.digest('SHA-256',buf);
@@ -148,9 +156,12 @@ async function send(mode='main'){
   let meta=null,fingerprint='',filename='';
   try{
     toast('📧 Preparando cópia do relatório…','info');
+    await yieldUI();
     const pdf=await capturePdf(mode);
+    await yieldUI();
     meta=reportMeta(mode,pdf);
     fingerprint=await sha256(pdf.blob);
+    await yieldUI();
     const previous=getStatus(meta.id,fingerprint);
     if(previous?.state==='sent')return {sent:true,duplicate:true};
 
@@ -162,6 +173,7 @@ async function send(mode='main'){
 
     saveStatus(meta.id,fingerprint,{state:'sending',filename,size:pdf.blob.size});
     const pdfBase64=await blobToBase64(pdf.blob);
+    await yieldUI();
     const data=await postToBackend(url,{pdfBase64,reportId:meta.id,filename,reportType:meta.type,company:meta.company,sector:meta.sector,fingerprint});
 
     saveStatus(meta.id,fingerprint,{state:'sent',filename,messageId:data.messageId||'',sentAt:new Date().toISOString()});
@@ -182,12 +194,7 @@ function installPtSaveHook(){
   if(ptHookInstalled)return;ptHookInstalled=true;
   document.addEventListener('click',e=>{
     const btn=e.target.closest?.('#ptSave');if(!btn)return;
-    setTimeout(async()=>{
-      try{
-        if(typeof window.savePTAltura==='function')await window.savePTAltura(false,false);
-        await send('pt');
-      }catch(err){console.warn('[PT EMAIL]',err)}
-    },180);
+    runWhenIdle(()=>send('pt'),1800);
   },false);
 }
 
@@ -206,7 +213,7 @@ window.tbmConfigureEmailBackend=configureBackend;
 window.tbmEmailBackendEndpoint=()=>endpoint();
 window.tbmAutoEmailEnabled=()=>enabled();
 window.tbmEmailReportStatuses=()=>readStatuses();
-window.__tbmEmailReportVersion='2026.09.04.6-gmail-test';
+window.__tbmEmailReportVersion='2026.09.04.7-stable-idle';
 
 /* Premium UX carrega depois deste módulo. Reaplica a proteção móvel por fora dele. */
 [900,1800,3200].forEach(t=>setTimeout(()=>{try{window.tbmInstallMobilePdfPerformance?.()}catch(_){ }},t));

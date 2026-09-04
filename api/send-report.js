@@ -1,15 +1,18 @@
 'use strict';
 
-const DEFAULT_ALLOWED_ORIGIN='https://jonatasmarruda-prog.github.io';
-const REPORT_EMAIL_TO='Jonatasmarruda@gmail.com';
-const REPORT_EMAIL_FROM='onboarding@resend.dev';
+const DEFAULT_ALLOWED_ORIGINS=['https://jonatasmarruda-prog.github.io','https://app-inspecao-incendio.vercel.app'];
+const REPORT_EMAIL_TO=process.env.REPORT_EMAIL_TO||'Jonatasmarruda@gmail.com';
+const REPORT_EMAIL_FROM=process.env.REPORT_EMAIL_FROM||'onboarding@resend.dev';
 const MAX_BASE64_CHARS=4_100_000;
 
+function allowedOrigins(){
+  const extra=[process.env.ALLOWED_ORIGIN,process.env.ALLOWED_ORIGINS].filter(Boolean).flatMap(v=>String(v).split(',')).map(v=>v.trim()).filter(Boolean);
+  return new Set([...DEFAULT_ALLOWED_ORIGINS,...extra]);
+}
 function setCors(res,origin){
-  const allowed=process.env.ALLOWED_ORIGIN||DEFAULT_ALLOWED_ORIGIN;
-  if(origin===allowed)res.setHeader('Access-Control-Allow-Origin',allowed);
+  if(allowedOrigins().has(origin))res.setHeader('Access-Control-Allow-Origin',origin);
   res.setHeader('Vary','Origin');
-  res.setHeader('Access-Control-Allow-Methods','POST,OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods','GET,POST,OPTIONS');
   res.setHeader('Access-Control-Allow-Headers','Content-Type');
   res.setHeader('Cache-Control','no-store');
 }
@@ -33,10 +36,9 @@ module.exports=async function handler(req,res){
   setCors(res,origin);
 
   if(req.method==='OPTIONS')return res.status(204).end();
+  if(req.method==='GET')return res.status(200).json({ok:true,service:'send-report',configured:Boolean(process.env.RESEND_API_KEY)});
   if(req.method!=='POST')return res.status(405).json({ok:false,error:'method_not_allowed'});
-
-  const allowed=process.env.ALLOWED_ORIGIN||DEFAULT_ALLOWED_ORIGIN;
-  if(origin!==allowed)return res.status(403).json({ok:false,error:'origin_not_allowed'});
+  if(!allowedOrigins().has(origin))return res.status(403).json({ok:false,error:'origin_not_allowed'});
 
   const apiKey=process.env.RESEND_API_KEY;
   const to=REPORT_EMAIL_TO;

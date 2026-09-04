@@ -226,6 +226,13 @@ async function syncAll({silent=true}={}){
     const fs=window.SST?.fs||await waitFirestore();if(!fs)return false;
     if(!silent)indicator('saving','● Sincronizando...');
     await flushDeletionQueue(fs);
+    if(MOBILE_DEVICE){
+      const current=getState();
+      const deleting=new Set(readDeleteQueue().map(String));
+      if(current?.id&&!deleting.has(String(current.id)))await pushRecord(current,'periodic-mobile-current');
+      indicator('sync','● Nuvem sincronizada');
+      return true;
+    }
     const snap=await fs.collection('inspections').where('workspaceKey','==',WORKSPACE_KEY).get();
     const cloudRecords=snap.docs.map(d=>({id:d.id,...d.data()}));
     const cloudMap=new Map(cloudRecords.map(x=>[String(x.id),x]));

@@ -216,8 +216,25 @@ function globalEvents(){
 }
 
 function observers(){
-  const list=$('historyList');if(list&&!list.dataset.tbmUxObserved){list.dataset.tbmUxObserved='1';new MutationObserver(()=>setTimeout(decorateHistory,30)).observe(list,{childList:true,subtree:false})}
-  const body=new MutationObserver(()=>{ensureFieldModeButtons();if(!$('form')?.classList.contains('hidden'))ensureProgress();observeMessages()});body.observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['class']});
+  const list=$('historyList');
+  if(list&&!list.dataset.tbmUxObserved){
+    list.dataset.tbmUxObserved='1';
+    let timer=null;
+    new MutationObserver(()=>{clearTimeout(timer);timer=setTimeout(decorateHistory,60)}).observe(list,{childList:true,subtree:false});
+  }
+  const form=$('form');
+  if(form&&!form.dataset.tbmUxFormObserved){
+    form.dataset.tbmUxFormObserved='1';
+    new MutationObserver(()=>{
+      if(!form.classList.contains('hidden')){ensureFieldModeButtons();ensureProgress();observeMessages()}
+    }).observe(form,{attributes:true,attributeFilter:['class']});
+  }
+  const pt=$('ptAlturaOverlay');
+  if(pt&&!pt.dataset.tbmUxFormObserved){
+    pt.dataset.tbmUxFormObserved='1';
+    new MutationObserver(()=>{if(!pt.classList.contains('hidden'))ensureFieldModeButtons()}).observe(pt,{attributes:true,attributeFilter:['class']});
+  }
+  observeMessages();
 }
 
 function install(){

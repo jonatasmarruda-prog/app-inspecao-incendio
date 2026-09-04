@@ -4,6 +4,7 @@
 const IDS=['saveTop','save'];
 const ORIGINAL={saveTop:'💾 Salvar',save:'💾 SALVAR INSPEÇÃO'};
 let busy=false;
+let emailTimer=null;
 
 function toast(text,type='ok'){
   let el=document.getElementById('tbm-save-toast');
@@ -26,12 +27,17 @@ function restoreButtons(delay=1000){
 
 function sendEmailInBackground(){
   if(typeof window.tbmAutoEmailSavedReport!=='function')return;
-  setTimeout(()=>{
-    try{
-      const p=window.tbmAutoEmailSavedReport({mode:'main'});
-      if(p&&typeof p.catch==='function')p.catch(e=>console.warn('[SALVAR EMAIL]',e));
-    }catch(e){console.warn('[SALVAR EMAIL]',e)}
-  },0);
+  clearTimeout(emailTimer);
+  emailTimer=setTimeout(()=>{
+    const run=()=>{
+      try{
+        const p=window.tbmAutoEmailSavedReport({mode:'main'});
+        if(p&&typeof p.catch==='function')p.catch(e=>console.warn('[SALVAR EMAIL]',e));
+      }catch(e){console.warn('[SALVAR EMAIL]',e)}
+    };
+    if(typeof requestIdleCallback==='function')requestIdleCallback(run,{timeout:6000});
+    else setTimeout(run,250);
+  },1600);
 }
 
 async function manualSave(){
