@@ -1,4 +1,4 @@
-name: Aplicar histórico local e fallback de compartilhamento
+name: Corrigir envio de email da PT
 on:
   push:
     paths:
@@ -10,37 +10,28 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Aplicar patch cirúrgico
+      - name: Aplicar correção
         run: python3 scripts/apply_local_history_fix.py
-      - name: Validar JavaScript e funcionalidades
+      - name: Validar sintaxe e gatilho de email
         run: |
-          find . -maxdepth 1 -type f -name '*.js' -print0 | sort -z | xargs -0 -n1 node --check
+          node --check pt-altura.js
+          node --check email-relatorio-auto.js
+          node --check local-history.js
           python3 - <<'PY'
           from pathlib import Path
           pt=Path('pt-altura.js').read_text(encoding='utf-8')
-          assert "preventiveMeasures:''" in pt
-          assert 'data-pt-field="preventiveMeasures"' in pt
-          assert "pdfSection('Medidas Preventivas')" in pt
-          assert 'tbmHistoricoSalvar' in pt and 'tbmCompartilharPdf' in pt
-          idx=Path('index.html').read_text(encoding='utf-8')
-          assert 'tbmHistoricoSalvar' in idx and 'tbmCompartilharPdf' in idx
-          hist=Path('local-history.js').read_text(encoding='utf-8')
-          for token in ['historicoSST','navigator.share','Abrir / Visualizar','Gerar PDF','tbmCompartilharPdf']:
-              assert token in hist, token
           loader=Path('sst-repair-loader.js').read_text(encoding='utf-8')
-          assert 'await loadLocalHistory();' in loader
-          assert 'await loadAutoEmailReport();' not in loader
-          assert 'setTimeout(loadCloudCrossDevice,0);' not in loader
-          for sw in ('service-worker.js','sw.js'):
-              text=Path(sw).read_text(encoding='utf-8')
-              assert 'inspecao-sst-v86' in text and './local-history.js' in text
-          print('LOCAL_HISTORY_FIX_OK')
+          hist=Path('local-history.js').read_text(encoding='utf-8')
+          assert "tbmAutoEmailSavedReport({mode:'pt'})" in pt
+          assert 'await loadAutoEmailReport();' in loader
+          assert "localStorage.setItem(EMAIL_ENABLE_KEY,'1')" in hist
+          print('PT_EMAIL_OK')
           PY
-      - name: Commitar alterações
+      - name: Commitar correção
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add -A
           git diff --cached --quiet && exit 0
-          git commit -m 'Implementa medidas preventivas, share fallback e historico local'
+          git commit -m 'Corrige envio automatico de email ao salvar PT'
           git push
