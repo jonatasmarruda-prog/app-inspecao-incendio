@@ -375,35 +375,11 @@ async function savePT(feedback=false,syncCloud=feedback){
   if(!ptState)return false;
   ptState.updatedAt=nowISO();ptState.issuer={name:EMISSOR_NOME,role:EMISSOR_CARGO,signature:ptState.issuer?.signature||''};
   try{
-    if(typeof window.idbPut==='function'){
-      const previousExtra=window.__tbmExtra;
-      try{
-        window.__tbmExtra=[];
-        await window.idbPut(ptState);
-      }finally{
-        window.__tbmExtra=previousExtra;
-      }
-    }
-    if(feedback&&typeof window.tbmHistoricoSalvar==='function')await window.tbmHistoricoSalvar(ptState,{source:'pt',reportType:PT_TITLE});
-    if(feedback)showMsg('✅ PT salva no dispositivo e adicionada ao histórico.');
+    if(typeof window.tbmHistoricoSalvar!=='function')throw new Error('Persistência Firestore indisponível.');
+    await window.tbmHistoricoSalvar(ptState,{source:'pt',reportType:PT_TITLE});
+    if(feedback)showMsg('✅ PT salva na nuvem com sucesso.');
     return true;
-  }catch(e){console.error('[PT SAVE]',e);if(feedback)showMsg('❌ Não foi possível salvar a PT.','errorbox');return false}
-}
-
-async function pushPTCloud(){
-  if(!ptState?.id||!window.SST?.fs)return false;
-  const payload=JSON.parse(JSON.stringify(ptState));
-  payload.workspaceKey=WORKSPACE_KEY;payload.cloudDeviceId=(localStorage.getItem('tbm-sst-device-id')||'PT');payload.cloudClientUpdatedAt=nowISO();payload.ownerUid=window.SST?.uid||'';payload.appVersion='2026.09.04.pt-altura.4-sign-evidence';
-  if(window.firebase?.firestore?.FieldValue?.serverTimestamp)payload.cloudSyncedAt=window.firebase.firestore.FieldValue.serverTimestamp();
-  try{await window.SST.fs.collection('inspections').doc(String(payload.id)).set(payload,{merge:true});return true}catch(e){console.warn('[PT CLOUD]',e);return false}
-}
-
-function openPTAltura(data){
-  injectStyle();ensureOverlay();ptState=normalizeState(data||freshState());
-  $('ptAlturaOverlay').classList.remove('hidden');document.body.style.overflow='hidden';renderPT();
-}
-function closePTAltura(){
-  savePT(false).catch(()=>{});$('ptAlturaOverlay')?.classList.add('hidden');document.body.style.overflow='';
+  }catch(e){console.error('[PT SAVE CLOUD]',e);if(feedback)showMsg('❌ Não foi possível salvar a PT na nuvem.','errorbox');return false}
 }
 
 async function imageToDataUrl(src){

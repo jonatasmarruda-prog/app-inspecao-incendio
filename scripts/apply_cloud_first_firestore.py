@@ -113,7 +113,7 @@ write(path,s)
 # ---------------------------------------------------------------------------
 path='pt-altura.js'
 s=read(path)
-pattern=r"async function savePT\(feedback=false,syncCloud=feedback\)\{.*?\n\}\n\nfunction compressPTPhoto"
+pattern=r"async function savePT\(feedback=false,syncCloud=feedback\)\{.*?\n\}\n\nasync function imageToDataUrl"
 replacement="""async function savePT(feedback=false,syncCloud=feedback){
   if(!ptState)return false;
   ptState.updatedAt=nowISO();ptState.issuer={name:EMISSOR_NOME,role:EMISSOR_CARGO,signature:ptState.issuer?.signature||''};
@@ -125,7 +125,7 @@ replacement="""async function savePT(feedback=false,syncCloud=feedback){
   }catch(e){console.error('[PT SAVE CLOUD]',e);if(feedback)showMsg('❌ Não foi possível salvar a PT na nuvem.','errorbox');return false}
 }
 
-function compressPTPhoto"""
+async function imageToDataUrl"""
 s,n=re.subn(pattern,replacement,s,count=1,flags=re.S)
 require(n==1,'savePT: função não encontrada')
 s=s.replace("window.__tbmPTAlturaVersion='2026.09.08.pt-altura.5-preventive-local-history';","window.__tbmPTAlturaVersion='2026.09.08.pt-altura.6-cloud-first';",1)

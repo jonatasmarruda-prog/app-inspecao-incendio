@@ -46,7 +46,7 @@ async function manualSave(){
     if(typeof window.saveInspection!=='function')throw new Error('Função de salvamento indisponível.');
     await window.saveInspection(false);
     setButtons('✅ Salvo',false);
-    toast('✅ Inspeção salva no dispositivo.','ok');
+    toast('✅ Relatório salvo na nuvem com sucesso!','ok');
     sendEmailInBackground();
   }catch(e){
     console.error('[SALVAR]',e);setButtons('❌ Erro ao salvar',false);toast('❌ Erro ao salvar: '+(e?.message||e),'error');
