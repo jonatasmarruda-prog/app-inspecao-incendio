@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Testar Firebase SDK, Auth anônimo e coleções Firestore
+      - name: Testar Firebase SDK, Auth e leitura/gravação Firestore
         shell: bash
         run: |
           set -euo pipefail
@@ -28,44 +28,56 @@ jobs:
           PY
           )
 
-          echo '=== AUTH ANÔNIMO ==='
           auth_code=$(curl -sS -o /tmp/auth.json -w '%{http_code}' \
             -X POST "https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${API_KEY}" \
             -H 'Content-Type: application/json' \
             --data '{"returnSecureToken":true}' || true)
           echo "Identity Toolkit HTTP=$auth_code"
-          python3 - <<'PY'
-          import json
-          data=json.load(open('/tmp/auth.json'))
-          if data.get('idToken'):
-              print('ANON_AUTH_OK')
-          else:
-              err=data.get('error') or {}
-              print('ANON_AUTH_ERROR=' + str(err.get('message') or err))
-          PY
-
           TOKEN=$(python3 - <<'PY'
           import json
           d=json.load(open('/tmp/auth.json'))
           print(d.get('idToken',''))
           PY
           )
-          [ -n "$TOKEN" ] || exit 0
+          if [ -z "$TOKEN" ]; then
+            python3 - <<'PY'
+          import json
+          d=json.load(open('/tmp/auth.json'))
+          print('ANON_AUTH_ERROR=' + str((d.get('error') or {}).get('message') or d))
+          PY
+            exit 0
+          fi
+          echo 'ANON_AUTH_OK'
 
           for COLLECTION in relatorios_sst inspections; do
-            echo "=== FIRESTORE ${COLLECTION} ==="
             fs_code=$(curl -sS -o "/tmp/${COLLECTION}.json" -w '%{http_code}' \
               -H "Authorization: Bearer ${TOKEN}" \
               "https://firestore.googleapis.com/v1/projects/app-inspecao-sst-79aa6/databases/(default)/documents/${COLLECTION}?pageSize=1" || true)
-            echo "${COLLECTION} HTTP=$fs_code"
-            COLLECTION="$COLLECTION" python3 - <<'PY'
-          import json, os
-          c=os.environ['COLLECTION']
-          data=json.load(open('/tmp/'+c+'.json'))
-          if 'error' in data:
-              e=data['error']
-              print(c.upper()+'_ERROR=' + str(e.get('status')) + ':' + str(e.get('message')))
-          else:
-              print(c.upper()+'_OK')
-          PY
+            echo "${COLLECTION} READ HTTP=$fs_code"
           done
+
+          echo '=== TESTE DE GRAVAÇÃO INSPECTIONS ==='
+          DOC_ID="tbm-cloud-diagnostic-${GITHUB_RUN_ID}"
+          write_code=$(curl -sS -o /tmp/write.json -w '%{http_code}' \
+            -X PATCH \
+            -H "Authorization: Bearer ${TOKEN}" \
+            -H 'Content-Type: application/json' \
+            "https://firestore.googleapis.com/v1/projects/app-inspecao-sst-79aa6/databases/(default)/documents/inspections/${DOC_ID}" \
+            --data '{"fields":{"type":{"stringValue":"diagnostic"},"temporary":{"booleanValue":true},"source":{"stringValue":"github-actions-cloud-test"}}}' || true)
+          echo "inspections WRITE HTTP=$write_code"
+          python3 - <<'PY'
+          import json
+          d=json.load(open('/tmp/write.json'))
+          if 'error' in d:
+              e=d['error']; print('INSPECTIONS_WRITE_ERROR='+str(e.get('status'))+':'+str(e.get('message')))
+          else:
+              print('INSPECTIONS_WRITE_OK')
+          PY
+
+          if [ "$write_code" = "200" ]; then
+            delete_code=$(curl -sS -o /tmp/delete.txt -w '%{http_code}' \
+              -X DELETE \
+              -H "Authorization: Bearer ${TOKEN}" \
+              "https://firestore.googleapis.com/v1/projects/app-inspecao-sst-79aa6/databases/(default)/documents/inspections/${DOC_ID}" || true)
+            echo "inspections DELETE HTTP=$delete_code"
+          fi
