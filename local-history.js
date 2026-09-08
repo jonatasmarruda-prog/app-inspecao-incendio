@@ -10,7 +10,7 @@ const MAX_ITEMS=15;
 const STORAGE_TARGET_BYTES=4_400_000;
 
 const clone=value=>JSON.parse(JSON.stringify(value??null));
-const esc=value=>String(value??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+const esc=value=>String(value??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[m]));
 const nowIso=()=>new Date().toISOString();
 const historyId=()=>`HST-${Date.now()}-${Math.random().toString(36).slice(2,7).toUpperCase()}`;
 
@@ -168,7 +168,8 @@ function refreshHistoryIfOpen(){
 }
 
 function installUi(){
-  try{localStorage.setItem(EMAIL_ENABLE_KEY,'0')}catch(_){ }
+  // O histórico local permanece ativo e o envio automático por e-mail volta a ser permitido ao salvar.
+  try{localStorage.setItem(EMAIL_ENABLE_KEY,'1')}catch(_){ }
   const button=document.getElementById('openHistory');
   if(button){button.textContent='📚 Ver Histórico';button.onclick=e=>{e.preventDefault();showHistory()}}
   const back=document.getElementById('historyBack');
@@ -194,7 +195,7 @@ window.tbmHistoricoLer=()=>clone(readHistory());
 window.tbmHistoricoAbrir=showHistory;
 window.tbmHistoricoRestaurar=restoreItem;
 window.tbmCompartilharPdf=sharePdf;
-window.__tbmLocalHistoryVersion='2026.09.08.1';
+window.__tbmLocalHistoryVersion='2026.09.08.2-email-enabled';
 
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',installUi,{once:true});else installUi();
 })();
