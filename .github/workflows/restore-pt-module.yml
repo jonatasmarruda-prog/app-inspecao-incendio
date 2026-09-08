@@ -1,0 +1,158 @@
+name: Restaurar modulo PT
+on:
+  push:
+    paths:
+      - 'RESTORE_PT_TRIGGER.txt'
+permissions:
+  contents: write
+jobs:
+  restore:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Restaurar PT e integração cloud
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          def rep(path, old, new, label):
+              p=Path(path); s=p.read_text(encoding='utf-8')
+              if old not in s:
+                  raise SystemExit(f'{label}: trecho não encontrado em {path}')
+              p.write_text(s.replace(old,new,1),encoding='utf-8')
+
+          # PT: tile robusto/idempotente.
+          rep('pt-altura.js',
+          """function addTile(){
+  if($('ptAlturaTile'))return;
+  const tiles=document.querySelector('#home .tiles');if(!tiles)return;
+  const b=document.createElement('button');b.id='ptAlturaTile';b.type='button';b.className='tile ptaltura';
+  b.innerHTML='<div class=\"ico\">🪜</div><div><b>PT - Trabalho em Altura</b><span>NR 35 • Escadas, Andaimes e PTA</span></div>';
+  b.onclick=()=>openPTAltura();tiles.appendChild(b);
+}""",
+          """function addTile(){
+  const tiles=document.querySelector('#home .tiles');if(!tiles)return false;
+  let b=$('ptAlturaTile');
+  if(!b){b=document.createElement('button');b.id='ptAlturaTile';tiles.appendChild(b)}
+  b.type='button';b.className='tile ptaltura';
+  b.innerHTML='<div class=\"ico\">🪜</div><div><b>Permissão de Trabalho (PT)</b><span>NR 35 • Escadas, Andaimes e PTA</span></div>';
+  b.onclick=e=>{e.preventDefault();e.stopPropagation();openPTAltura()};
+  return true;
+}""", 'tile PT')
+
+          # PT: Solid Badges locais iguais ao padrão global.
+          rep('pt-altura.js',
+          ".pt-check-actions .ok{background:#dcfce7!important;color:#166534!important}.pt-check-actions .no{background:#fee2e2!important;color:#991b1b!important}.pt-check-actions .na{background:#e2e8f0!important;color:#334155!important}",
+          ".pt-check-actions .ok{background:#198754!important;color:#ffffff!important}.pt-check-actions .no{background:#dc3545!important;color:#ffffff!important}.pt-check-actions .na{background:#6c757d!important;color:#ffffff!important}", 'Solid Badges PT')
+
+          # PT: exatamente a mesma gravação principal cloudSetReport; fallback apenas para compatibilidade.
+          rep('pt-altura.js',
+          """  try{
+    if(typeof window.tbmHistoricoSalvar!=='function')throw new Error('Persistência Firestore indisponível.');
+    await window.tbmHistoricoSalvar(ptState,{source:'pt',reportType:PT_TITLE});
+    if(feedback)showMsg('✅ PT salva na nuvem com sucesso.');
+    return true;
+  }catch(e){console.error('[PT SAVE CLOUD]',e);if(feedback)showMsg('❌ Não foi possível salvar a PT na nuvem.','errorbox');return false}
+}""",
+          """  try{
+    if(typeof window.cloudSetReport==='function'){
+      await window.cloudSetReport(ptState);
+    }else if(typeof window.tbmHistoricoSalvar==='function'){
+      await window.tbmHistoricoSalvar(ptState,{source:'pt',reportType:PT_TITLE});
+    }else{
+      throw new Error('Persistência Firestore relatorios_sst indisponível.');
+    }
+    if(feedback)showMsg('✅ PT salva na nuvem com sucesso.');
+    return true;
+  }catch(e){console.error('[PT SAVE CLOUD]',e);if(feedback)showMsg('❌ Não foi possível salvar a PT na nuvem.','errorbox');return false}
+}""", 'savePT cloud')
+
+          # PT PDF: logo oficial via URL/global loader, largura corporativa validada.
+          rep('pt-altura.js',
+          """  if(!window.pdfMake){alert('Biblioteca pdfmake indisponível.');return}
+  const logo=window.logoTBM||await imageToDataUrl(LOGO);const emitido=new Date().toLocaleString('pt-BR');
+  const content=[{image:logo,width:100,alignment:'center',margin:[0,0,0,10]}];""",
+          """  if(!window.pdfMake){alert('Biblioteca pdfmake indisponível.');return}
+  let logo='';
+  try{if(typeof window.carregarLogo==='function')logo=await window.carregarLogo(window.LOGO_TBM_URL)}catch(err){console.warn('[PT LOGO URL]',err)}
+  if(!logo)logo=window.logoTBM||await imageToDataUrl(LOGO);
+  const emitido=new Date().toLocaleString('pt-BR');
+  const content=[{image:logo,width:160,alignment:'center',margin:[0,0,0,10]}];""", 'logo PDF PT')
+
+          rep('pt-altura.js',
+          "function install(){injectStyle();addTile();ensureOverlay();installHistoryInterceptor();setTimeout(addTile,700);setTimeout(addTile,1800)}",
+          "function ensurePTUI(){injectStyle();addTile();ensureOverlay();return true}\nfunction install(){ensurePTUI();installHistoryInterceptor();setTimeout(addTile,350);setTimeout(addTile,1000);setTimeout(addTile,2500)}", 'ensure PT UI')
+          rep('pt-altura.js',
+          "window.openPTAltura=openPTAltura;",
+          "window.tbmEnsurePTAlturaUI=ensurePTUI;\nwindow.openPTAltura=openPTAltura;", 'export ensure PT')
+          rep('pt-altura.js',
+          "window.__tbmPTAlturaVersion='2026.09.08.pt-altura.6-email-on-save';",
+          "window.__tbmPTAlturaVersion='2026.09.08.pt-altura.7-restored-cloud';", 'versao PT')
+
+          # Loader: criar entrada visível imediatamente e abrir PT mesmo se cadeia secundária atrasar.
+          rep('sst-repair-loader.js',
+          "function loadPTAltura(){const old=document.getElementById('tbm-pt-altura');if(old)old.remove();const s=document.createElement('script');s.id='tbm-pt-altura';s.src='./pt-altura.js?v=20260908-06&cb='+Date.now();s.async=false;document.body.appendChild(s);return new Promise(resolve=>{s.onload=resolve;s.onerror=resolve})}",
+          "function loadPTAltura(){if(typeof window.openPTAltura==='function'){try{window.tbmEnsurePTAlturaUI?.()}catch(_){ }return Promise.resolve(true)}const old=document.getElementById('tbm-pt-altura');if(old)old.remove();const s=document.createElement('script');s.id='tbm-pt-altura';s.src='./pt-altura.js?v=20260908-07&cb='+Date.now();s.async=false;document.body.appendChild(s);return new Promise(resolve=>{s.onload=()=>{try{window.tbmEnsurePTAlturaUI?.()}catch(_){ }resolve(true)};s.onerror=()=>resolve(false)})}\nfunction ensurePTEntry(){const tiles=document.querySelector('#home .tiles');if(!tiles)return false;let b=document.getElementById('ptAlturaTile');if(!b){b=document.createElement('button');b.id='ptAlturaTile';tiles.appendChild(b)}b.type='button';b.className='tile ptaltura';b.innerHTML='<div class=\"ico\">🪜</div><div><b>Permissão de Trabalho (PT)</b><span>NR 35 • Escadas, Andaimes e PTA</span></div>';b.onclick=async e=>{e.preventDefault();e.stopPropagation();if(typeof window.openPTAltura!=='function')await loadPTAltura();if(typeof window.openPTAltura==='function')window.openPTAltura();else alert('Não foi possível carregar o módulo de Permissão de Trabalho. Atualize a página e tente novamente.')};return true}", 'loader PT robusto')
+
+          rep('sst-repair-loader.js',
+          """async function loadRepairs(){
+  await loadFireChecklistSplit();""",
+          """async function loadRepairs(){
+  ensurePTEntry();
+  await loadLocalHistory();
+  await loadPTAltura();
+  await loadPTContrastFix();
+  await loadFireChecklistSplit();""", 'PT primeiro no loader')
+          rep('sst-repair-loader.js',
+          """  await loadSaveButtonFix();
+  await loadLocalHistory();
+  await loadCnpjAutofill();
+  await loadPTAltura();
+  await loadPTContrastFix();""",
+          """  await loadSaveButtonFix();
+  await loadCnpjAutofill();""", 'remove carregamentos duplicados PT')
+          rep('sst-repair-loader.js',
+          "  // Persistência oficial: Firestore relatorios_sst com listener em tempo real.\n}",
+          "  // Persistência oficial: Firestore relatorios_sst com listener em tempo real.\n  ensurePTEntry();\n  try{window.tbmEnsurePTAlturaUI?.()}catch(_){ }\n}\nensurePTEntry();\nsetTimeout(ensurePTEntry,500);\nsetTimeout(ensurePTEntry,1800);", 'garantia final PT')
+
+          # Cache PWA para distribuir restauração imediatamente.
+          for path in ('service-worker.js','sw.js'):
+              p=Path(path); s=p.read_text(encoding='utf-8')
+              s=s.replace("inspecao-sst-v87","inspecao-sst-v88").replace("?v=87","?v=88")
+              p.write_text(s,encoding='utf-8')
+          PY
+      - name: Validar restauração
+        run: |
+          node --check pt-altura.js
+          node --check sst-repair-loader.js
+          node --check service-worker.js
+          node --check sw.js
+          python3 - <<'PY'
+          from pathlib import Path
+          pt=Path('pt-altura.js').read_text(encoding='utf-8')
+          loader=Path('sst-repair-loader.js').read_text(encoding='utf-8')
+          assert 'Permissão de Trabalho (PT)' in pt and 'Permissão de Trabalho (PT)' in loader
+          assert "groupHTML('escadas'" in pt
+          assert "groupHTML('andaimes'" in pt
+          assert "groupHTML('pta'" in pt
+          assert 'preventiveMeasures' in pt
+          assert "window.cloudSetReport(ptState)" in pt
+          assert "collection('inspections')" not in pt
+          assert 'localStorage.setItem' not in pt and 'localStorage.getItem' not in pt
+          assert "color: '#ffffff'" in pt
+          assert "#198754" in pt and "#dc3545" in pt and "#6c757d" in pt
+          assert 'window.carregarLogo' in pt and 'window.LOGO_TBM_URL' in pt
+          assert 'window.makePTAlturaPdf=makePTPdf' in pt
+          assert 'window.tbmEnsurePTAlturaUI=ensurePTUI' in pt
+          assert "inspecao-sst-v88" in Path('service-worker.js').read_text(encoding='utf-8')
+          print('PT_RESTAURADA_VALIDADA')
+          PY
+      - name: Publicar restauração
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add pt-altura.js sst-repair-loader.js service-worker.js sw.js
+          git diff --cached --quiet && exit 0
+          git commit -m 'Restaura modulo PT com Firestore e PDF premium'
+          git pull --rebase origin main
+          git push origin main
