@@ -32,7 +32,7 @@ function loadFinalPdfFix(){const old=document.getElementById('tbm-final-pdf-fix'
 function loadEquipmentVerticalFix(){const old=document.getElementById('tbm-pdf-equipment-vertical-fix');if(old)old.remove();const s=document.createElement('script');s.id='tbm-pdf-equipment-vertical-fix';s.src='./pdf-equipment-vertical-fix.js?v=20260903-01&cb='+Date.now();s.async=false;document.body.appendChild(s);return new Promise(resolve=>{s.onload=resolve;s.onerror=resolve})}
 function loadGlobalPdfStandard(){const old=document.getElementById('tbm-pdf-global-standard');if(old)old.remove();const s=document.createElement('script');s.id='tbm-pdf-global-standard';s.src='./pdf-global-standard.js?v=20260903-02&cb='+Date.now();s.async=false;document.body.appendChild(s);return new Promise(resolve=>{s.onload=resolve;s.onerror=resolve})}
 function loadPdfFilenameGlobal(){const old=document.getElementById('tbm-pdf-filename-global');if(old)old.remove();const s=document.createElement('script');s.id='tbm-pdf-filename-global';s.src='./pdf-filename-global.js?v=20260903-01&cb='+Date.now();s.async=false;document.body.appendChild(s);return new Promise(resolve=>{s.onload=resolve;s.onerror=resolve})}
-function loadLocalHistory(){const old=document.getElementById('tbm-local-history');if(old)old.remove();const s=document.createElement('script');s.id='tbm-local-history';s.src='./local-history.js?v=20260908-01&cb='+Date.now();s.async=false;document.body.appendChild(s);return new Promise(resolve=>{s.onload=resolve;s.onerror=resolve})}
+function loadLocalHistory(){const old=document.getElementById('tbm-local-history');if(old)old.remove();const s=document.createElement('script');s.id='tbm-local-history';s.src='./local-history.js?v=20260908-02&cb='+Date.now();s.async=false;document.body.appendChild(s);return new Promise(resolve=>{s.onload=resolve;s.onerror=resolve})}
 function loadAutoEmailReport(){const old=document.getElementById('tbm-email-relatorio-auto');if(old)old.remove();const s=document.createElement('script');s.id='tbm-email-relatorio-auto';s.src='./email-relatorio-auto.js?v=20260904-07&cb='+Date.now();s.async=false;document.body.appendChild(s);return new Promise(resolve=>{s.onload=resolve;s.onerror=resolve})}
 function loadPremiumUX(){const old=document.getElementById('tbm-premium-ux');if(old)old.remove();const s=document.createElement('script');s.id='tbm-premium-ux';s.src='./premium-ux.js?v=20260904-04&cb='+Date.now();s.async=false;document.body.appendChild(s);return new Promise(resolve=>{s.onload=resolve;s.onerror=resolve})}
 function loadMobilePerformanceFix(){const old=document.getElementById('tbm-mobile-performance-fix');if(old)old.remove();const s=document.createElement('script');s.id='tbm-mobile-performance-fix';s.src='./mobile-performance-fix.js?v=20260903-04&cb='+Date.now();s.async=false;document.body.appendChild(s);return new Promise(resolve=>{s.onload=resolve;s.onerror=resolve})}
@@ -59,7 +59,8 @@ async function loadRepairs(){
   // O padrão global já aplica o layout vertical de equipamentos; não carregar uma segunda camada duplicada.
   await loadGlobalPdfStandard();
   await loadPdfFilenameGlobal();
-  // E-mail automático desativado nesta fase: o botão Salvar persiste o histórico local.
+  // Mantém o histórico local e restaura o envio automático de uma cópia do PDF por e-mail após Salvar.
+  await loadAutoEmailReport();
   // Proteções de memória/histórico precisam existir ANTES do Premium UX para impedir fallback ao idbAll no celular.
   await loadMobilePerformanceFix();
   await loadHistoryLightFix();
@@ -83,7 +84,7 @@ async function loadRepairs(){
   await loadAccidentInjuryModule();
   // Remove o diagnóstico global apenas da Investigação de Acidente, na UI e no PDF.
   await loadAccidentDiagnosisConditional();
-  // Sincronização cross-device não é iniciada nesta fase; histórico oficial permanece no localStorage.
+  // Sincronização cross-device continua desativada; apenas o envio de e-mail foi restaurado.
 }
 if(document.readyState==='loading')window.addEventListener('DOMContentLoaded',loadRepairs,{once:true});else loadRepairs();
 })();
