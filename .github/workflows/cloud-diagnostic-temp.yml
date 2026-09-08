@@ -1,0 +1,72 @@
+name: Diagnóstico temporário Firebase SST
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/cloud-diagnostic-temp.yml'
+permissions:
+  contents: read
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Testar Firebase SDK, Auth anônimo e Firestore
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo '=== SDK FIREBASE ==='
+          code=$(curl -L -sS -o /tmp/firebase-app.js -w '%{http_code}' 'https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js' || true)
+          echo "firebase-app-compat.js HTTP=$code"
+
+          API_KEY=$(python3 - <<'PY'
+          import re, pathlib
+          text=pathlib.Path('index.html').read_text(encoding='utf-8')
+          m=re.search(r"apiKey:'([^']+)'", text)
+          if not m: raise SystemExit('API_KEY_NOT_FOUND')
+          print(m.group(1))
+          PY
+          )
+
+          echo '=== AUTH ANÔNIMO ==='
+          auth_code=$(curl -sS -o /tmp/auth.json -w '%{http_code}' \
+            -X POST "https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${API_KEY}" \
+            -H 'Content-Type: application/json' \
+            --data '{"returnSecureToken":true}' || true)
+          echo "Identity Toolkit HTTP=$auth_code"
+          python3 - <<'PY'
+          import json
+          data=json.load(open('/tmp/auth.json'))
+          if data.get('idToken'):
+              print('ANON_AUTH_OK')
+          else:
+              err=data.get('error') or {}
+              print('ANON_AUTH_ERROR=' + str(err.get('message') or err))
+          PY
+
+          if python3 - <<'PY'
+          import json,sys
+          d=json.load(open('/tmp/auth.json'))
+          sys.exit(0 if d.get('idToken') else 1)
+          PY
+          then
+            TOKEN=$(python3 - <<'PY'
+          import json
+          print(json.load(open('/tmp/auth.json'))['idToken'])
+          PY
+            )
+            echo '=== FIRESTORE ==='
+            fs_code=$(curl -sS -o /tmp/fs.json -w '%{http_code}' \
+              -H "Authorization: Bearer ${TOKEN}" \
+              'https://firestore.googleapis.com/v1/projects/app-inspecao-sst-79aa6/databases/(default)/documents/relatorios_sst?pageSize=1' || true)
+            echo "Firestore HTTP=$fs_code"
+            python3 - <<'PY'
+          import json
+          data=json.load(open('/tmp/fs.json'))
+          if 'error' in data:
+              e=data['error']
+              print('FIRESTORE_ERROR=' + str(e.get('status')) + ':' + str(e.get('message')))
+          else:
+              print('FIRESTORE_OK')
+          PY
+          fi
