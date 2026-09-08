@@ -322,6 +322,12 @@ function bindPT(){
     if(saveBtn.disabled)return;
     const original=saveBtn.innerHTML;saveBtn.disabled=true;saveBtn.innerHTML='⏳ Salvando PT...';
     const ok=await savePT(true,true);
+    if(ok&&typeof window.tbmAutoEmailSavedReport==='function'){
+      try{
+        const emailPromise=window.tbmAutoEmailSavedReport({mode:'pt'});
+        if(emailPromise&&typeof emailPromise.catch==='function')emailPromise.catch(err=>console.warn('[PT EMAIL]',err));
+      }catch(err){console.warn('[PT EMAIL]',err)}
+    }
     saveBtn.innerHTML=ok?'✅ PT Salva':'❌ Erro ao Salvar';
     setTimeout(()=>{if(saveBtn){saveBtn.disabled=false;saveBtn.innerHTML=original}},1000);
   },true);
@@ -537,6 +543,6 @@ window.openPTAlturaFromState=openPTAltura;
 window.makePTAlturaPdf=makePTPdf;
 window.savePTAltura=savePT;
 window.PT_ALTURA_EMISSOR={name:EMISSOR_NOME,role:EMISSOR_CARGO};
-window.__tbmPTAlturaVersion='2026.09.08.pt-altura.5-preventive-local-history';
+window.__tbmPTAlturaVersion='2026.09.08.pt-altura.6-email-on-save';
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});else install();
 })();
