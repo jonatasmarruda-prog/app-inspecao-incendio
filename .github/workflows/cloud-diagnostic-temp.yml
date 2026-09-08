@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Testar Firebase SDK, Auth anônimo e Firestore
+      - name: Testar Firebase SDK, Auth anônimo e coleções Firestore
         shell: bash
         run: |
           set -euo pipefail
@@ -44,29 +44,28 @@ jobs:
               print('ANON_AUTH_ERROR=' + str(err.get('message') or err))
           PY
 
-          if python3 - <<'PY'
-          import json,sys
+          TOKEN=$(python3 - <<'PY'
+          import json
           d=json.load(open('/tmp/auth.json'))
-          sys.exit(0 if d.get('idToken') else 1)
+          print(d.get('idToken',''))
           PY
-          then
-            TOKEN=$(python3 - <<'PY'
-          import json
-          print(json.load(open('/tmp/auth.json'))['idToken'])
-          PY
-            )
-            echo '=== FIRESTORE ==='
-            fs_code=$(curl -sS -o /tmp/fs.json -w '%{http_code}' \
+          )
+          [ -n "$TOKEN" ] || exit 0
+
+          for COLLECTION in relatorios_sst inspections; do
+            echo "=== FIRESTORE ${COLLECTION} ==="
+            fs_code=$(curl -sS -o "/tmp/${COLLECTION}.json" -w '%{http_code}' \
               -H "Authorization: Bearer ${TOKEN}" \
-              'https://firestore.googleapis.com/v1/projects/app-inspecao-sst-79aa6/databases/(default)/documents/relatorios_sst?pageSize=1' || true)
-            echo "Firestore HTTP=$fs_code"
-            python3 - <<'PY'
-          import json
-          data=json.load(open('/tmp/fs.json'))
+              "https://firestore.googleapis.com/v1/projects/app-inspecao-sst-79aa6/databases/(default)/documents/${COLLECTION}?pageSize=1" || true)
+            echo "${COLLECTION} HTTP=$fs_code"
+            COLLECTION="$COLLECTION" python3 - <<'PY'
+          import json, os
+          c=os.environ['COLLECTION']
+          data=json.load(open('/tmp/'+c+'.json'))
           if 'error' in data:
               e=data['error']
-              print('FIRESTORE_ERROR=' + str(e.get('status')) + ':' + str(e.get('message')))
+              print(c.upper()+'_ERROR=' + str(e.get('status')) + ':' + str(e.get('message')))
           else:
-              print('FIRESTORE_OK')
+              print(c.upper()+'_OK')
           PY
-          fi
+          done
