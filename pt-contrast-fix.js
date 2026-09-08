@@ -3,12 +3,77 @@
 
 /*
  * Recuperação cirúrgica do módulo PT – Trabalho em Altura.
- * A migração Firestore removeu acidentalmente openPTAltura/closePTAltura
- * do pt-altura.js. Esta camada restaura SOMENTE essas funções dentro do
- * escopo original do módulo, sem reintroduzir localStorage, IndexedDB ou
- * a antiga coleção Firestore "inspections".
+ * Também garante salvamento robusto da PT no Firestore com compactação
+ * automática de fotos e assinaturas antes de gravar em relatorios_sst.
  */
 let ptRecoveryPromise=null;
+
+const clone=value=>JSON.parse(JSON.stringify(value??null));
+function byteSize(text){try{return new Blob([text]).size}catch(_){return String(text||'').length*2}}
+
+async function compactPTDataImage(dataUrl,max=800,quality=0.56){
+  const value=String(dataUrl||'');
+  if(!/^data:image\//i.test(value)||value.length<60000)return value;
+  try{
+    const img=await new Promise((resolve,reject)=>{const im=new Image();im.onload=()=>resolve(im);im.onerror=reject;im.src=value});
+    const w0=img.naturalWidth||img.width,h0=img.naturalHeight||img.height;
+    if(!w0||!h0)return value;
+    const scale=Math.min(1,max/Math.max(w0,h0));
+    const canvas=document.createElement('canvas');
+    canvas.width=Math.max(1,Math.round(w0*scale));
+    canvas.height=Math.max(1,Math.round(h0*scale));
+    const ctx=canvas.getContext('2d',{alpha:false});
+    ctx.drawImage(img,0,0,canvas.width,canvas.height);
+    return canvas.toDataURL('image/jpeg',quality);
+  }catch(_){return value}
+}
+
+async function compactPTSnapshot(snapshot,maxPhoto=800,photoQuality=0.56,maxSign=600,signQuality=0.5){
+  const x=clone(snapshot)||{};
+  if(Array.isArray(x.evidencePhotos)){
+    for(let i=0;i<x.evidencePhotos.length;i++)x.evidencePhotos[i]=await compactPTDataImage(x.evidencePhotos[i],maxPhoto,photoQuality);
+  }
+  if(Array.isArray(x.checklistPT)){
+    for(const item of x.checklistPT)if(item?.fotoEvidencia)item.fotoEvidencia=await compactPTDataImage(item.fotoEvidencia,maxPhoto,photoQuality);
+  }
+  if(x.issuer?.signature)x.issuer.signature=await compactPTDataImage(x.issuer.signature,maxSign,signQuality);
+  if(Array.isArray(x.workers)){
+    for(const worker of x.workers)if(worker?.signature)worker.signature=await compactPTDataImage(worker.signature,maxSign,signQuality);
+  }
+  return x;
+}
+
+async function preparePTSnapshot(snapshot){
+  let x=clone(snapshot)||{};
+  let json=JSON.stringify(x);
+  if(byteSize(json)>700000){x=await compactPTSnapshot(x,800,0.56,600,0.5);json=JSON.stringify(x)}
+  if(byteSize(json)>820000){x=await compactPTSnapshot(x,600,0.46,520,0.42);json=JSON.stringify(x)}
+  if(byteSize(json)>900000)throw new Error('A PT ficou muito grande para salvar na nuvem. Reduza a quantidade de fotos e tente novamente.');
+  return x;
+}
+
+function installPTSaveBridge(){
+  if(typeof window.cloudSetReport!=='function')return false;
+  const current=window.tbmHistoricoSalvar;
+  if(current?.__tbmPTCompactSaveBridge)return true;
+  const fallback=typeof current==='function'?current:null;
+
+  const bridge=async function(snapshot,meta={}){
+    if(snapshot?.type==='pt-altura'){
+      const clean=await preparePTSnapshot(snapshot);
+      const saved=await window.cloudSetReport(clean);
+      try{window.dispatchEvent(new CustomEvent('tbm-cloud-history-saved',{detail:{id:clean.id,type:clean.type}}))}catch(_){ }
+      return saved;
+    }
+    if(fallback)return await fallback(snapshot,meta);
+    return await window.cloudSetReport(snapshot);
+  };
+  bridge.__tbmPTCompactSaveBridge=true;
+  window.tbmHistoricoSalvar=bridge;
+  window.__tbmPTCloudSaveBound=true;
+  window.__tbmPTSaveFixVersion='2026.09.08.1-compact-firestore';
+  return true;
+}
 
 function injectPTContrast(){
   if(document.getElementById('tbm-pt-contrast-fix-style'))return;
@@ -152,8 +217,9 @@ async function recoverPTRuntime(){
       throw new Error('Gerador PDF da PT continua indisponível após a restauração.');
     }
 
+    installPTSaveBridge();
     injectPTContrast();
-    window.__tbmPTRuntimeRecovered='2026.09.08.1';
+    window.__tbmPTRuntimeRecovered='2026.09.08.2-save-fixed';
     window.dispatchEvent(new CustomEvent('tbm-pt-runtime-restored'));
     console.info('[PT] Runtime restaurado com sucesso.');
     return true;
@@ -177,7 +243,9 @@ function installContrastObserver(){
 
 async function install(){
   injectPTContrast();
+  installPTSaveBridge();
   await recoverPTRuntime();
+  installPTSaveBridge();
   installContrastObserver();
 }
 
@@ -192,15 +260,19 @@ document.addEventListener('click',async e=>{
   e.stopPropagation();
   e.stopImmediatePropagation();
   const ok=await recoverPTRuntime();
+  installPTSaveBridge();
   if(ok)window.openPTAltura();
   else alert('Não foi possível restaurar o módulo de Permissão de Trabalho. Verifique a conexão e tente novamente.');
 },true);
 
+window.addEventListener('tbm-firestore-ready',installPTSaveBridge);
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});else install();
 setTimeout(install,500);
 setTimeout(install,1500);
+setTimeout(installPTSaveBridge,3000);
 
 window.tbmFixPTContrast=installContrastObserver;
 window.tbmRecoverPTRuntime=recoverPTRuntime;
-window.__tbmPTContrastFixVersion='2026.09.08.2-runtime-recovery';
+window.tbmInstallPTSaveBridge=installPTSaveBridge;
+window.__tbmPTContrastFixVersion='2026.09.08.3-save-fix';
 })();
