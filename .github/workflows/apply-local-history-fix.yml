@@ -10,218 +10,33 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Aplicar alterações cirúrgicas
-        shell: bash
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-
-          def replace_once(path, old, new, label):
-              p=Path(path); s=p.read_text(encoding='utf-8')
-              if old not in s:
-                  raise SystemExit(f'{label}: trecho não encontrado em {path}')
-              s2=s.replace(old,new,1)
-              if s2==s:
-                  raise SystemExit(f'{label}: nenhuma alteração em {path}')
-              p.write_text(s2,encoding='utf-8')
-
-          # PT: estado + campo UI + PDF + salvamento local + share fallback
-          replace_once('pt-altura.js',
-              "description:'',workLocation:'',sector:'',date:d.toISOString().slice(0,10),startTime:'',endTime:'',",
-              "description:'',preventiveMeasures:'',workLocation:'',sector:'',date:d.toISOString().slice(0,10),startTime:'',endTime:'',",
-              'PT preventiveMeasures no estado')
-          replace_once('pt-altura.js',
-              "  s.epiOutro=s.epiOutro||'';s.meioAcessoOutro=s.meioAcessoOutro||'';",
-              "  s.epiOutro=s.epiOutro||'';s.meioAcessoOutro=s.meioAcessoOutro||'';s.preventiveMeasures=String(s.preventiveMeasures||'');",
-              'PT normalize preventiveMeasures')
-          replace_once('pt-altura.js',
-              "    </div>\n\n    <div class=\"card\"><div class=\"sectionTitle\">Trabalhadores Autorizados / Executantes</div>",
-              "    </div>\n\n    <div class=\"card\"><div class=\"sectionTitle\">Medidas Preventivas</div><div class=\"field\"><label>Medidas Preventivas</label><textarea data-pt-field=\"preventiveMeasures\" placeholder=\"Descreva as medidas preventivas e controles necessários antes e durante a execução\">${esc(ptState.preventiveMeasures||'')}</textarea></div></div>\n\n    <div class=\"card\"><div class=\"sectionTitle\">Trabalhadores Autorizados / Executantes</div>",
-              'PT textarea Medidas Preventivas')
-
-          p=Path('pt-altura.js'); s=p.read_text(encoding='utf-8')
-          old="""function scheduleSavePT(){
-  clearTimeout(saveTimerPT);
-  saveTimerPT=setTimeout(()=>savePT(false,false),900);
-  clearTimeout(cloudTimerPT);
-  cloudTimerPT=setTimeout(()=>{
-    const sync=()=>pushPTCloud().catch(()=>{});
-    if(typeof requestIdleCallback==='function')requestIdleCallback(sync,{timeout:5000});
-    else setTimeout(sync,0);
-  },5000);
-}"""
-          new="""function scheduleSavePT(){
-  clearTimeout(saveTimerPT);
-  saveTimerPT=setTimeout(()=>savePT(false,false),900);
-}"""
-          if old not in s: raise SystemExit('PT scheduleSavePT: trecho não encontrado')
-          s=s.replace(old,new,1)
-          old="""    if(syncCloud)pushPTCloud().catch(()=>{});
-    if(feedback)showMsg('✅ PT salva com sucesso.');"""
-          new="""    if(feedback&&typeof window.tbmHistoricoSalvar==='function')await window.tbmHistoricoSalvar(ptState,{source:'pt',reportType:PT_TITLE});
-    if(feedback)showMsg('✅ PT salva no dispositivo e adicionada ao histórico.');"""
-          if old not in s: raise SystemExit('PT save local: trecho não encontrado')
-          s=s.replace(old,new,1)
-          old="""  checklistTable('final','Checklist - Liberação e Encerramento').forEach(x=>content.push(x));
-
-  content.push(pdfSection('Trabalhadores Autorizados / Executantes'));"""
-          new="""  checklistTable('final','Checklist - Liberação e Encerramento').forEach(x=>content.push(x));
-
-  content.push(pdfSection('Medidas Preventivas'));
-  content.push({table:{widths:['*'],body:[[{text:ptState.preventiveMeasures||'Não informado.',margin:[2,7,2,7]}]]},layout:pdfGrid,fontSize:8.7});
-
-  content.push(pdfSection('Trabalhadores Autorizados / Executantes'));"""
-          if old not in s: raise SystemExit('PT bloco PDF medidas: trecho não encontrado')
-          s=s.replace(old,new,1)
-          old="""  if(action==='share'){
-    window.pdfMake.createPdf(doc).getBlob(async blob=>{
-      try{const file=new File([blob],filename,{type:'application/pdf'});if(navigator.share&&(!navigator.canShare||navigator.canShare({files:[file]})))await navigator.share({title:'PT - Trabalho em Altura',text:`Permissão de Trabalho ${ptState.id}`,files:[file]});else window.pdfMake.createPdf(doc).download(filename)}catch(e){if(e?.name!=='AbortError')window.pdfMake.createPdf(doc).download(filename)}
-    });
-  }else window.pdfMake.createPdf(doc).download(filename);"""
-          new="""  if(action==='share'){
-    if(typeof window.tbmCompartilharPdf==='function')return await window.tbmCompartilharPdf(doc,filename,{title:'PT - Trabalho em Altura',text:`Permissão de Trabalho ${ptState.id}`});
-    alert('O compartilhamento direto não está disponível neste dispositivo. O PDF será baixado automaticamente.');
-    window.pdfMake.createPdf(doc).download(filename);return;
-  }
-  window.pdfMake.createPdf(doc).download(filename);"""
-          if old not in s: raise SystemExit('PT share: trecho não encontrado')
-          s=s.replace(old,new,1)
-          s=s.replace("window.__tbmPTAlturaVersion='2026.09.04.pt-altura.4-sign-evidence';","window.__tbmPTAlturaVersion='2026.09.08.pt-altura.5-preventive-local-history';",1)
-          p.write_text(s,encoding='utf-8')
-
-          # Base: salvar manualmente no localStorage e remover push de nuvem do botão Salvar
-          p=Path('index.html'); s=p.read_text(encoding='utf-8')
-          old="await idbPut(state);if(window.tbmPushCloud)window.tbmPushCloud('main-save').catch(()=>{});if(!silent)notice('Inspeção salva com sucesso.','success')"
-          new="await idbPut(state);if(!silent&&typeof window.tbmHistoricoSalvar==='function')await window.tbmHistoricoSalvar(state,{source:'main'});if(!silent)notice('Inspeção salva no dispositivo e adicionada ao histórico.','success')"
-          if old not in s: raise SystemExit('index saveInspection: trecho não encontrado')
-          s=s.replace(old,new,1)
-          old="""if(action==='share'){
- window.pdfMake.createPdf(docDefinition).getBlob(async blob=>{
-   try{
-     const file=new File([blob],filename,{type:'application/pdf'});
-     if(navigator.share&&(!navigator.canShare||navigator.canShare({files:[file]}))){
-       await navigator.share({title:'Laudo de Inspeção SST',text:'Laudo '+state.id+' • '+typeName,files:[file]});
-     }else{
-       window.pdfMake.createPdf(docDefinition).download(filename);
-       alert('Compartilhamento direto não disponível. O PDF foi baixado.');
-     }
-   }catch(e){
-     if(e?.name!=='AbortError'){console.error(e);window.pdfMake.createPdf(docDefinition).download(filename)}
-   }finally{$('modal').classList.add('hidden')}
- });
- return;
-}"""
-          new="""if(action==='share'){
- try{
-   if(typeof window.tbmCompartilharPdf==='function')await window.tbmCompartilharPdf(docDefinition,filename,{title:'Laudo de Inspeção SST',text:'Laudo '+state.id+' • '+typeName});
-   else{alert('O compartilhamento direto não está disponível neste dispositivo. O PDF será baixado automaticamente.');window.pdfMake.createPdf(docDefinition).download(filename)}
- }catch(e){console.error('[COMPARTILHAR PDF]',e);alert('Não foi possível compartilhar diretamente. O PDF será baixado automaticamente.');window.pdfMake.createPdf(docDefinition).download(filename)}
- finally{$('modal').classList.add('hidden')}
- return;
-}"""
-          if old not in s: raise SystemExit('index share: trecho não encontrado')
-          s=s.replace(old,new,1)
-          s=s.replace('Salvamento local automático • sincronização Firebase quando disponível','Salvamento local automático • histórico no dispositivo',1)
-          s=s.replace("(async()=>{try{await initDB();await firebaseStart()}catch(e){console.error(e);$('cloudState').textContent='● Local'}})();","(async()=>{try{await initDB();$('cloudState').textContent='● Local'}catch(e){console.error(e);$('cloudState').textContent='● Local'}})();",1)
-          s=s.replace('./sst-repair-loader.js?v=20260904-24','./sst-repair-loader.js?v=20260908-01',1)
-          p.write_text(s,encoding='utf-8')
-
-          # NR24 share fallback comum
-          p=Path('nr24-module.js'); s=p.read_text(encoding='utf-8')
-          old="""  if(action==='share'){
-    return await new Promise(resolve=>window.pdfMake.createPdf(docDefinition).getBlob(async blob=>{
-      try{const file=new File([blob],filename,{type:'application/pdf'});if(navigator.share&&(!navigator.canShare||navigator.canShare({files:[file]})))await navigator.share({title:PDF_TITLE,text:`${TYPE_LABEL} • ${x.id||''}`,files:[file]});else window.pdfMake.createPdf(docDefinition).download(filename)}catch(e){if(e?.name!=='AbortError')window.pdfMake.createPdf(docDefinition).download(filename)}finally{resolve()}
-    }));
-  }"""
-          new="""  if(action==='share'){
-    if(typeof window.tbmCompartilharPdf==='function')return await window.tbmCompartilharPdf(docDefinition,filename,{title:PDF_TITLE,text:`${TYPE_LABEL} • ${x.id||''}`});
-    alert('O compartilhamento direto não está disponível neste dispositivo. O PDF será baixado automaticamente.');
-    window.pdfMake.createPdf(docDefinition).download(filename);return;
-  }"""
-          if old not in s: raise SystemExit('NR24 share: trecho não encontrado')
-          s=s.replace(old,new,1).replace("window.__tbmNR24Version='2026.09.04.2-compact-pdf';","window.__tbmNR24Version='2026.09.08.3-share-fallback-local';",1)
-          p.write_text(s,encoding='utf-8')
-
-          # Lista de presença share fallback comum
-          p=Path('training-attendance-refinement.js'); s=p.read_text(encoding='utf-8')
-          old="""  if(action==='share'){
-    return await new Promise(resolve=>window.pdfMake.createPdf(docDefinition).getBlob(async blob=>{
-      try{
-        const file=new File([blob],filename,{type:'application/pdf'});
-        if(navigator.share&&(!navigator.canShare||navigator.canShare({files:[file]})))await navigator.share({title:PDF_TITLE,text:x.trainingAttendance.theme||TYPE_LABEL,files:[file]});
-        else window.pdfMake.createPdf(docDefinition).download(filename);
-      }catch(e){if(e?.name!=='AbortError')window.pdfMake.createPdf(docDefinition).download(filename)}finally{resolve()}
-    }));
-  }"""
-          new="""  if(action==='share'){
-    if(typeof window.tbmCompartilharPdf==='function')return await window.tbmCompartilharPdf(docDefinition,filename,{title:PDF_TITLE,text:x.trainingAttendance.theme||TYPE_LABEL});
-    alert('O compartilhamento direto não está disponível neste dispositivo. O PDF será baixado automaticamente.');
-    window.pdfMake.createPdf(docDefinition).download(filename);return;
-  }"""
-          if old not in s: raise SystemExit('Treinamento share: trecho não encontrado')
-          s=s.replace(old,new,1).replace("window.__tbmTrainingAttendanceRefinementVersion='2026.09.04.1';","window.__tbmTrainingAttendanceRefinementVersion='2026.09.08.2-share-fallback-local';",1)
-          p.write_text(s,encoding='utf-8')
-
-          # Loader: carregar histórico; não carregar e-mail nem sincronização em nuvem nesta fase
-          p=Path('sst-repair-loader.js'); s=p.read_text(encoding='utf-8')
-          anchor="function loadPdfFilenameGlobal(){const old=document.getElementById('tbm-pdf-filename-global');if(old)old.remove();const s=document.createElement('script');s.id='tbm-pdf-filename-global';s.src='./pdf-filename-global.js?v=20260903-01&cb='+Date.now();s.async=false;document.body.appendChild(s);return new Promise(resolve=>{s.onload=resolve;s.onerror=resolve})}\n"
-          if anchor not in s: raise SystemExit('Loader anchor local history não encontrado')
-          s=s.replace(anchor,anchor+"function loadLocalHistory(){const old=document.getElementById('tbm-local-history');if(old)old.remove();const s=document.createElement('script');s.id='tbm-local-history';s.src='./local-history.js?v=20260908-01&cb='+Date.now();s.async=false;document.body.appendChild(s);return new Promise(resolve=>{s.onload=resolve;s.onerror=resolve})}\n",1)
-          s=s.replace("  await loadSaveButtonFix();\n  await loadCnpjAutofill();","  await loadSaveButtonFix();\n  await loadLocalHistory();\n  await loadCnpjAutofill();",1)
-          s=s.replace("  await loadPdfFilenameGlobal();\n  await loadAutoEmailReport();","  await loadPdfFilenameGlobal();\n  // E-mail automático desativado: salvamento estrutural passa a ser exclusivamente local nesta fase.",1)
-          s=s.replace("  setTimeout(loadCloudCrossDevice,0);","  // Sincronização cross-device não é iniciada nesta fase; histórico oficial permanece no localStorage.",1)
-          s=s.replace("./pt-altura.js?v=20260903-03&cb=","./pt-altura.js?v=20260908-05&cb=",1)
-          s=s.replace("./nr24-module.js?v=20260904-01&cb=","./nr24-module.js?v=20260908-03&cb=",1)
-          s=s.replace("./training-attendance-refinement.js?v=20260904-01&cb=","./training-attendance-refinement.js?v=20260908-02&cb=",1)
-          p.write_text(s,encoding='utf-8')
-
-          # PWA cache
-          for path in ['service-worker.js','sw.js']:
-              p=Path(path); s=p.read_text(encoding='utf-8')
-              s=s.replace('inspecao-sst-v85','inspecao-sst-v86')
-              s=s.replace("'./premium.js','./integracao-modulos.js'","'./premium.js','./integracao-modulos.js','./local-history.js'",1)
-              s=s.replace("?v=85","?v=86")
-              p.write_text(s,encoding='utf-8')
-
-          # Health check acompanha a nova versão e trava as novas funcionalidades
-          p=Path('.github/workflows/check-sst-syntax.yml'); s=p.read_text(encoding='utf-8')
-          s=s.replace('inspecao-sst-v85','inspecao-sst-v86')
-          marker="    assert 'Têxtil Bezerra de Menezes 2.jpeg' in text\n"
-          if marker in s and "local-history.js" not in s:
-              s=s.replace(marker,marker+"    assert 'local-history.js' in text\n",1)
-          p.write_text(s,encoding='utf-8')
-
-          Path('APPLY_LOCAL_HISTORY_FIX.txt').unlink(missing_ok=True)
-          PY
-
-      - name: Validar sintaxe e invariantes
-        shell: bash
+      - name: Aplicar patch cirúrgico
+        run: python3 scripts/apply_local_history_fix.py
+      - name: Validar JavaScript e funcionalidades
         run: |
           find . -maxdepth 1 -type f -name '*.js' -print0 | sort -z | xargs -0 -n1 node --check
           python3 - <<'PY'
           from pathlib import Path
           pt=Path('pt-altura.js').read_text(encoding='utf-8')
           assert "preventiveMeasures:''" in pt
-          assert 'Medidas Preventivas' in pt
+          assert 'data-pt-field="preventiveMeasures"' in pt
           assert "pdfSection('Medidas Preventivas')" in pt
           assert 'tbmHistoricoSalvar' in pt and 'tbmCompartilharPdf' in pt
           idx=Path('index.html').read_text(encoding='utf-8')
           assert 'tbmHistoricoSalvar' in idx and 'tbmCompartilharPdf' in idx
           hist=Path('local-history.js').read_text(encoding='utf-8')
-          for token in ['historicoSST','navigator.share','Gerar PDF','Abrir / Visualizar','tbmCompartilharPdf']:
+          for token in ['historicoSST','navigator.share','Abrir / Visualizar','Gerar PDF','tbmCompartilharPdf']:
               assert token in hist, token
           loader=Path('sst-repair-loader.js').read_text(encoding='utf-8')
           assert 'await loadLocalHistory();' in loader
           assert 'await loadAutoEmailReport();' not in loader
           assert 'setTimeout(loadCloudCrossDevice,0);' not in loader
-          for sw in ['service-worker.js','sw.js']:
+          for sw in ('service-worker.js','sw.js'):
               text=Path(sw).read_text(encoding='utf-8')
               assert 'inspecao-sst-v86' in text and './local-history.js' in text
           print('LOCAL_HISTORY_FIX_OK')
           PY
-
-      - name: Commitar patch
-        shell: bash
+      - name: Commitar alterações
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
