@@ -1,0 +1,1 @@
+Executar correção direta do envio de e-mail ao salvar a PT.
