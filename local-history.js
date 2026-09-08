@@ -4,7 +4,7 @@
 const FLAG='__tbmCloudHistoryV1';
 if(window[FLAG])return;window[FLAG]=true;
 
-const COLLECTION='relatorios_sst';
+const COLLECTION='inspections';
 const MAX_DOC_BYTES=920000;
 let unsubscribe=null;
 let cloudItems=[];
@@ -86,7 +86,7 @@ async function saveHistory(snapshot,meta={}){
   clean.updatedAt=nowIso();
   clean.reportType=reportType(clean,meta);
   clean.cloudSource=String(meta.source||'main');
-  clean.appVersion='2026.09.08.cloud-history.1';
+  clean.appVersion='2026.09.08.cloud-history.2-inspections';
   clean.cloudUpdatedAt=firebase.firestore.FieldValue.serverTimestamp();
   await fs.collection(COLLECTION).doc(clean.id).set(clean,{merge:true});
   window.dispatchEvent(new CustomEvent('tbm-cloud-history-saved',{detail:{id:clean.id,type:clean.type}}));
@@ -192,7 +192,7 @@ window.tbmHistoricoAbrir=showHistory;
 window.tbmHistoricoRestaurar=restoreItem;
 window.tbmCompartilharPdf=sharePdf;
 window.openHistory=showHistory;
-window.__tbmCloudHistoryVersion='2026.09.08.1-realtime-firestore';
+window.__tbmCloudHistoryVersion='2026.09.08.2-inspections';
 window.addEventListener('tbm-firestore-ready',()=>startRealtime().catch(()=>{}));
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',installUi,{once:true});else installUi();
 })();
