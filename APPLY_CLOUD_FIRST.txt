@@ -1,1 +1,2 @@
 Aplicar migração total da persistência local para Firestore relatorios_sst com onSnapshot em tempo real.
+retry=1
