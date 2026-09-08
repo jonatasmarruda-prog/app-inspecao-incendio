@@ -1,0 +1,48 @@
+name: Aplicar migração cloud-first Firestore
+on:
+  push:
+    paths:
+      - 'APPLY_CLOUD_FIRST.txt'
+permissions:
+  contents: write
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Aplicar migração Firestore
+        run: python3 scripts/apply_cloud_first_firestore.py
+      - name: Validar JavaScript e invariantes cloud-first
+        run: |
+          find . -maxdepth 1 -type f -name '*.js' -print0 | sort -z | xargs -0 -n1 node --check
+          python3 - <<'PY'
+          from pathlib import Path
+          html=Path('index.html').read_text(encoding='utf-8')
+          hist=Path('local-history.js').read_text(encoding='utf-8')
+          pt=Path('pt-altura.js').read_text(encoding='utf-8')
+          loader=Path('sst-repair-loader.js').read_text(encoding='utf-8')
+          assert "CLOUD_COLLECTION='relatorios_sst'" in html
+          assert "collection(CLOUD_COLLECTION).doc" in html
+          assert "indexedDB.open(DB_NAME" not in html
+          assert "collection('inspections')" not in html
+          assert "const COLLECTION='relatorios_sst'" in hist
+          assert ".orderBy('cloudUpdatedAt','desc').onSnapshot(" in hist
+          assert 'localStorage.getItem' not in hist and 'localStorage.setItem' not in hist
+          assert 'indexedDB.open' not in hist
+          assert 'await window.tbmHistoricoSalvar(ptState' in pt
+          assert 'window.idbPut(ptState)' not in pt
+          assert 'await loadHistoryLightFix();' not in loader
+          assert 'loadCloudCrossDevice' not in loader
+          for sw in ('service-worker.js','sw.js'):
+              text=Path(sw).read_text(encoding='utf-8')
+              assert 'inspecao-sst-v87' in text
+          print('CLOUD_FIRST_VALIDADO')
+          PY
+      - name: Commitar migração
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git diff --cached --quiet && exit 0
+          git commit -m 'Migra persistencia para Firestore em tempo real'
+          git push
