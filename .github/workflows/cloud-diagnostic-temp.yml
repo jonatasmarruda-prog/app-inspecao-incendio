@@ -1,83 +1,64 @@
-name: Diagnóstico temporário Firebase SST
+name: Corrigir coleção Firestore SST
 on:
   push:
     branches: [main]
     paths:
       - '.github/workflows/cloud-diagnostic-temp.yml'
 permissions:
-  contents: read
+  contents: write
 jobs:
-  diagnose:
+  fix:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Testar Firebase SDK, Auth e leitura/gravação Firestore
+      - name: Migrar app para coleção autorizada
         shell: bash
         run: |
           set -euo pipefail
-          echo '=== SDK FIREBASE ==='
-          code=$(curl -L -sS -o /tmp/firebase-app.js -w '%{http_code}' 'https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js' || true)
-          echo "firebase-app-compat.js HTTP=$code"
-
-          API_KEY=$(python3 - <<'PY'
-          import re, pathlib
-          text=pathlib.Path('index.html').read_text(encoding='utf-8')
-          m=re.search(r"apiKey:'([^']+)'", text)
-          if not m: raise SystemExit('API_KEY_NOT_FOUND')
-          print(m.group(1))
-          PY
-          )
-
-          auth_code=$(curl -sS -o /tmp/auth.json -w '%{http_code}' \
-            -X POST "https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${API_KEY}" \
-            -H 'Content-Type: application/json' \
-            --data '{"returnSecureToken":true}' || true)
-          echo "Identity Toolkit HTTP=$auth_code"
-          TOKEN=$(python3 - <<'PY'
-          import json
-          d=json.load(open('/tmp/auth.json'))
-          print(d.get('idToken',''))
-          PY
-          )
-          if [ -z "$TOKEN" ]; then
-            python3 - <<'PY'
-          import json
-          d=json.load(open('/tmp/auth.json'))
-          print('ANON_AUTH_ERROR=' + str((d.get('error') or {}).get('message') or d))
-          PY
-            exit 0
-          fi
-          echo 'ANON_AUTH_OK'
-
-          for COLLECTION in relatorios_sst inspections; do
-            fs_code=$(curl -sS -o "/tmp/${COLLECTION}.json" -w '%{http_code}' \
-              -H "Authorization: Bearer ${TOKEN}" \
-              "https://firestore.googleapis.com/v1/projects/app-inspecao-sst-79aa6/databases/(default)/documents/${COLLECTION}?pageSize=1" || true)
-            echo "${COLLECTION} READ HTTP=$fs_code"
-          done
-
-          echo '=== TESTE DE GRAVAÇÃO INSPECTIONS ==='
-          DOC_ID="tbm-cloud-diagnostic-${GITHUB_RUN_ID}"
-          write_code=$(curl -sS -o /tmp/write.json -w '%{http_code}' \
-            -X PATCH \
-            -H "Authorization: Bearer ${TOKEN}" \
-            -H 'Content-Type: application/json' \
-            "https://firestore.googleapis.com/v1/projects/app-inspecao-sst-79aa6/databases/(default)/documents/inspections/${DOC_ID}" \
-            --data '{"fields":{"type":{"stringValue":"diagnostic"},"temporary":{"booleanValue":true},"source":{"stringValue":"github-actions-cloud-test"}}}' || true)
-          echo "inspections WRITE HTTP=$write_code"
           python3 - <<'PY'
-          import json
-          d=json.load(open('/tmp/write.json'))
-          if 'error' in d:
-              e=d['error']; print('INSPECTIONS_WRITE_ERROR='+str(e.get('status'))+':'+str(e.get('message')))
-          else:
-              print('INSPECTIONS_WRITE_OK')
+          from pathlib import Path
+
+          replacements = {
+              'index.html': [
+                  ("const CLOUD_COLLECTION='relatorios_sst',APP_VERSION='2026.09.08.cloud-first.1';",
+                   "const CLOUD_COLLECTION='inspections',APP_VERSION='2026.09.08.cloud-first.2-inspections';"),
+              ],
+              'local-history.js': [
+                  ("const COLLECTION='relatorios_sst';", "const COLLECTION='inspections';"),
+                  ("clean.appVersion='2026.09.08.cloud-history.1';", "clean.appVersion='2026.09.08.cloud-history.2-inspections';"),
+                  ("window.__tbmCloudHistoryVersion='2026.09.08.1-realtime-firestore';", "window.__tbmCloudHistoryVersion='2026.09.08.2-inspections';"),
+              ],
+              'service-worker.js': [
+                  ("const CACHE='inspecao-sst-v88';", "const CACHE='inspecao-sst-v89';"),
+                  ("url+'?v=88'", "url+'?v=89'"),
+              ],
+              'sw.js': [
+                  ("const CACHE='inspecao-sst-v88';", "const CACHE='inspecao-sst-v89';"),
+                  ("url+'?v=88'", "url+'?v=89'"),
+              ],
+          }
+
+          for filename, pairs in replacements.items():
+              path = Path(filename)
+              text = path.read_text(encoding='utf-8')
+              for old, new in pairs:
+                  if old not in text:
+                      raise SystemExit(f'MARCADOR_NAO_ENCONTRADO:{filename}:{old}')
+                  text = text.replace(old, new, 1)
+              path.write_text(text, encoding='utf-8')
+              print('ATUALIZADO', filename)
           PY
 
-          if [ "$write_code" = "200" ]; then
-            delete_code=$(curl -sS -o /tmp/delete.txt -w '%{http_code}' \
-              -X DELETE \
-              -H "Authorization: Bearer ${TOKEN}" \
-              "https://firestore.googleapis.com/v1/projects/app-inspecao-sst-79aa6/databases/(default)/documents/inspections/${DOC_ID}" || true)
-            echo "inspections DELETE HTTP=$delete_code"
-          fi
+          grep -q "CLOUD_COLLECTION='inspections'" index.html
+          grep -q "const COLLECTION='inspections'" local-history.js
+          grep -q "inspecao-sst-v89" service-worker.js
+          grep -q "inspecao-sst-v89" sw.js
+          node --check local-history.js
+          node --check service-worker.js
+          node --check sw.js
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add index.html local-history.js service-worker.js sw.js
+          git commit -m 'Restaura nuvem SST na coleção Firestore autorizada'
+          git push origin HEAD:main
