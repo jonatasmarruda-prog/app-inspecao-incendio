@@ -152,13 +152,9 @@ async function makeRefinedAttendancePdf(action='download'){
     return window.pdfMake.createPdf(docDefinition).open();
   }
   if(action==='share'){
-    return await new Promise(resolve=>window.pdfMake.createPdf(docDefinition).getBlob(async blob=>{
-      try{
-        const file=new File([blob],filename,{type:'application/pdf'});
-        if(navigator.share&&(!navigator.canShare||navigator.canShare({files:[file]})))await navigator.share({title:PDF_TITLE,text:x.trainingAttendance.theme||TYPE_LABEL,files:[file]});
-        else window.pdfMake.createPdf(docDefinition).download(filename);
-      }catch(e){if(e?.name!=='AbortError')window.pdfMake.createPdf(docDefinition).download(filename)}finally{resolve()}
-    }));
+    if(typeof window.tbmCompartilharPdf==='function')return await window.tbmCompartilharPdf(docDefinition,filename,{title:PDF_TITLE,text:x.trainingAttendance.theme||TYPE_LABEL});
+    alert('O compartilhamento direto não está disponível neste dispositivo. O PDF será baixado automaticamente.');
+    window.pdfMake.createPdf(docDefinition).download(filename);return;
   }
   window.pdfMake.createPdf(docDefinition).download(filename);
 }
@@ -247,7 +243,7 @@ function install(){
   bindEvents();
   refresh();
   window.tbmRefreshTrainingAttendanceRefinement=refresh;
-  window.__tbmTrainingAttendanceRefinementVersion='2026.09.04.1';
+  window.__tbmTrainingAttendanceRefinementVersion='2026.09.08.2-share-fallback-local';
   window.dispatchEvent(new CustomEvent('tbm-training-attendance-refinement-ready'));
 }
 

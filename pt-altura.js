@@ -121,7 +121,7 @@ function freshState(){
   const d=new Date();
   return {
     id:idPT(),type:PT_TYPE,title:PT_TITLE,createdAt:nowISO(),updatedAt:nowISO(),
-    description:'',workLocation:'',sector:'',date:d.toISOString().slice(0,10),startTime:'',endTime:'',
+    description:'',preventiveMeasures:'',workLocation:'',sector:'',date:d.toISOString().slice(0,10),startTime:'',endTime:'',
     episSelecionados:blankFlags(EPI_OPTIONS),epiOutro:'',meiosAcesso:blankFlags(ACCESS_OPTIONS),meioAcessoOutro:'',
     checklistPT:blankChecklist(),workers:[blankWorker()],evidencePhotos:[],
     issuer:{name:EMISSOR_NOME,role:EMISSOR_CARGO,signature:''},status:'RASCUNHO'
@@ -134,7 +134,7 @@ function normalizeState(x){
   s.checklistPT=checklistPT.map(q=>{const old=(s.checklistPT||[]).find(z=>z.id===q.id)||{};return {...q,status:['CONFORME','NÃO CONFORME','N/A'].includes(old.status)?old.status:'N/A',fotoEvidencia:String(old.fotoEvidencia||'')}});
   s.episSelecionados={...blankFlags(EPI_OPTIONS),...(s.episSelecionados||{})};
   s.meiosAcesso={...blankFlags(ACCESS_OPTIONS),...(s.meiosAcesso||{})};
-  s.epiOutro=s.epiOutro||'';s.meioAcessoOutro=s.meioAcessoOutro||'';
+  s.epiOutro=s.epiOutro||'';s.meioAcessoOutro=s.meioAcessoOutro||'';s.preventiveMeasures=String(s.preventiveMeasures||'');
   s.workers=Array.isArray(s.workers)&&s.workers.length?s.workers.map(w=>({id:w.id||blankWorker().id,nome:w.nome||'',signature:w.signature||''})):[blankWorker()];
   s.evidencePhotos=Array.isArray(s.evidencePhotos)?s.evidencePhotos.filter(x=>typeof x==='string'&&x.startsWith('data:image/')):[];
   return s;
@@ -245,6 +245,8 @@ function renderPT(){
       ${groupHTML('pta','🚧 Plataforma Elevatória (PTA)')}
       ${groupHTML('final','✅ Liberação e Encerramento')}
     </div>
+
+    <div class="card"><div class="sectionTitle">Medidas Preventivas</div><div class="field"><label>Medidas Preventivas</label><textarea data-pt-field="preventiveMeasures" placeholder="Descreva as medidas preventivas e controles necessários antes e durante a execução">${esc(ptState.preventiveMeasures||'')}</textarea></div></div>
 
     <div class="card"><div class="sectionTitle">Trabalhadores Autorizados / Executantes</div><div class="notice info">Os colaboradores abaixo receberam treinamento e estão autorizados a executar as atividades.</div><div id="ptWorkers">${ptState.workers.map(workerHTML).join('')}</div><button type="button" id="ptAddWorker" class="btn secondary full">➕ Adicionar Executante</button></div>
     <div class="card pt-fixed-issuer"><div class="sectionTitle">Responsável pela Liberação</div><div class="grid"><div class="field"><label>Emissor / TST</label><input value="${esc(EMISSOR_NOME)}" readonly></div><div class="field"><label>Cargo</label><input value="${esc(EMISSOR_CARGO)}" readonly></div></div><div class="field" style="margin-top:12px"><label>Assinatura do Responsável pela Liberação</label><div class="pt-sign"><canvas id="ptIssuerSig"></canvas></div><button type="button" class="btn secondary full" data-pt-clear-issuer-sign>Limpar assinatura</button></div><div class="mini" style="margin-top:10px">Responsável técnico fixado no sistema: ${esc(EMISSOR_NOME)}.</div></div>
@@ -361,12 +363,6 @@ function showMsg(text,type='successbox'){
 function scheduleSavePT(){
   clearTimeout(saveTimerPT);
   saveTimerPT=setTimeout(()=>savePT(false,false),900);
-  clearTimeout(cloudTimerPT);
-  cloudTimerPT=setTimeout(()=>{
-    const sync=()=>pushPTCloud().catch(()=>{});
-    if(typeof requestIdleCallback==='function')requestIdleCallback(sync,{timeout:5000});
-    else setTimeout(sync,0);
-  },5000);
 }
 
 async function savePT(feedback=false,syncCloud=feedback){
@@ -382,8 +378,8 @@ async function savePT(feedback=false,syncCloud=feedback){
         window.__tbmExtra=previousExtra;
       }
     }
-    if(syncCloud)pushPTCloud().catch(()=>{});
-    if(feedback)showMsg('✅ PT salva com sucesso.');
+    if(feedback&&typeof window.tbmHistoricoSalvar==='function')await window.tbmHistoricoSalvar(ptState,{source:'pt',reportType:PT_TITLE});
+    if(feedback)showMsg('✅ PT salva no dispositivo e adicionada ao histórico.');
     return true;
   }catch(e){console.error('[PT SAVE]',e);if(feedback)showMsg('❌ Não foi possível salvar a PT.','errorbox');return false}
 }
@@ -483,6 +479,9 @@ async function makePTPdf(action='download'){
   checklistTable('pta','Checklist - Plataforma Elevatória (PTA)').forEach(x=>content.push(x));
   checklistTable('final','Checklist - Liberação e Encerramento').forEach(x=>content.push(x));
 
+  content.push(pdfSection('Medidas Preventivas'));
+  content.push({table:{widths:['*'],body:[[{text:ptState.preventiveMeasures||'Não informado.',margin:[2,7,2,7]}]]},layout:pdfGrid,fontSize:8.7});
+
   content.push(pdfSection('Trabalhadores Autorizados / Executantes'));
   content.push({text:'Os colaboradores abaixo receberam treinamento e estão autorizados a executar as atividades.',fontSize:8,margin:[0,6,0,4]});
   const wr=[];for(let i=0;i<ptState.workers.length;i+=2)wr.push([workerSignatureCell(ptState.workers[i],i),ptState.workers[i+1]?workerSignatureCell(ptState.workers[i+1],i+1):{text:''}]);
@@ -510,10 +509,11 @@ async function makePTPdf(action='download'){
   const doc={pageSize:'A4',pageMargins:[42,42,42,42],defaultStyle:{font:'Roboto',fontSize:9,color:'#111',lineHeight:1.2},content};
   const filename=`PT_Trabalho_Altura_${ptState.id}.pdf`;
   if(action==='share'){
-    window.pdfMake.createPdf(doc).getBlob(async blob=>{
-      try{const file=new File([blob],filename,{type:'application/pdf'});if(navigator.share&&(!navigator.canShare||navigator.canShare({files:[file]})))await navigator.share({title:'PT - Trabalho em Altura',text:`Permissão de Trabalho ${ptState.id}`,files:[file]});else window.pdfMake.createPdf(doc).download(filename)}catch(e){if(e?.name!=='AbortError')window.pdfMake.createPdf(doc).download(filename)}
-    });
-  }else window.pdfMake.createPdf(doc).download(filename);
+    if(typeof window.tbmCompartilharPdf==='function')return await window.tbmCompartilharPdf(doc,filename,{title:'PT - Trabalho em Altura',text:`Permissão de Trabalho ${ptState.id}`});
+    alert('O compartilhamento direto não está disponível neste dispositivo. O PDF será baixado automaticamente.');
+    window.pdfMake.createPdf(doc).download(filename);return;
+  }
+  window.pdfMake.createPdf(doc).download(filename);
 }
 
 function installHistoryInterceptor(){
@@ -537,6 +537,6 @@ window.openPTAlturaFromState=openPTAltura;
 window.makePTAlturaPdf=makePTPdf;
 window.savePTAltura=savePT;
 window.PT_ALTURA_EMISSOR={name:EMISSOR_NOME,role:EMISSOR_CARGO};
-window.__tbmPTAlturaVersion='2026.09.04.pt-altura.4-sign-evidence';
+window.__tbmPTAlturaVersion='2026.09.08.pt-altura.5-preventive-local-history';
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});else install();
 })();

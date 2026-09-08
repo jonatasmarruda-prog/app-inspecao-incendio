@@ -284,9 +284,9 @@ async function makeNR24Pdf(action='download'){
   const filename=`Laudo_NR24_${x.id||'SEM-ID'}.pdf`;
   if(action===true)action='share';if(action===false)action='download';
   if(action==='share'){
-    return await new Promise(resolve=>window.pdfMake.createPdf(docDefinition).getBlob(async blob=>{
-      try{const file=new File([blob],filename,{type:'application/pdf'});if(navigator.share&&(!navigator.canShare||navigator.canShare({files:[file]})))await navigator.share({title:PDF_TITLE,text:`${TYPE_LABEL} • ${x.id||''}`,files:[file]});else window.pdfMake.createPdf(docDefinition).download(filename)}catch(e){if(e?.name!=='AbortError')window.pdfMake.createPdf(docDefinition).download(filename)}finally{resolve()}
-    }));
+    if(typeof window.tbmCompartilharPdf==='function')return await window.tbmCompartilharPdf(docDefinition,filename,{title:PDF_TITLE,text:`${TYPE_LABEL} • ${x.id||''}`});
+    alert('O compartilhamento direto não está disponível neste dispositivo. O PDF será baixado automaticamente.');
+    window.pdfMake.createPdf(docDefinition).download(filename);return;
   }
   window.pdfMake.createPdf(docDefinition).download(filename);
 }
@@ -304,5 +304,5 @@ function install(){
 }
 
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});else install();
-window.__tbmNR24Version='2026.09.04.2-compact-pdf';
+window.__tbmNR24Version='2026.09.08.3-share-fallback-local';
 })();
