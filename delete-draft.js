@@ -68,7 +68,7 @@ async function limparInspecao(){
     let deleted=false;
     try { if (typeof window.idbDelete === 'function') { await window.idbDelete(id); deleted=true; } } catch (e) { console.warn('Falha idbDelete:', e); }
     if(!deleted){try { await removeCurrentFromIndexedDB(id); } catch (e) { console.warn('Falha na exclusão local:', e); }}
-    try { if (window.SST?.fs) { window.SST.fs.collection('inspections').doc(String(id)).delete().catch(()=>{}); } } catch (e) { console.warn('Falha nuvem:', e); }
+    try { if (window.SST?.fs) { window.SST.fs.collection('inspections_tbm_matriz').doc(String(id)).delete().catch(()=>{}); } } catch (e) { console.warn('Falha nuvem:', e); }
   }
   window.location.reload();
 }
@@ -91,8 +91,18 @@ function addDeleteButton(){
   actions.appendChild(btn);
 }
 
+function loadMatrizOnboarding(){
+  if(document.getElementById('tbm-matriz-onboarding-loader'))return;
+  const s=document.createElement('script');
+  s.id='tbm-matriz-onboarding-loader';
+  s.src='./tbm-matriz-onboarding.js?v=20260909-01';
+  s.async=false;
+  document.body.appendChild(s);
+}
+
 function init(){
   addDeleteButton();
+  loadMatrizOnboarding();
   setTimeout(addDeleteButton,300);
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
