@@ -4,7 +4,7 @@
 const PT_TYPE='pt-altura';
 const RESPONSAVEL='Jonatas Marques de Arruda';
 const VALIDADE='1 Turno de Trabalho';
-const VERSION='2026.09.09.2-nr35-renovacao';
+const VERSION='2026.09.09.3-nr35-renovacao-final';
 
 let activeRecord=null;
 let liveState=null;
@@ -74,10 +74,10 @@ function injectRenewalStyle(){
 function mountRenewalCard(){
   injectRenewalStyle();
   const body=document.getElementById('ptAlturaBody');if(!body)return false;
+  const actionsCard=body.querySelector('.pt-actions')?.closest('.card');
+  if(!actionsCard)return false;
   let card=document.getElementById('ptRenewalCard');
   if(!card){
-    const preventive=[...body.querySelectorAll('.card')].find(x=>String(x.querySelector('.sectionTitle')?.textContent||'').trim()==='Medidas Preventivas');
-    if(!preventive)return false;
     card=document.createElement('div');card.className='card';card.id='ptRenewalCard';
     card.innerHTML=`
       <div class="sectionTitle">Renovação da Permissão de Trabalho (NR 35)</div>
@@ -88,10 +88,10 @@ function mountRenewalCard(){
         <button type="button" id="ptRegisterRenewal" class="btn success">🔄 Registrar Renovação</button>
       </div>
       <div id="ptRenewalList"></div>`;
-    preventive.insertAdjacentElement('afterend',card);
     const input=card.querySelector('#ptRenewalDate');if(input&&!input.value)input.value=new Date().toISOString().slice(0,10);
     card.querySelector('#ptRegisterRenewal')?.addEventListener('click',registerRenewal);
   }
+  if(card.nextElementSibling!==actionsCard)actionsCard.insertAdjacentElement('beforebegin',card);
   const list=card.querySelector('#ptRenewalList');if(list)list.innerHTML=renewalListHTML();
   return true;
 }
