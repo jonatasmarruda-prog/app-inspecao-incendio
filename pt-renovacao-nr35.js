@@ -4,7 +4,7 @@
 const PT_TYPE='pt-altura';
 const RESPONSAVEL='Jonatas Marques de Arruda';
 const VALIDADE='1 Turno de Trabalho';
-const VERSION='2026.09.09.1-nr35-renovacao';
+const VERSION='2026.09.09.2-nr35-renovacao';
 
 let activeRecord=null;
 let liveState=null;
@@ -143,7 +143,11 @@ function patchPersistence(){
     if(snapshot?.type===PT_TYPE&&result?.type===PT_TYPE)result.renovacoes=mergeRenewals(snapshot.renovacoes,result.renovacoes);
     return result;
   };
-  wrapped.__tbmPTRenewalNR35=true;wrapped.__tbmOriginal=original;window.tbmHistoricoSalvar=wrapped;
+  wrapped.__tbmPTRenewalNR35=true;
+  wrapped.__tbmPTCompactSaveBridge=!!original.__tbmPTCompactSaveBridge;
+  wrapped.__tbmOriginal=original;
+  window.tbmHistoricoSalvar=wrapped;
+  window.__tbmPTCloudSaveBound=true;
 }
 function textOf(node){
   if(node==null)return '';
