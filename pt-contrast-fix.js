@@ -276,3 +276,22 @@ window.tbmRecoverPTRuntime=recoverPTRuntime;
 window.tbmInstallPTSaveBridge=installPTSaveBridge;
 window.__tbmPTContrastFixVersion='2026.09.08.3-save-fix';
 })();
+
+(()=>{
+'use strict';
+function loadPTRenovacaoNR35(){
+  if(window.__tbmPTRenewalNR35Version)return Promise.resolve(true);
+  const old=document.getElementById('tbm-pt-renovacao-nr35');if(old)old.remove();
+  const s=document.createElement('script');
+  s.id='tbm-pt-renovacao-nr35';
+  s.src='./pt-renovacao-nr35.js?v=20260909-02&cb='+Date.now();
+  s.async=false;
+  document.body.appendChild(s);
+  return new Promise(resolve=>{s.onload=()=>resolve(true);s.onerror=()=>resolve(false)});
+}
+window.tbmLoadPTRenovacaoNR35=loadPTRenovacaoNR35;
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>loadPTRenovacaoNR35(),{once:true});else loadPTRenovacaoNR35();
+window.addEventListener('tbm-pt-runtime-restored',()=>loadPTRenovacaoNR35());
+setTimeout(loadPTRenovacaoNR35,700);
+setTimeout(loadPTRenovacaoNR35,1800);
+})();
