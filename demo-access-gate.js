@@ -12,6 +12,7 @@ async function hash(v){return hex(await crypto.subtle.digest('SHA-256',new TextE
 function isAuthed(){const until=Number(localStorage.getItem(AUTH_KEY)||0);return Number.isFinite(until)&&until>Date.now()}
 function setAuthed(){localStorage.setItem(AUTH_KEY,String(Date.now()+TTL))}
 function logout(){localStorage.removeItem(AUTH_KEY);location.reload()}
+async function installOffline(){if(!('serviceWorker'in navigator))return;try{await navigator.serviceWorker.register('./service-worker.js',{scope:'./'});await navigator.serviceWorker.ready}catch(e){console.warn('[SST OFFLINE]',e)}}
 
 function style(){if($('sstAccessGateStyle'))return;const s=document.createElement('style');s.id='sstAccessGateStyle';s.textContent=`
 #sstAccessGate{position:fixed;inset:0;z-index:999999;background:radial-gradient(circle at 80% 0,#991b1b 0,#5b1117 34%,#0f172a 100%);display:flex;align-items:center;justify-content:center;padding:18px}
@@ -25,7 +26,7 @@ function normalizeUi(){
   document.querySelectorAll('.sd-demo-badge').forEach(el=>el.textContent='🔒 AMBIENTE PRIVADO');
   const head=document.querySelector('#sstDemoWelcome .sd-head');
   if(head){const p=head.querySelector('p');if(p)p.textContent='Ambiente profissional de Segurança do Trabalho. Entre no sistema para iniciar.'}
-  const cloud=document.getElementById('cloudState');if(cloud)cloud.textContent='● Dados salvos neste dispositivo';
+  const cloud=document.getElementById('cloudState');if(cloud)cloud.textContent=navigator.onLine?'● Dados salvos neste dispositivo':'● Modo offline ativo';
   const status=document.querySelector('#home .statusline');if(status)status.innerHTML='<span class="dot"></span>Dados salvos neste dispositivo • uso offline após o primeiro acesso';
   const hero=document.querySelector('#home .hero');
   if(hero&&!$('sstDemoLogoutBtn')){const b=document.createElement('button');b.type='button';b.id='sstDemoLogoutBtn';b.className='btn secondary full sag-logout';b.textContent='🔒 Sair do sistema';b.onclick=logout;hero.appendChild(b)}
@@ -35,6 +36,6 @@ function build(){style();let root=$('sstAccessGate');if(root)return root;root=do
   const submit=async()=>{const user=$('sagUser').value.trim(),pass=$('sagPass').value;const got=await hash(`${user}:${pass}`);if(got!==CRED_HASH){$('sagError').classList.add('show');$('sagPass').value='';$('sagPass').focus();return}setAuthed();root.classList.add('hidden');normalizeUi();setTimeout(()=>document.getElementById('sstDemoEnter')?.focus(),100)};
   $('sagLogin').onclick=submit;$('sagPass').addEventListener('keydown',e=>{if(e.key==='Enter')submit()});$('sagUser').addEventListener('keydown',e=>{if(e.key==='Enter')$('sagPass').focus()});return root
 }
-function boot(){normalizeUi();const root=build();if(isAuthed())root.classList.add('hidden');else root.classList.remove('hidden');setTimeout(normalizeUi,500);setTimeout(normalizeUi,1800)}
+function boot(){installOffline();normalizeUi();const root=build();if(isAuthed())root.classList.add('hidden');else root.classList.remove('hidden');window.addEventListener('online',normalizeUi);window.addEventListener('offline',normalizeUi);setTimeout(normalizeUi,500);setTimeout(normalizeUi,1800)}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
 })();
