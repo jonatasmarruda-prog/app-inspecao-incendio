@@ -1,16 +1,20 @@
 {
-  "name": "SST Inspeções",
-  "short_name": "SST Inspeções",
-  "description": "Sistema profissional de inspeções de SST, incêndio, máquinas, EPI e acidentes.",
+  "id": "./",
+  "name": "Sistema SST",
+  "short_name": "Sistema SST",
+  "description": "Sistema profissional de Segurança do Trabalho para inspeções, PTs, evidências, assinaturas e relatórios.",
   "lang": "pt-BR",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "display_override": ["standalone", "fullscreen"],
   "orientation": "portrait",
-  "background_color": "#f8fafc",
-  "theme_color": "#991b1b",
+  "background_color": "#8b1018",
+  "theme_color": "#8b1018",
+  "prefer_related_applications": false,
   "icons": [
-    {"src":"icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}
+    {"src":"icon-192.svg","sizes":"192x192","type":"image/svg+xml","purpose":"any maskable"},
+    {"src":"icon-512.svg","sizes":"512x512","type":"image/svg+xml","purpose":"any maskable"},
+    {"src":"icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any"}
   ]
 }
