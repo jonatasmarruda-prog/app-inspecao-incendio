@@ -1,5 +1,16 @@
 (()=>{
 'use strict';
+
+// SOMENTE NA BRANCH COMERCIAL: carrega a camada white-label/multiempresa.
+(function loadCommercialMode(){
+  if(document.getElementById('sst-commercial-mode-loader'))return;
+  const s=document.createElement('script');
+  s.id='sst-commercial-mode-loader';
+  s.src='./commercial-mode.js?v=20260909-01&cb='+Date.now();
+  s.async=false;
+  document.head.appendChild(s);
+})();
+
 const MODULE_FLAG='__tbmDeleteDraftV2';
 if(window[MODULE_FLAG])return;
 window[MODULE_FLAG]=true;
