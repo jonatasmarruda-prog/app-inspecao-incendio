@@ -1,0 +1,81 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function currentUser() {
+      return get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data;
+    }
+
+    function activeUser() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/usuarios/$(request.auth.uid))
+        && currentUser().ativo == true;
+    }
+
+    function currentEmpresaId() {
+      return currentUser().empresaId;
+    }
+
+    function isAdmin() {
+      return activeUser() && currentUser().perfil == 'administrador';
+    }
+
+    function sameCompanyData(data) {
+      return activeUser()
+        && data.empresaId is string
+        && data.empresaId == currentEmpresaId();
+    }
+
+    match /empresas/{empresaId} {
+      allow read: if activeUser() && empresaId == currentEmpresaId();
+      allow update: if isAdmin()
+        && empresaId == currentEmpresaId()
+        && request.resource.data.empresaId == empresaId;
+      allow create, delete: if false;
+    }
+
+    match /usuarios/{uid} {
+      allow read: if activeUser() && resource.data.empresaId == currentEmpresaId();
+      allow create: if isAdmin()
+        && request.resource.data.empresaId == currentEmpresaId()
+        && request.resource.data.ativo is bool;
+      allow update: if isAdmin()
+        && resource.data.empresaId == currentEmpresaId()
+        && request.resource.data.empresaId == resource.data.empresaId;
+      allow delete: if isAdmin()
+        && uid != request.auth.uid
+        && resource.data.empresaId == currentEmpresaId();
+    }
+
+    match /contatos/{contatoId} {
+      allow read: if activeUser() && resource.data.empresaId == currentEmpresaId();
+      allow create: if sameCompanyData(request.resource.data);
+      allow update: if sameCompanyData(resource.data)
+        && request.resource.data.empresaId == resource.data.empresaId;
+      allow delete: if sameCompanyData(resource.data);
+    }
+
+    match /relatorios/{relatorioId} {
+      allow read: if activeUser() && resource.data.empresaId == currentEmpresaId();
+      allow create: if sameCompanyData(request.resource.data)
+        && request.resource.data.criadoPor == request.auth.uid;
+      allow update: if sameCompanyData(resource.data)
+        && request.resource.data.empresaId == resource.data.empresaId
+        && request.resource.data.atualizadoPor == request.auth.uid;
+      allow delete: if sameCompanyData(resource.data);
+    }
+
+    match /licencas/{empresaId} {
+      allow read: if activeUser() && empresaId == currentEmpresaId();
+      allow write: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
