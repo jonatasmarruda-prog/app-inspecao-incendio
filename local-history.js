@@ -3,196 +3,114 @@
 
 const FLAG='__tbmCloudHistoryV1';
 if(window[FLAG])return;window[FLAG]=true;
+window.__TBM_MATRIZ_LOCAL_ONLY=true;
 
-const COLLECTION='inspections';
-const MAX_DOC_BYTES=920000;
-let unsubscribe=null;
-let cloudItems=[];
-let listenerStarting=false;
-
-const clone=value=>JSON.parse(JSON.stringify(value??null));
-const esc=value=>String(value??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[m]));
+const DB_NAME='TBM_MATRIZ_LOCAL_V1';
+const STORE='reports';
+const clone=v=>JSON.parse(JSON.stringify(v??null));
+const esc=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const nowIso=()=>new Date().toISOString();
 
-function currentMainState(){try{return typeof state!=='undefined'?state:(window.state||null)}catch(_){return window.state||null}}
-function byteSize(text){try{return new Blob([text]).size}catch(_){return String(text||'').length*2}}
-function formatDate(value){
-  if(!value)return'—';
-  const raw=typeof value?.toDate==='function'?value.toDate():value;
-  const d=new Date(raw);return Number.isNaN(d.getTime())?String(raw):d.toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'});
+function dbOpen(){
+  return new Promise((resolve,reject)=>{
+    const req=indexedDB.open(DB_NAME,1);
+    req.onupgradeneeded=()=>{const db=req.result;if(!db.objectStoreNames.contains(STORE))db.createObjectStore(STORE,{keyPath:'id'})};
+    req.onsuccess=()=>resolve(req.result);
+    req.onerror=()=>reject(req.error||new Error('Não foi possível abrir o histórico local.'));
+  });
 }
+async function putLocal(x){
+  const y=clone(x)||{};y.id=String(y.id||('SST-'+Date.now()));y.createdAt=String(y.createdAt||nowIso());y.updatedAt=nowIso();
+  return await new Promise(async(resolve,reject)=>{try{const db=await dbOpen(),tx=db.transaction(STORE,'readwrite');tx.objectStore(STORE).put(y);tx.oncomplete=()=>{db.close();resolve(clone(y))};tx.onerror=()=>{const e=tx.error;db.close();reject(e)}}catch(e){reject(e)}});
+}
+async function getLocal(id){
+  return await new Promise(async(resolve,reject)=>{try{const db=await dbOpen(),tx=db.transaction(STORE,'readonly'),req=tx.objectStore(STORE).get(String(id));req.onsuccess=()=>{db.close();resolve(req.result?clone(req.result):null)};req.onerror=()=>{const e=req.error;db.close();reject(e)}}catch(e){reject(e)}});
+}
+async function allLocal(){
+  return await new Promise(async(resolve,reject)=>{try{const db=await dbOpen(),tx=db.transaction(STORE,'readonly'),req=tx.objectStore(STORE).getAll();req.onsuccess=()=>{db.close();resolve((req.result||[]).sort((a,b)=>String(b.updatedAt||'').localeCompare(String(a.updatedAt||''))).map(clone))};req.onerror=()=>{const e=req.error;db.close();reject(e)}}catch(e){reject(e)}});
+}
+async function deleteLocal(id){
+  return await new Promise(async(resolve,reject)=>{try{const db=await dbOpen(),tx=db.transaction(STORE,'readwrite');tx.objectStore(STORE).delete(String(id));tx.oncomplete=()=>{db.close();resolve(true)};tx.onerror=()=>{const e=tx.error;db.close();reject(e)}}catch(e){reject(e)}});
+}
+
 function reportType(snapshot,meta={}){
   if(meta.reportType)return String(meta.reportType);
   if(snapshot?.title)return String(snapshot.title);
   try{if(typeof TYPES==='object'&&TYPES?.[snapshot?.type]?.name)return String(TYPES[snapshot.type].name)}catch(_){ }
   return String(snapshot?.type||'Relatório SST');
 }
-function cleanCloudFields(data){
-  const x=clone(data)||{};
-  delete x.cloudUpdatedAt;delete x.appVersion;delete x.reportType;delete x.cloudSource;
-  return x;
-}
-async function waitFirestore(timeout=12000){
-  const start=Date.now();
-  while(Date.now()-start<timeout){
-    if(window.SST?.fs)return window.SST.fs;
-    if(typeof window.firebaseStart==='function'){
-      try{const fs=await window.firebaseStart();if(fs)return fs}catch(_){ }
-    }
-    await new Promise(r=>setTimeout(r,180));
-  }
-  throw new Error('Firestore indisponível. Verifique a conexão com a internet.');
-}
-
-async function compactDataImage(dataUrl,max=800,quality=0.58){
-  const value=String(dataUrl||'');
-  if(!/^data:image\//i.test(value)||value.length<90000)return value;
-  try{
-    const img=await new Promise((resolve,reject)=>{const im=new Image();im.onload=()=>resolve(im);im.onerror=reject;im.src=value});
-    const w0=img.naturalWidth||img.width,h0=img.naturalHeight||img.height;if(!w0||!h0)return value;
-    const scale=Math.min(1,max/Math.max(w0,h0));
-    const canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(w0*scale));canvas.height=Math.max(1,Math.round(h0*scale));
-    const ctx=canvas.getContext('2d',{alpha:false});ctx.drawImage(img,0,0,canvas.width,canvas.height);
-    return canvas.toDataURL('image/jpeg',quality);
-  }catch(_){return value}
-}
-async function compactStateImages(snapshot,max=800,quality=0.58){
-  const x=clone(snapshot)||{};
-  if(Array.isArray(x.photos))for(const p of x.photos)if(p?.data)p.data=await compactDataImage(p.data,max,quality);
-  if(Array.isArray(x.evidencePhotos))for(let i=0;i<x.evidencePhotos.length;i++)x.evidencePhotos[i]=await compactDataImage(x.evidencePhotos[i],max,quality);
-  for(const key of ['checklistPT','checklistNR24','checklistExtintores','checklistHidrantes'])if(Array.isArray(x[key]))for(const item of x[key])if(item?.fotoEvidencia)item.fotoEvidencia=await compactDataImage(item.fotoEvidencia,max,quality);
-  if(Array.isArray(x.trainingAttendance?.participants))for(const p of x.trainingAttendance.participants)if(p?.signature)p.signature=await compactDataImage(p.signature,max,quality);
-  if(x.signature1)x.signature1=await compactDataImage(x.signature1,600,0.55);
-  if(x.signature2)x.signature2=await compactDataImage(x.signature2,600,0.55);
-  if(x.issuer?.signature)x.issuer.signature=await compactDataImage(x.issuer.signature,600,0.55);
-  if(Array.isArray(x.workers))for(const w of x.workers)if(w?.signature)w.signature=await compactDataImage(w.signature,600,0.55);
-  return x;
-}
-async function prepareSnapshot(snapshot){
-  let x=clone(snapshot)||{};
-  let json=JSON.stringify(x);
-  if(byteSize(json)>760000){x=await compactStateImages(x,800,0.58);json=JSON.stringify(x)}
-  if(byteSize(json)>MAX_DOC_BYTES){x=await compactStateImages(x,600,0.48);json=JSON.stringify(x)}
-  if(byteSize(json)>MAX_DOC_BYTES)throw new Error('O relatório excedeu o limite do Firestore. Reduza a quantidade de fotos deste relatório e tente novamente.');
-  return x;
-}
-
 async function saveHistory(snapshot,meta={}){
   if(!snapshot||typeof snapshot!=='object')return null;
-  const fs=await waitFirestore();
-  const clean=await prepareSnapshot(snapshot);
-  clean.id=String(clean.id||('SST-'+Date.now()));
-  clean.createdAt=String(clean.createdAt||nowIso());
-  clean.updatedAt=nowIso();
-  clean.reportType=reportType(clean,meta);
-  clean.cloudSource=String(meta.source||'main');
-  clean.appVersion='2026.09.08.cloud-history.2-inspections';
-  clean.cloudUpdatedAt=firebase.firestore.FieldValue.serverTimestamp();
-  await fs.collection(COLLECTION).doc(clean.id).set(clean,{merge:true});
-  window.dispatchEvent(new CustomEvent('tbm-cloud-history-saved',{detail:{id:clean.id,type:clean.type}}));
-  return cleanCloudFields(clean);
+  const x=clone(snapshot)||{};x.id=String(x.id||('SST-'+Date.now()));x.reportType=reportType(x,meta);x.localSource='tbm-matriz';
+  const saved=await putLocal(x);
+  window.dispatchEvent(new CustomEvent('tbm-local-history-saved',{detail:{id:saved.id,type:saved.type}}));
+  return saved;
+}
+function fmt(v){if(!v)return'—';const d=new Date(v);return Number.isNaN(d.getTime())?String(v):d.toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'})}
+
+async function restore(snapshot,generatePdf=false){
+  if(!snapshot)return false;const x=clone(snapshot);
+  if(x.type==='pt-altura'){
+    if(typeof window.openPTAltura!=='function')throw new Error('Módulo de PT indisponível.');
+    window.openPTAltura(x);if(generatePdf)setTimeout(()=>window.makePTAlturaPdf?.('download'),180);return true;
+  }
+  try{state=x}catch(_){window.state=x}
+  try{if(typeof renderForm==='function')renderForm();else window.renderForm?.()}catch(err){console.error('[HISTÓRICO LOCAL] renderização',err)}
+  try{if(typeof show==='function')show('form');else document.getElementById('form')?.classList.remove('hidden')}catch(_){ }
+  if(generatePdf)setTimeout(()=>window.makePdf?.('download'),180);return true;
 }
 
-function normalizeItem(doc){
-  const raw={id:doc.id,...(doc.data()||{})};
-  return {id:raw.id,reportType:String(raw.reportType||raw.title||raw.type||'Relatório SST'),date:raw.date||raw.updatedAt||raw.createdAt||'',updatedAt:raw.cloudUpdatedAt||raw.updatedAt||'',type:raw.type||'report',state:cleanCloudFields(raw)};
-}
-function renderHistory(){
-  const list=document.getElementById('historyList');if(!list)return;
-  list.innerHTML=cloudItems.length?cloudItems.map(item=>`<div class="historyItem" data-cloud-history-id="${esc(item.id)}"><div class="historyTop"><div><b>☁️ ${esc(item.reportType)}</b><div class="mini">${esc(item.id)} • ${esc(formatDate(item.date))}</div><div class="mini">Sincronizado em ${esc(formatDate(item.updatedAt))}</div></div><span class="pill">NUVEM</span></div><div class="actions no-print" style="margin-top:9px"><button type="button" class="btn primary" data-cloud-history-open="${esc(item.id)}">Abrir / Visualizar</button><button type="button" class="btn secondary" data-cloud-history-pdf="${esc(item.id)}">Gerar PDF</button><button type="button" class="btn danger" data-cloud-history-delete="${esc(item.id)}">Excluir</button></div></div>`).join(''):'<div class="notice info">Nenhum relatório salvo na nuvem ainda.</div>';
-}
-async function startRealtime(){
-  if(unsubscribe||listenerStarting)return;listenerStarting=true;
-  try{
-    const fs=await waitFirestore();
-    unsubscribe=fs.collection(COLLECTION).orderBy('cloudUpdatedAt','desc').onSnapshot(snapshot=>{
-      cloudItems=snapshot.docs.map(normalizeItem);
-      const history=document.getElementById('history');if(history&&!history.classList.contains('hidden'))renderHistory();
-      const indicator=document.getElementById('cloudState');if(indicator)indicator.textContent='● Nuvem ativa';
-    },err=>{
-      console.error('[HISTÓRICO FIRESTORE]',err);
-      const indicator=document.getElementById('cloudState');if(indicator)indicator.textContent='● Nuvem indisponível';
-      const list=document.getElementById('historyList');if(list&&!document.getElementById('history')?.classList.contains('hidden'))list.innerHTML='<div class="notice errorbox">Não foi possível sincronizar o histórico com a nuvem.</div>';
-    });
-  }finally{listenerStarting=false}
-}
-function showHistory(){
-  const list=document.getElementById('historyList');if(list&&!cloudItems.length)list.innerHTML='<div class="notice info">⏳ Sincronizando histórico com a nuvem...</div>';
+async function showHistory(){
   try{if(typeof show==='function')show('history');else{['home','form','report'].forEach(id=>document.getElementById(id)?.classList.add('hidden'));document.getElementById('history')?.classList.remove('hidden')}}catch(_){document.getElementById('history')?.classList.remove('hidden')}
-  renderHistory();startRealtime().catch(err=>console.error('[HISTÓRICO FIRESTORE]',err));
-}
-function findItem(id){return cloudItems.find(x=>String(x.id)===String(id))||null}
-async function fetchItem(id){
-  const cached=findItem(id);if(cached?.state)return cached;
-  const fs=await waitFirestore();const doc=await fs.collection(COLLECTION).doc(String(id)).get();return doc.exists?normalizeItem(doc):null;
-}
-async function restoreItem(item,generatePdf=false){
-  if(!item?.state)return false;const snapshot=clone(item.state);
-  if(snapshot.type==='pt-altura'){
-    if(typeof window.openPTAltura!=='function')throw new Error('Módulo de PT indisponível.');
-    window.openPTAltura(snapshot);if(generatePdf)setTimeout(()=>window.makePTAlturaPdf?.('download'),120);return true;
-  }
-  try{state=snapshot}catch(_){window.state=snapshot}
-  try{if(typeof renderForm==='function')renderForm();else window.renderForm?.()}catch(err){console.error('[HISTÓRICO FIRESTORE] renderização',err)}
-  try{if(typeof show==='function')show('form');else document.getElementById('form')?.classList.remove('hidden')}catch(_){ }
-  if(generatePdf)setTimeout(()=>window.makePdf?.('download'),150);return true;
-}
-async function deleteItem(id){
-  const fs=await waitFirestore();await fs.collection(COLLECTION).doc(String(id)).delete();
+  const list=document.getElementById('historyList');if(!list)return;
+  list.style.display='block';
+  const matrizList=document.getElementById('tbmMatrizHistoryList');if(matrizList)matrizList.style.display='none';
+  list.innerHTML='<div class="notice info">⏳ Carregando histórico deste dispositivo...</div>';
+  try{
+    const items=await allLocal();
+    list.innerHTML=items.length?items.map(x=>`<div class="historyItem"><div class="historyTop"><div><b>📱 ${esc(x.reportType||x.title||x.type||'Relatório SST')}</b><div class="mini">${esc(x.id)} • ${esc(fmt(x.date||x.updatedAt||x.createdAt))}</div><div class="mini">Armazenado somente neste dispositivo</div></div><span class="pill">LOCAL</span></div><div class="actions no-print" style="margin-top:9px"><button type="button" class="btn primary" data-local-open="${esc(x.id)}">Abrir</button><button type="button" class="btn secondary" data-local-pdf="${esc(x.id)}">Gerar PDF</button><button type="button" class="btn danger" data-local-delete="${esc(x.id)}">Excluir</button></div></div>`).join(''):'<div class="notice info">Nenhum relatório salvo neste dispositivo ainda.</div>';
+  }catch(err){console.error('[HISTÓRICO LOCAL]',err);list.innerHTML='<div class="notice errorbox">Não foi possível abrir o histórico local.</div>'}
 }
 
 async function sharePdf(docDefinition,filename,{title='Relatório SST',text='Relatório SST'}={}){
   if(!window.pdfMake?.createPdf)throw new Error('Biblioteca pdfmake indisponível.');
   const download=()=>window.pdfMake.createPdf(docDefinition).download(filename);
-  return await new Promise(resolve=>{
-    window.pdfMake.createPdf(docDefinition).getBlob(async blob=>{
-      try{
-        if(typeof navigator.share!=='function')throw new Error('Compartilhamento nativo não disponível neste dispositivo.');
-        const file=new File([blob],filename,{type:'application/pdf'});
-        if(typeof navigator.canShare==='function'&&!navigator.canShare({files:[file]}))throw new Error('Este navegador não permite compartilhar arquivos PDF diretamente.');
-        await navigator.share({title,text,files:[file]});resolve({shared:true,downloaded:false});
-      }catch(err){
-        if(err?.name==='AbortError'){resolve({shared:false,downloaded:false,cancelled:true});return}
-        console.warn('[COMPARTILHAR PDF] fallback para download',err);
-        alert('O compartilhamento direto não está disponível neste dispositivo. O PDF será baixado automaticamente para você compartilhar pelo aplicativo que preferir.');
-        try{download();resolve({shared:false,downloaded:true})}catch(downloadErr){console.error('[COMPARTILHAR PDF] falha também no download',downloadErr);resolve({shared:false,downloaded:false,error:downloadErr})}
-      }
-    });
-  });
+  return await new Promise(resolve=>window.pdfMake.createPdf(docDefinition).getBlob(async blob=>{try{if(typeof navigator.share!=='function')throw new Error('Compartilhamento indisponível');const file=new File([blob],filename,{type:'application/pdf'});if(typeof navigator.canShare==='function'&&!navigator.canShare({files:[file]}))throw new Error('Compartilhamento de PDF indisponível');await navigator.share({title,text,files:[file]});resolve({shared:true})}catch(err){if(err?.name==='AbortError'){resolve({cancelled:true});return}try{download();resolve({downloaded:true})}catch(e){resolve({error:e})}}}));
 }
 
-function purgeLegacyInspectionData(){
-  try{localStorage.removeItem('historicoSST')}catch(_){ }
-  try{localStorage.removeItem('tbm-sst-mobile-dashboard-v2')}catch(_){ }
-  try{localStorage.removeItem('tbm-sst-cloud-delete-queue')}catch(_){ }
-  try{indexedDB.deleteDatabase('SSTInspecoes')}catch(_){ }
-}
 function installUi(){
-  purgeLegacyInspectionData();
-  const button=document.getElementById('openHistory');if(button){button.textContent='📚 Ver Histórico';button.onclick=e=>{e.preventDefault();showHistory()}}
+  const indicator=document.getElementById('cloudState');if(indicator)indicator.textContent='● Salvo neste dispositivo';
+  const status=document.querySelector('#home .statusline');if(status)status.innerHTML='<span class="dot"></span>Histórico local • sem sincronização com a nuvem';
+  const button=document.getElementById('openHistory');if(button){button.textContent='📚 Ver Histórico';button.onclick=e=>{e.preventDefault();showHistory()}};
   const back=document.getElementById('historyBack');if(back)back.onclick=e=>{e.preventDefault();try{if(typeof show==='function')show('home')}catch(_){ }};
-  if(document.documentElement.dataset.tbmCloudHistoryEvents!=='1'){
-    document.documentElement.dataset.tbmCloudHistoryEvents='1';
+  if(document.documentElement.dataset.tbmLocalHistoryEvents!=='1'){
+    document.documentElement.dataset.tbmLocalHistoryEvents='1';
     document.addEventListener('click',async e=>{
-      const open=e.target.closest?.('[data-cloud-history-open]'),pdf=e.target.closest?.('[data-cloud-history-pdf]'),del=e.target.closest?.('[data-cloud-history-delete]');
-      const target=open||pdf||del;if(!target)return;e.preventDefault();e.stopPropagation();
-      const id=open?.dataset.cloudHistoryOpen||pdf?.dataset.cloudHistoryPdf||del?.dataset.cloudHistoryDelete;
-      try{
-        if(del){if(confirm('Excluir este relatório da nuvem?'))await deleteItem(id);return}
-        const item=await fetchItem(id);if(item)await restoreItem(item,!!pdf);
-      }catch(err){console.error('[HISTÓRICO FIRESTORE]',err);alert('Não foi possível executar esta ação na nuvem.')}
+      const open=e.target.closest?.('[data-local-open]'),pdf=e.target.closest?.('[data-local-pdf]'),del=e.target.closest?.('[data-local-delete]');const t=open||pdf||del;if(!t)return;e.preventDefault();e.stopPropagation();
+      const id=open?.dataset.localOpen||pdf?.dataset.localPdf||del?.dataset.localDelete;
+      try{if(del){if(confirm('Excluir este relatório deste dispositivo?')){await deleteLocal(id);await showHistory()}return}const x=await getLocal(id);if(x)await restore(x,!!pdf)}catch(err){console.error('[HISTÓRICO LOCAL]',err);alert('Não foi possível executar esta ação no histórico local.')}
     },true);
   }
-  startRealtime().catch(err=>console.error('[HISTÓRICO FIRESTORE]',err));
+  if(typeof window.notice==='function'&&!window.notice.__tbmLocalText){const old=window.notice;const wrapped=function(text,type){return old.call(this,String(text||'').replace(/salvo na nuvem com sucesso!/gi,'salvo neste dispositivo com sucesso!').replace(/nuvem/gi,'armazenamento local'),type)};wrapped.__tbmLocalText=true;window.notice=wrapped}
 }
 
+window.cloudSetReport=saveHistory;
+window.cloudListReports=allLocal;
+window.cloudGetReport=getLocal;
+window.cloudDeleteReport=deleteLocal;
+window.idbPut=saveHistory;
+window.idbAll=allLocal;
+window.idbGet=getLocal;
+window.idbDelete=deleteLocal;
 window.tbmHistoricoSalvar=saveHistory;
-window.tbmHistoricoLer=()=>clone(cloudItems.map(x=>x.state));
+window.tbmHistoricoSalvar.__tbmPTCompactSaveBridge=true;
+window.tbmHistoricoLer=allLocal;
 window.tbmHistoricoAbrir=showHistory;
-window.tbmHistoricoRestaurar=restoreItem;
+window.tbmHistoricoRestaurar=restore;
 window.tbmCompartilharPdf=sharePdf;
 window.openHistory=showHistory;
-window.__tbmCloudHistoryVersion='2026.09.08.2-inspections';
-window.addEventListener('tbm-firestore-ready',()=>startRealtime().catch(()=>{}));
+window.__tbmCloudHistoryVersion='local-only-tbm-matriz-v1';
+
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',installUi,{once:true});else installUi();
+setTimeout(installUi,500);setTimeout(installUi,1800);
 })();
