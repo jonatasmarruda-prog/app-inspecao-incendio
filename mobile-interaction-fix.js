@@ -98,12 +98,33 @@ function patchRenderForm(){
   window.renderForm=wrapped;
 }
 
+/*
+  No modo campo, o fluxo antigo da PT salvava primeiro e só depois tentava
+  chamar o Web Share. Em navegadores móveis isso perde a ativação do toque
+  do usuário e o compartilhamento pode ser bloqueado. O patch específico da
+  PT prepara o PDF e então exibe um segundo botão de compartilhamento, que
+  recupera um gesto válido para navigator.share.
+*/
+function ensurePTSharePatch(){
+  if(window.__tbmPTSharePreviewVersion)return true;
+  if(document.getElementById('tbm-pt-share-preview-fix'))return false;
+  const s=document.createElement('script');
+  s.id='tbm-pt-share-preview-fix';
+  s.src='./pt-share-preview-fix.js?v=20260909-01&cb='+Date.now();
+  s.async=false;
+  s.onerror=()=>{try{s.remove()}catch(_){ }};
+  document.body.appendChild(s);
+  return true;
+}
+
 function install(){
   patchSignatures();
   patchRenderForm();
+  ensurePTSharePatch();
 }
 install();
 setTimeout(install,250);
 setTimeout(install,900);
-window.__tbmMobileInteractionVersion='2026.09.04.1';
+setTimeout(ensurePTSharePatch,1800);
+window.__tbmMobileInteractionVersion='2026.09.09.2-pt-share';
 })();
