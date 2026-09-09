@@ -3,8 +3,9 @@
 
 const PT_TYPE='pt-altura';
 const RESPONSAVEL='Jonatas Marques de Arruda';
-const VALIDADE='1 Turno de Trabalho';
-const VERSION='2026.09.09.3-nr35-renovacao-final';
+const VALIDADE='1 Turno/Jornada de Trabalho';
+const MAX_DIAS_RENOVACAO=7;
+const VERSION='2026.09.09.4-nr35-renovacao-7-dias';
 
 let activeRecord=null;
 let liveState=null;
@@ -47,6 +48,7 @@ function captureRecord(state,{live=false}={}){
 function currentRenewals(){
   return mergeRenewals(activeRecord?.renovacoes,liveState&&activeRecord&&String(liveState.id)===String(activeRecord.id)?liveState.renovacoes:[]);
 }
+function renewalDays(){return new Set(currentRenewals().map(r=>String(r.data||'').trim()).filter(Boolean))}
 function showRenewalMessage(text,error=false){
   const box=document.getElementById('ptRenewalMsg');if(!box)return;
   box.className='notice '+(error?'errorbox':'successbox');box.textContent=text;
@@ -55,8 +57,8 @@ function showRenewalMessage(text,error=false){
 }
 function renewalListHTML(){
   const arr=currentRenewals();
-  if(!arr.length)return '<div class="mini">Nenhuma renovação registrada.</div>';
-  return `<ul class="pt-renewal-list">${arr.map((r,i)=>`<li><b>${i+1}. ${esc(fmtDate(r.data))}</b><span>${esc(r.responsavel||RESPONSAVEL)} • ${esc(r.validade||VALIDADE)}</span></li>`).join('')}</ul>`;
+  if(!arr.length)return '<div class="mini">Nenhuma renovação registrada. Limite: até 7 dias.</div>';
+  return `<div class="mini">Renovações registradas: ${renewalDays().size}/${MAX_DIAS_RENOVACAO} dias.</div><ul class="pt-renewal-list">${arr.map((r,i)=>`<li><b>${i+1}. ${esc(fmtDate(r.data))}</b><span>${esc(r.responsavel||RESPONSAVEL)} • ${esc(r.validade||VALIDADE)}</span></li>`).join('')}</ul>`;
 }
 function injectRenewalStyle(){
   if(document.getElementById('tbm-pt-renovacao-style'))return;
@@ -81,7 +83,7 @@ function mountRenewalCard(){
     card=document.createElement('div');card.className='card';card.id='ptRenewalCard';
     card.innerHTML=`
       <div class="sectionTitle">Renovação da Permissão de Trabalho (NR 35)</div>
-      <div class="notice info">Revalide somente quando não houver mudanças nas condições estabelecidas ou na equipe de trabalho.</div>
+      <div class="notice info">A PT pode acumular renovações por até 7 dias. Cada revalidação vale somente para o respectivo turno/jornada e exige manutenção das condições estabelecidas e da equipe de trabalho.</div>
       <div id="ptRenewalMsg"></div>
       <div class="pt-renewal-grid">
         <div class="field"><label for="ptRenewalDate">Data da Renovação</label><input id="ptRenewalDate" type="date"></div>
@@ -104,6 +106,10 @@ async function registerRenewal(e){
   const data=String(input?.value||'').trim();
   if(!data){showRenewalMessage('Informe a Data da Renovação.',true);return}
   if(!activeRecord?.id){showRenewalMessage('Salve a PT antes de registrar uma renovação.',true);return}
+  const existentes=currentRenewals();
+  const dias=renewalDays();
+  if(existentes.some(r=>String(r.data||'')===data)){showRenewalMessage('Já existe uma renovação registrada para esta data.',true);return}
+  if(dias.size>=MAX_DIAS_RENOVACAO){showRenewalMessage('Esta PT já atingiu o limite de 7 dias de renovação.',true);return}
   const original=btn?.innerHTML;if(btn){btn.disabled=true;btn.innerHTML='⏳ Registrando...'}
   try{
     const renovacao={id:'REN-'+Date.now().toString(36).toUpperCase(),data,responsavel:RESPONSAVEL,validade:VALIDADE,registradoEm:new Date().toISOString()};
@@ -165,14 +171,11 @@ function injectRenewalsIntoPdf(docDefinition){
   const signal=textOf(content).toUpperCase();
   if(!signal.includes('PERMISSÃO DE TRABALHO')||!signal.includes('TRABALHO EM ALTURA')||signal.includes('HISTÓRICO DE RENOVAÇÕES'))return docDefinition;
   const renovacoes=currentRenewals();if(!renovacoes.length)return docDefinition;
-  const title={table:{widths:['*'],body:[[{text:'HISTÓRICO DE RENOVAÇÕES',bold:true,fillColor:'#f4f4f4',fontSize:11,color:'#111111'}]]},layout:pdfGrid,margin:[0,10,0,0]};
+  const title={table:{widths:['*'],body:[[{text:'HISTÓRICO DE RENOVAÇÕES',bold:true,fillColor:'#f4f4f4',fontSize:11,color:'#111111'}]]},layout:pdfGrid,margin:[0,14,0,0],pageBreak:'before'};
   const rows=[[{text:'Data',bold:true,fillColor:'#f4f4f4',fontSize:9,color:'#111111'},{text:'Validade',bold:true,fillColor:'#f4f4f4',fontSize:9,color:'#111111'},{text:'Assinatura do Técnico de Segurança',bold:true,fillColor:'#f4f4f4',fontSize:9,color:'#111111'}]];
   renovacoes.forEach(r=>rows.push([{text:fmtDate(r.data),fontSize:8.5},{text:r.validade||VALIDADE,fontSize:8.5},{text:r.responsavel||RESPONSAVEL,bold:true,fontSize:8.5}]));
-  const table={table:{headerRows:1,widths:[90,120,'*'],body:rows},layout:pdfGrid,margin:[0,0,0,8]};
-  let index=content.findIndex(node=>textOf(node).trim().toUpperCase()==='TRABALHADORES AUTORIZADOS / EXECUTANTES');
-  if(index<0)index=content.findIndex(node=>textOf(node).toUpperCase().includes('TRABALHADORES AUTORIZADOS / EXECUTANTES'));
-  if(index<0)index=content.length;
-  content.splice(index,0,title,table);return docDefinition;
+  const table={table:{headerRows:1,widths:[90,135,'*'],body:rows},layout:pdfGrid,margin:[0,0,0,8]};
+  content.push(title,table);return docDefinition;
 }
 function patchPdfMake(){
   const pdfMake=window.pdfMake;if(!pdfMake||typeof pdfMake.createPdf!=='function')return false;
