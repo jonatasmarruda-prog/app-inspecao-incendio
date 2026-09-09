@@ -8,59 +8,18 @@ let emailTimer=null;
 
 function toast(text,type='ok'){
   let el=document.getElementById('tbm-save-toast');
-  if(!el){
-    el=document.createElement('div');el.id='tbm-save-toast';
-    Object.assign(el.style,{position:'fixed',left:'50%',bottom:'22px',transform:'translateX(-50%)',zIndex:'99999',maxWidth:'calc(100vw - 28px)',padding:'12px 16px',borderRadius:'12px',font:'700 13px Arial, sans-serif',boxShadow:'0 10px 30px #0003',transition:'opacity .2s ease',textAlign:'center'});
-    document.body.appendChild(el);
-  }
-  el.style.background=type==='ok'?'#166534':type==='warn'?'#92400e':'#991b1b';
-  el.style.color='#fff';el.style.opacity='1';el.textContent=text;
-  clearTimeout(el.__timer);el.__timer=setTimeout(()=>{el.style.opacity='0'},2600);
+  if(!el){el=document.createElement('div');el.id='tbm-save-toast';Object.assign(el.style,{position:'fixed',left:'50%',bottom:'22px',transform:'translateX(-50%)',zIndex:'99999',maxWidth:'calc(100vw - 28px)',padding:'12px 16px',borderRadius:'12px',font:'700 13px Arial, sans-serif',boxShadow:'0 10px 30px #0003',transition:'opacity .2s ease',textAlign:'center'});document.body.appendChild(el)}
+  el.style.background=type==='ok'?'#166534':type==='warn'?'#92400e':'#991b1b';el.style.color='#fff';el.style.opacity='1';el.textContent=text;clearTimeout(el.__timer);el.__timer=setTimeout(()=>{el.style.opacity='0'},2600);
 }
-
-function setButtons(text,disabled){
-  IDS.forEach(id=>{const b=document.getElementById(id);if(!b)return;b.disabled=Boolean(disabled);if(text)b.textContent=text});
-}
-function restoreButtons(delay=1000){
-  setTimeout(()=>IDS.forEach(id=>{const b=document.getElementById(id);if(!b)return;b.disabled=false;b.textContent=ORIGINAL[id]}),delay);
-}
-
-function sendEmailInBackground(){
-  if(typeof window.tbmAutoEmailSavedReport!=='function')return;
-  clearTimeout(emailTimer);
-  emailTimer=setTimeout(()=>{
-    const run=()=>{
-      try{
-        const p=window.tbmAutoEmailSavedReport({mode:'main'});
-        if(p&&typeof p.catch==='function')p.catch(e=>console.warn('[SALVAR EMAIL]',e));
-      }catch(e){console.warn('[SALVAR EMAIL]',e)}
-    };
-    if(typeof requestIdleCallback==='function')requestIdleCallback(run,{timeout:6000});
-    else setTimeout(run,250);
-  },1600);
-}
-
+function setButtons(text,disabled){IDS.forEach(id=>{const b=document.getElementById(id);if(!b)return;b.disabled=Boolean(disabled);if(text)b.textContent=text})}
+function restoreButtons(delay=1000){setTimeout(()=>IDS.forEach(id=>{const b=document.getElementById(id);if(!b)return;b.disabled=false;b.textContent=ORIGINAL[id]}),delay)}
+function sendEmailInBackground(){if(typeof window.tbmAutoEmailSavedReport!=='function')return;clearTimeout(emailTimer);emailTimer=setTimeout(()=>{const run=()=>{try{const p=window.tbmAutoEmailSavedReport({mode:'main'});if(p&&typeof p.catch==='function')p.catch(e=>console.warn('[SALVAR EMAIL]',e))}catch(e){console.warn('[SALVAR EMAIL]',e)}};if(typeof requestIdleCallback==='function')requestIdleCallback(run,{timeout:6000});else setTimeout(run,250)},1600)}
 async function manualSave(){
   if(busy)return;busy=true;setButtons('⏳ Salvando...',true);
-  try{
-    if(typeof window.saveInspection!=='function')throw new Error('Função de salvamento indisponível.');
-    await window.saveInspection(false);
-    setButtons('✅ Salvo',false);
-    toast('✅ Relatório salvo na nuvem com sucesso!','ok');
-    sendEmailInBackground();
-  }catch(e){
-    console.error('[SALVAR]',e);setButtons('❌ Erro ao salvar',false);toast('❌ Erro ao salvar: '+(e?.message||e),'error');
-  }finally{busy=false;restoreButtons()}
+  try{if(typeof window.saveInspection!=='function')throw new Error('Função de salvamento indisponível.');const ok=await window.saveInspection(false);if(ok===false)throw new Error('O relatório não pôde ser salvo.');setButtons('✅ Salvo',false);toast('✅ Relatório salvo neste dispositivo com sucesso!','ok');sendEmailInBackground()}
+  catch(e){console.error('[SALVAR LOCAL]',e);setButtons('❌ Erro ao salvar',false);toast('❌ Erro ao salvar: '+(e?.message||e),'error')}
+  finally{busy=false;restoreButtons()}
 }
-
-function bind(){
-  IDS.forEach(id=>{
-    const b=document.getElementById(id);if(!b||b.dataset.tbmSaveFix==='3')return;
-    b.dataset.tbmSaveFix='3';b.type='button';b.onclick=null;
-    b.addEventListener('click',e=>{e.preventDefault();e.stopImmediatePropagation();manualSave()},true);
-  });
-}
-if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bind,{once:true});else bind();
-setTimeout(bind,400);setTimeout(bind,1200);
-window.tbmManualSave=manualSave;
+function bind(){IDS.forEach(id=>{const b=document.getElementById(id);if(!b||b.dataset.tbmSaveFix==='local')return;b.dataset.tbmSaveFix='local';b.type='button';b.onclick=null;b.addEventListener('click',e=>{e.preventDefault();e.stopImmediatePropagation();manualSave()},true)})}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bind,{once:true});else bind();setTimeout(bind,400);setTimeout(bind,1200);window.tbmManualSave=manualSave;
 })();
