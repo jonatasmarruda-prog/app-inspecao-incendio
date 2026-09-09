@@ -91,12 +91,22 @@ function addDeleteButton(){
   actions.appendChild(btn);
 }
 
+function loadSimpleEntry(){
+  if(document.getElementById('tbm-matriz-simple-entry-loader'))return;
+  const s=document.createElement('script');
+  s.id='tbm-matriz-simple-entry-loader';
+  s.src='./tbm-matriz-simple-entry.js?v=20260909-01';
+  s.async=false;
+  document.body.appendChild(s);
+}
+
 function loadWelcomeGate(){
-  if(document.getElementById('tbm-matriz-welcome-gate-loader'))return;
+  if(document.getElementById('tbm-matriz-welcome-gate-loader')){loadSimpleEntry();return;}
   const g=document.createElement('script');
   g.id='tbm-matriz-welcome-gate-loader';
   g.src='./tbm-matriz-welcome-gate.js?v=20260909-01';
   g.async=false;
+  g.onload=loadSimpleEntry;
   document.body.appendChild(g);
 }
 
