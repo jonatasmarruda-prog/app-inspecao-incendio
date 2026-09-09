@@ -55,10 +55,13 @@ function addDeleteButton(){
   const actions=form.querySelector('.actions');if(!actions)return;
   const btn=document.createElement('button');btn.type='button';btn.id='btnExcluirInspecao';btn.className='btn danger no-print';btn.textContent='🗑️ Excluir Inspeção';btn.title='Descartar a inspeção atual';btn.addEventListener('click',limparInspecao);actions.appendChild(btn);
 }
-
+function loadAccessGate(){
+  if(document.getElementById('sst-demo-access-gate-loader'))return;
+  const g=document.createElement('script');g.id='sst-demo-access-gate-loader';g.src='./demo-access-gate.js?v=20260909-01';g.async=false;document.body.appendChild(g);
+}
 function loadDemoMode(){
-  if(document.getElementById('sst-demo-client-mode-loader'))return;
-  const s=document.createElement('script');s.id='sst-demo-client-mode-loader';s.src='./demo-client-mode.js?v=20260909-02';s.async=false;document.body.appendChild(s);
+  if(document.getElementById('sst-demo-client-mode-loader')){loadAccessGate();return;}
+  const s=document.createElement('script');s.id='sst-demo-client-mode-loader';s.src='./demo-client-mode.js?v=20260909-02';s.async=false;s.onload=loadAccessGate;document.body.appendChild(s);
 }
 function init(){addDeleteButton();loadDemoMode();setTimeout(addDeleteButton,300)}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
