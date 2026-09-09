@@ -1,0 +1,1 @@
+PWA install fix active. Icons: icon-192.png and icon-512.png. Manifest and Service Worker registered by pwa-install-fix.js.
